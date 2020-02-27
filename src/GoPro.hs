@@ -152,6 +152,8 @@ data File = File {
   _url             :: String
   } deriving (Generic, Show)
 
+makeLenses  ''File
+
 instance FromJSON File where
   parseJSON = genericParseJSON jsonOpts
 
