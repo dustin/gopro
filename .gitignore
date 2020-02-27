@@ -1,4 +1,5 @@
 *~
 .stack-work/
 gopro.cabal
+gopro.db
 stack.yaml.lock

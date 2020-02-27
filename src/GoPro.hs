@@ -12,17 +12,15 @@ import           Data.Aeson             (FromJSON (..), Options (..),
                                          Value (..), defaultOptions,
                                          fieldLabelModifier, genericParseJSON,
                                          (.:))
-import           Data.Aeson.Lens        (key, _String)
 import           Data.Aeson.Types       (typeMismatch)
 import qualified Data.ByteString.Char8  as BC
-import qualified Data.ByteString.Lazy   as BL
-import           Data.Text              (unpack)
+import qualified Data.Map.Strict        as Map
 import           Data.Time.Clock        (UTCTime)
 import qualified Data.Vector            as V
 import           Generics.Deriving.Base (Generic)
 import           Network.Wreq           (FormParam (..), Options, asJSON,
-                                         asValue, defaults, getWith, header,
-                                         postWith, responseBody)
+                                         defaults, getWith, header, postWith,
+                                         responseBody)
 
 userAgent :: BC.ByteString
 userAgent = "github.com/dustin/gopro 0.1"
@@ -42,20 +40,33 @@ authOpts tok = defOpts & header "Authorization" .~ ["Bearer " <> BC.pack tok]
                & header "Accept" .~ ["application/vnd.gopro.jk.media+json; version=2.0.0"]
                & header "Content-Type" .~ ["application/json"]
 
-authenticate :: MonadIO m => String -> String -> m String
-authenticate username password = do
-  r <- liftIO (asValue =<< postWith defOpts authURL ["grant_type" := ("password" :: String),
-                                                     "client_id" := apiClientID,
-                                                     "client_secret" := apiClientSecret,
-                                                     "scope" := ("root root:channels public me upload media_library_beta live" :: String),
-                                                     "username" := username,
-                                                     "password" := password])
-  pure $ r ^. responseBody . key "access_token" . _String . to unpack
 
 jsonOpts :: Data.Aeson.Options
 jsonOpts = defaultOptions {
   fieldLabelModifier = dropWhile (== '_')
   }
+
+-- | An Authentication response.
+data AuthResponse = AuthResponse {
+  _access_token    :: String
+  , _expires_in    :: Int
+  , _refresh_token :: String
+  } deriving(Generic, Show)
+
+instance FromJSON AuthResponse where
+  parseJSON = genericParseJSON jsonOpts
+
+makeLenses ''AuthResponse
+
+authenticate :: MonadIO m => String -> String -> m AuthResponse
+authenticate username password = do
+  r <- liftIO (asJSON =<< postWith defOpts authURL ["grant_type" := ("password" :: String),
+                                                    "client_id" := apiClientID,
+                                                    "client_secret" := apiClientSecret,
+                                                    "scope" := ("root root:channels public me upload media_library_beta live" :: String),
+                                                    "username" := username,
+                                                    "password" := password])
+  pure $ r ^. responseBody
 
 data PageInfo = PageInfo {
   _current_page :: Int,
@@ -70,13 +81,13 @@ instance FromJSON PageInfo where
   parseJSON = genericParseJSON jsonOpts
 
 data Media = Media {
+  _media_id          :: String,
   _captured_at       :: UTCTime,
   _content_title     :: Maybe String,
   _content_type      :: Maybe String,
   _created_at        :: UTCTime,
   _file_size         :: Maybe Int,
   _gopro_user_id     :: String,
-  _media_id          :: String,
   _moments_count     :: Int,
   _on_public_profile :: Bool,
   _play_as           :: String,
@@ -129,7 +140,8 @@ listAll tok = do
   let pageSize = 100
   (m1, pg) <- list tok pageSize 0
   ms <- foldM (\o x -> list tok pageSize x >>= \(m,_) -> pure (o <> m)) m1 [1.. (_total_pages pg)]
-  pure $ filter ((== "ready") . _ready_to_view) ms
+  pure . dedup . filter ((== "ready") . _ready_to_view) $ ms
+    where dedup = Map.elems . Map.fromList . map (\m@Media{..} -> (_media_id, m))
 
 data File = File {
   _camera_position :: String,
@@ -145,8 +157,9 @@ instance FromJSON File where
 
 data FileStuff = FileStuff {
   _files      :: [File],
-  _variations :: [Value]
-  -- TODO: sprites, sidecar_files
+  _variations :: [Value],
+  _sprites    :: [Value]
+  -- TODO: sidecar_files
   } deriving (Generic, Show)
 
 makeLenses ''FileStuff
