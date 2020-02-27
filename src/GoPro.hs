@@ -170,4 +170,4 @@ instance FromJSON FileInfo where
 
 -- | Retrieve stuff describing a file.
 retrieve :: MonadIO m => String -> String -> m FileInfo
-retrieve tok k = retrieve tok ("https://api.gopro.com/media/" <> k <> "/download")
+retrieve tok k = jget tok ("https://api.gopro.com/media/" <> k <> "/download")
