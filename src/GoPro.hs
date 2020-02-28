@@ -160,23 +160,68 @@ listWhile tok f = do
 
 
 data File = File {
-  _camera_position :: String,
-  _height          :: Int,
-  _width           :: Int,
-  _item_number     :: Int,
-  _orientation     :: Int,
-  _url             :: String
+  _file_camera_position :: String,
+  _file_height          :: Int,
+  _file_width           :: Int,
+  _file_item_number     :: Int,
+  _file_orientation     :: Int,
+  _file_url             :: String
   } deriving (Generic, Show)
 
 makeLenses  ''File
 
 instance FromJSON File where
-  parseJSON = genericParseJSON jsonOpts
+  parseJSON = genericParseJSON defaultOptions {
+    fieldLabelModifier = drop 6
+    }
+
+data Variation = Variation {
+  _var_height  :: Int,
+  _var_width   :: Int,
+  _var_label   :: String,
+  _var_quality :: String,
+  _var_type    :: String,
+  _var_url     :: String
+  } deriving(Generic, Show)
+
+makeLenses ''Variation
+
+instance FromJSON Variation where
+  parseJSON = genericParseJSON defaultOptions {
+  fieldLabelModifier = drop 5
+  }
+
+data SpriteFrame = SpriteFrame {
+  _frame_count  :: Int,
+  _frame_height :: Int,
+  _frame_width  :: Int
+  } deriving(Generic, Show)
+
+makeLenses ''SpriteFrame
+
+instance FromJSON SpriteFrame where
+  parseJSON = genericParseJSON defaultOptions {
+    fieldLabelModifier = drop 7
+  }
+
+data Sprite = Sprite {
+  _sprite_fps    :: Double,
+  _sprite_frame  :: SpriteFrame,
+  _sprite_height :: Int,
+  _sprite_width  :: Int,
+  _sprite_type   :: String,
+  _sprite_urls   :: [String]
+  } deriving (Generic, Show)
+
+instance FromJSON Sprite where
+  parseJSON = genericParseJSON defaultOptions {
+    fieldLabelModifier = drop 8
+  }
 
 data FileStuff = FileStuff {
   _files      :: [File],
-  _variations :: [Value],
-  _sprites    :: [Value]
+  _variations :: [Variation],
+  _sprites    :: [Sprite]
   -- TODO: sidecar_files
   } deriving (Generic, Show)
 
