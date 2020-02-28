@@ -59,10 +59,18 @@ runAuth = do
 
     getPass = withEcho False getLine
 
+runReauth :: GoPro ()
+runReauth = do
+  db <- asks (optDBPath . gpOptions)
+  a <- loadAuth db
+  res <- refreshAuth a
+  updateAuth db res
+
 run :: String -> GoPro ()
-run "auth" = runAuth
-run "sync" = runSync
-run x      = fail ("unknown command: " <> x)
+run "auth"   = runAuth
+run "reauth" = runReauth
+run "sync"   = runSync
+run x        = fail ("unknown command: " <> x)
 
 main :: IO ()
 main = do

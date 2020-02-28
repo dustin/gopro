@@ -68,6 +68,15 @@ authenticate username password = do
                                                     "password" := password])
   pure $ r ^. responseBody
 
+-- | Refresh authentication credentials using a refresh token.
+refreshAuth :: MonadIO m => AuthResponse -> m AuthResponse
+refreshAuth AuthResponse{..} = do
+  r <- liftIO ( asJSON =<< postWith defOpts authURL ["grant_type" := ("refresh_token" :: String),
+                                                     "client_id" := apiClientID,
+                                                     "client_secret" := apiClientSecret,
+                                                     "refresh_token" := _refresh_token])
+  pure $ r ^. responseBody
+
 data PageInfo = PageInfo {
   _current_page :: Int,
   _per_page     :: Int,
