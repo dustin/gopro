@@ -103,7 +103,8 @@ data Media = Media {
   _ready_to_view     :: String,
   _resolution        :: Maybe String,
   _source_duration   :: Maybe String,
-  _media_type        :: String
+  _media_type        :: String,
+  _token             :: String
   } deriving (Generic, Show)
 
 makeLenses ''Media
@@ -115,6 +116,10 @@ instance FromJSON Media where
                                  "_media_id"   -> "id"
                                  _             -> dropWhile (== '_') x
     }
+
+-- | Get the thumbnail token for a given media result.
+thumbnailURL :: Media -> String
+thumbnailURL Media{_token} = "https://images-02.gopro.com/resize/450wwp/" <> _token
 
 data Listing = Listing {
   _media :: [Media],
@@ -138,7 +143,7 @@ jget tok u = view responseBody <$> liftIO (getWith (authOpts tok) u >>= asJSON)
 -- | List a page worth of media.
 list :: MonadIO m => String -> Int -> Int -> m ([Media], PageInfo)
 list tok psize page = do
-  r <- jget tok ("https://api.gopro.com/media/search?fields=captured_at,content_title,content_type,created_at,gopro_user_id,file_size,id,moments_count,moments_count,on_public_profile,play_as,ready_to_edit,ready_to_view,source_duration,type,resolution&order_by=created_at&per_page=" <> show psize <> "&page=" <> show page)
+  r <- jget tok ("https://api.gopro.com/media/search?fields=captured_at,content_title,content_type,created_at,gopro_user_id,file_size,id,moments_count,moments_count,on_public_profile,play_as,ready_to_edit,ready_to_view,source_duration,type,resolution,token&order_by=created_at&per_page=" <> show psize <> "&page=" <> show page)
   pure $ (r ^.. media . folded,
           r ^. pages)
 
@@ -219,10 +224,10 @@ instance FromJSON Sprite where
   }
 
 data FileStuff = FileStuff {
-  _files      :: [File],
-  _variations :: [Variation],
-  _sprites    :: [Sprite]
-  -- TODO: sidecar_files
+  _files         :: [File],
+  _variations    :: [Variation],
+  _sprites       :: [Sprite],
+  _sidecar_files :: [Value]
   } deriving (Generic, Show)
 
 makeLenses ''FileStuff
