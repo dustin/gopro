@@ -6,7 +6,6 @@
 module GoPro where
 
 import           Control.Lens
-import           Control.Monad          (foldM)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Aeson             (FromJSON (..), Options (..),
                                          Value (..), defaultOptions,
@@ -139,18 +138,26 @@ jget tok u = view responseBody <$> liftIO (getWith (authOpts tok) u >>= asJSON)
 -- | List a page worth of media.
 list :: MonadIO m => String -> Int -> Int -> m ([Media], PageInfo)
 list tok psize page = do
-  r <- jget tok ("https://api.gopro.com/media/search?fields=captured_at,content_title,content_type,created_at,gopro_user_id,file_size,id,moments_count,moments_count,on_public_profile,play_as,ready_to_edit,ready_to_view,source_duration,type,resolution&order_by=captured_at&per_page=" <> show psize <> "&page=" <> show page)
+  r <- jget tok ("https://api.gopro.com/media/search?fields=captured_at,content_title,content_type,created_at,gopro_user_id,file_size,id,moments_count,moments_count,on_public_profile,play_as,ready_to_edit,ready_to_view,source_duration,type,resolution&order_by=created_at&per_page=" <> show psize <> "&page=" <> show page)
   pure $ (r ^.. media . folded,
           r ^. pages)
 
 -- | List all media.  This only includes items that are "ready to view"
 listAll :: MonadIO m => String -> m [Media]
-listAll tok = do
-  let pageSize = 100
-  (m1, pg) <- list tok pageSize 0
-  ms <- foldM (\o x -> list tok pageSize x >>= \(m,_) -> pure (o <> m)) m1 [1.. (_total_pages pg)]
-  pure . dedup . filter ((== "ready") . _ready_to_view) $ ms
-    where dedup = Map.elems . Map.fromList . map (\m@Media{..} -> (_media_id, m))
+listAll tok = listWhile tok (const True)
+
+-- | List all media while returned batches pass the given predicate.
+listWhile :: MonadIO m => String -> ([Media] -> Bool) -> m [Media]
+listWhile tok f = do
+  Map.elems <$> dig 0 mempty
+    where
+      dig n m = do
+        (ms, _) <- list tok 100 n
+        let m' = Map.union m . Map.fromList . map (\md@Media{..} -> (_media_id, md)) $ ms
+        if (not . null) ms && f ms
+          then dig (n + 1) m'
+          else pure m'
+
 
 data File = File {
   _camera_position :: String,

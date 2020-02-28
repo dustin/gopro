@@ -37,9 +37,11 @@ runSync = do
   tok <- asks gpToken
   db <- asks (optDBPath . gpOptions)
   seen <- Set.fromList <$> loadMediaIDs db
-  l <- filter ((`Set.notMember` seen) . _media_id) <$> listAll tok
+  l <- filter ((`Set.notMember` seen) . _media_id) <$> listWhile tok (listPred seen)
   liftIO $ print l
   storeMedia db l
+
+    where listPred seen = all ((`Set.notMember` seen) . _media_id)
 
 runAuth :: GoPro ()
 runAuth = do
