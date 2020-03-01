@@ -153,14 +153,14 @@ list tok psize page = do
   pure $ (r ^.. media . folded,
           r ^. pages)
 
--- | List all media.  This only includes items that are "ready to view"
+-- | List all media.
 listAll :: MonadIO m => String -> m [Media]
 listAll tok = listWhile tok (const True)
 
 -- | List all media while returned batches pass the given predicate.
 listWhile :: MonadIO m => String -> ([Media] -> Bool) -> m [Media]
 listWhile tok f = do
-  filter ((== "ready") . _ready_to_view) . Map.elems <$> dig 0 mempty
+  Map.elems <$> dig 0 mempty
     where
       dig n m = do
         (ms, _) <- list tok 100 n

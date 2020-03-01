@@ -39,19 +39,24 @@ mapConcurrentlyLimited :: (Traversable f, Foldable f) => Int -> (a -> IO b) -> f
 mapConcurrentlyLimited n f l = newQSem n >>= \q -> mapConcurrently (b q) l
   where b q x = bracket_ (waitQSem q) (signalQSem q) (f x)
 
-runSync :: GoPro ()
-runSync = do
+data SyncType = Full | Incremental
+
+runSync :: SyncType -> GoPro ()
+runSync stype = do
   tok <- asks gpToken
   db <- asks (optDBPath . gpOptions)
   seen <- Set.fromList <$> loadMediaIDs db
-  l <- filter ((`Set.notMember` seen) . _media_id) <$> listWhile tok (listPred seen)
-  lt <- liftIO $ mapConcurrentlyLimited 11 (resolve tok) l
-  liftIO $ print l
-  storeMedia db lt
+  storeMedia db =<< fetch tok seen
 
-    where listPred seen = all ((`Set.notMember` seen) . _media_id)
-          resolve :: String -> Media -> IO MediaRow
-          resolve tok m = MediaRow . (m,) <$> fetchThumbnail tok m
+    where resolve tok m = MediaRow . (m,) <$> fetchThumbnail tok m
+          fetch tok seen = do
+            l <- filter (\m@Media{..} -> notSeen m && _ready_to_view == "ready")
+                 <$> listWhile tok (listPred stype)
+            liftIO $ mapConcurrentlyLimited 11 (resolve tok) l
+              where
+                notSeen = (`Set.notMember` seen) . _media_id
+                listPred Incremental = all notSeen
+                listPred Full        = const True
 
 runAuth :: GoPro ()
 runAuth = do
@@ -79,10 +84,11 @@ runReauth = do
   updateAuth db res
 
 run :: String -> GoPro ()
-run "auth"   = runAuth
-run "reauth" = runReauth
-run "sync"   = runSync
-run x        = fail ("unknown command: " <> x)
+run "auth"     = runAuth
+run "reauth"   = runReauth
+run "sync"     = runSync Incremental
+run "fullsync" = runSync Full
+run x          = fail ("unknown command: " <> x)
 
 main :: IO ()
 main = do
