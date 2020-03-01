@@ -13,6 +13,7 @@ import           Data.Aeson             (FromJSON (..), Options (..),
                                          (.:))
 import           Data.Aeson.Types       (typeMismatch)
 import qualified Data.ByteString.Char8  as BC
+import qualified Data.ByteString.Lazy   as BL
 import qualified Data.Map.Strict        as Map
 import           Data.Time.Clock        (UTCTime)
 import qualified Data.Vector            as V
@@ -121,6 +122,11 @@ instance FromJSON Media where
 thumbnailURL :: Media -> String
 thumbnailURL Media{_token} = "https://images-02.gopro.com/resize/450wwp/" <> _token
 
+fetchThumbnail :: MonadIO m => String -> Media -> m BL.ByteString
+fetchThumbnail tok m = do
+  r <- liftIO $ getWith (authOpts tok) (thumbnailURL m)
+  pure $ r ^. responseBody
+
 data Listing = Listing {
   _media :: [Media],
   _pages :: PageInfo
@@ -154,7 +160,7 @@ listAll tok = listWhile tok (const True)
 -- | List all media while returned batches pass the given predicate.
 listWhile :: MonadIO m => String -> ([Media] -> Bool) -> m [Media]
 listWhile tok f = do
-  Map.elems <$> dig 0 mempty
+  filter ((== "ready") . _ready_to_view) . Map.elems <$> dig 0 mempty
     where
       dig n m = do
         (ms, _) <- list tok 100 n

@@ -2,9 +2,10 @@
 {-# LANGUAGE RecordWildCards   #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module GoPro.DB (storeMedia, loadMediaIDs) where
+module GoPro.DB (storeMedia, loadMediaIDs, MediaRow(..)) where
 
 import           Control.Monad.IO.Class         (MonadIO (..))
+import qualified Data.ByteString.Lazy           as BL
 import           Data.Coerce                    (coerce)
 import           Database.SQLite.Simple         hiding (bind, close)
 import           Database.SQLite.Simple.ToField
@@ -12,13 +13,15 @@ import           Database.SQLite.Simple.ToField
 import           GoPro                          (Media (..))
 
 createMediaStatement :: Query
-createMediaStatement = "create table if not exists media (media_id primary key, captured_at, content_title, content_type, created_at, file_size, gopro_user_id, moments_count, on_public_profile, play_as, ready_to_edit, ready_to_view, resolution, source_duration, media_type)"
+createMediaStatement = "create table if not exists media (media_id primary key, captured_at, content_title, content_type, created_at, file_size, gopro_user_id, moments_count, on_public_profile, play_as, ready_to_edit, ready_to_view, resolution, source_duration, media_type, thumbnail)"
 
 insertMediaStatement :: Query
-insertMediaStatement = "insert into media (media_id, captured_at, content_title, content_type, created_at, file_size, gopro_user_id, moments_count, on_public_profile, play_as, ready_to_edit, ready_to_view, resolution, source_duration, media_type) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+insertMediaStatement = "insert into media (media_id, captured_at, content_title, content_type, created_at, file_size, gopro_user_id, moments_count, on_public_profile, play_as, ready_to_edit, ready_to_view, resolution, source_duration, media_type,thumbnail) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 
-instance ToRow Media where
-  toRow Media{..} = [
+newtype MediaRow = MediaRow (Media, BL.ByteString)
+
+instance ToRow MediaRow where
+  toRow (MediaRow (Media{..}, thumbnail)) = [
     toField _media_id,
     toField _captured_at,
     toField _content_title,
@@ -33,10 +36,11 @@ instance ToRow Media where
     toField _ready_to_view,
     toField _resolution,
     toField _source_duration,
-    toField _media_type
+    toField _media_type,
+    toField thumbnail
     ]
 
-storeMedia :: MonadIO m => FilePath -> [Media] -> m ()
+storeMedia :: MonadIO m => FilePath -> [MediaRow] -> m ()
 storeMedia dbPath media = liftIO $ withConnection dbPath up
   where up db = do
           execute_ db createMediaStatement

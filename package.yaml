@@ -35,6 +35,8 @@ dependencies:
 - mtl
 - transformers
 - optparse-applicative
+- async
+- qsem
 
 library:
   source-dirs: src
