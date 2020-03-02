@@ -21,6 +21,7 @@ import           Generics.Deriving.Base (Generic)
 import           Network.Wreq           (FormParam (..), Options, asJSON,
                                          defaults, getWith, header, postWith,
                                          responseBody)
+import           System.Random          (getStdRandom, randomR)
 
 userAgent :: BC.ByteString
 userAgent = "github.com/dustin/gopro 0.1"
@@ -119,12 +120,13 @@ instance FromJSON Media where
     }
 
 -- | Get the thumbnail token for a given media result.
-thumbnailURL :: Media -> String
-thumbnailURL Media{_token} = "https://images-02.gopro.com/resize/450wwp/" <> _token
+thumbnailURL :: Int -> Media -> String
+thumbnailURL n Media{_token} = "https://images-0" <> show n <> ".gopro.com/resize/450wwp/" <> _token
 
 fetchThumbnail :: MonadIO m => String -> Media -> m BL.ByteString
 fetchThumbnail tok m = do
-  r <- liftIO $ getWith (authOpts tok) (thumbnailURL m)
+  n <- liftIO $ getStdRandom (randomR (1,4))
+  r <- liftIO $ getWith (authOpts tok) (thumbnailURL n m)
   pure $ r ^. responseBody
 
 data Listing = Listing {

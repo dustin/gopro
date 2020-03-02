@@ -37,6 +37,7 @@ dependencies:
 - optparse-applicative
 - async
 - qsem
+- random
 
 library:
   source-dirs: src
