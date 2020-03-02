@@ -1,9 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE TemplateHaskell   #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module GoPro.DB (storeMedia, loadMediaIDs, MediaRow(..)) where
+module GoPro.DB (storeMedia, loadMediaIDs, MediaRow(..), row_media, row_thumbnail) where
 
+import           Control.Lens
 import           Control.Monad.IO.Class         (MonadIO (..))
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Coerce                    (coerce)
@@ -18,10 +20,15 @@ createMediaStatement = "create table if not exists media (media_id primary key, 
 insertMediaStatement :: Query
 insertMediaStatement = "insert into media (media_id, captured_at, content_title, content_type, created_at, file_size, gopro_user_id, moments_count, on_public_profile, play_as, ready_to_edit, ready_to_view, resolution, source_duration, media_type,thumbnail) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 
-newtype MediaRow = MediaRow (Media, BL.ByteString)
+data MediaRow = MediaRow {
+  _row_media     :: Media,
+  _row_thumbnail :: BL.ByteString
+  }
+
+makeLenses ''MediaRow
 
 instance ToRow MediaRow where
-  toRow (MediaRow (Media{..}, thumbnail)) = [
+  toRow (MediaRow Media{..} thumbnail) = [
     toField _media_id,
     toField _captured_at,
     toField _content_title,

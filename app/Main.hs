@@ -5,8 +5,10 @@ module Main where
 import           Control.Concurrent.Async (mapConcurrently)
 import           Control.Concurrent.QSem  (newQSem, signalQSem, waitQSem)
 import           Control.Exception        (bracket_)
+import           Control.Lens             hiding (argument)
 import           Control.Monad.IO.Class   (MonadIO (..))
 import           Control.Monad.Reader     (ReaderT (..), asks, runReaderT)
+import           Data.List.Extra          (chunksOf)
 import qualified Data.Set                 as Set
 import           GoPro
 import           GoPro.AuthDB
@@ -46,17 +48,21 @@ runSync stype = do
   tok <- asks gpToken
   db <- asks (optDBPath . gpOptions)
   seen <- Set.fromList <$> loadMediaIDs db
-  storeMedia db =<< fetch tok seen
+  ms <- todo tok seen
+  liftIO $ putStrLn (show (length ms) <> " new items: " <> show (ms ^.. folded . media_id))
+  mapM_ (storeSome tok db) $ chunksOf 100 ms
 
-    where resolve tok m = MediaRow . (m,) <$> fetchThumbnail tok m
-          fetch tok seen = do
-            l <- filter (\m@Media{..} -> notSeen m && _ready_to_view == "ready")
-                 <$> listWhile tok (listPred stype)
-            liftIO $ mapConcurrentlyLimited 11 (resolve tok) l
-              where
-                notSeen = (`Set.notMember` seen) . _media_id
-                listPred Incremental = all notSeen
-                listPred Full        = const True
+    where resolve tok m = MediaRow m <$> fetchThumbnail tok m
+          todo tok seen = filter (\m@Media{..} -> notSeen m && _ready_to_view == "ready")
+                          <$> listWhile tok (listPred stype)
+            where
+              notSeen = (`Set.notMember` seen) . _media_id
+              listPred Incremental = all notSeen
+              listPred Full        = const True
+          storeSome tok db l = do
+            liftIO . putStrLn $ "Storing batch of " <> show (length l)
+            storeMedia db =<< fetch tok l
+          fetch tok = liftIO . mapConcurrentlyLimited 11 (resolve tok)
 
 runAuth :: GoPro ()
 runAuth = do

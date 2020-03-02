@@ -38,6 +38,7 @@ dependencies:
 - async
 - qsem
 - random
+- extra
 
 library:
   source-dirs: src
