@@ -39,6 +39,7 @@ dependencies:
 - qsem
 - random
 - extra
+- monad-logger
 
 library:
   source-dirs: src
