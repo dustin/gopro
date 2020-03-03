@@ -8,8 +8,9 @@ module GoPro where
 import           Control.Lens
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Aeson             (FromJSON (..), Options (..),
-                                         Value (..), defaultOptions,
-                                         fieldLabelModifier, genericParseJSON,
+                                         ToJSON (..), Value (..),
+                                         defaultOptions, fieldLabelModifier,
+                                         genericParseJSON, genericToEncoding,
                                          (.:))
 import           Data.Aeson.Types       (typeMismatch)
 import qualified Data.ByteString.Char8  as BC
@@ -111,13 +112,16 @@ data Media = Media {
 
 makeLenses ''Media
 
+mediaMod :: String -> String
+mediaMod "_media_type" = "type"
+mediaMod "_media_id"   = "id"
+mediaMod x             = dropWhile (== '_') x
+
+instance ToJSON Media where
+  toEncoding = genericToEncoding jsonOpts{ fieldLabelModifier = mediaMod}
+
 instance FromJSON Media where
-  parseJSON = genericParseJSON jsonOpts{
-    fieldLabelModifier = \x -> case x of
-                                 "_media_type" -> "type"
-                                 "_media_id"   -> "id"
-                                 _             -> dropWhile (== '_') x
-    }
+  parseJSON = genericParseJSON jsonOpts{ fieldLabelModifier = mediaMod}
 
 -- | Get the thumbnail token for a given media result.
 thumbnailURL :: Int -> Media -> String

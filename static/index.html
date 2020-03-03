@@ -1,0 +1,116 @@
+<html>
+  <head>
+    <title>Index !</title>
+    <style>
+body {
+  font-family: "Helvetica Neue";
+  min-height: 1200px;
+}
+
+#body {
+  position: relative;
+}
+
+#body > p {
+  line-height: 1.5em;
+  width: 640px;
+  text-rendering: optimizeLegibility;
+}
+
+.day {
+    font-weight: bolder;
+}
+
+.thumb {
+    width: 120px;
+}
+
+.medium {
+    display: inline-block;
+}
+
+#message {
+    position: absolute;
+    width: 100%;
+    margin: 0 auto;
+    top: 250px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bolder;
+}
+
+#totals {
+  position: absolute;
+  left: 740px;
+  font-size: smaller;
+  height: 1em;
+  margin-bottom: 1em;
+}
+
+#results {
+    padding-top: 1em;
+    font-size: 12px;
+}
+
+#results thead tr th {
+  padding-left: 5px;
+  padding-right: 5px;
+  background-color: #eee;
+  text-transform: capitalize;
+}
+
+#results thead tr th a {
+  text-decoration: none;
+  margin: 2px;
+  position: relative;
+  bottom: 2px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+#result-vals tr:nth-child(even) {
+  background: #ccf;
+}
+
+#result-vals tr:nth-child(odd) {
+  background: white;
+}
+
+#result-vals .val {
+  text-align: right;
+}
+    </style>
+  </head>
+
+  <body>
+    <div id="message">Loading</div>
+
+    <div id="aactive">Active: <span id="active"></span></div>
+    <div id="charts">
+      <div id="filesize-chart" class="chart">
+        <div class="title">File Size </div>
+      </div>
+      <div id="date-chart" class="chart">
+        <div class="title">Date </div>
+      </div>
+    </div>
+
+    <div id="lists">
+      <div id="media-list" class="list"></div>
+    </div>
+    
+    <script src="/js/crossfilter.v1.min.js"></script>
+    <script src="https://d3js.org/d3-array.v2.min.js"></script>
+    <script src="https://d3js.org/d3-color.v1.min.js"></script>
+    <script src="https://d3js.org/d3-format.v1.min.js"></script>
+    <script src="https://d3js.org/d3-interpolate.v1.min.js"></script>
+    <script src="https://d3js.org/d3-scale.v3.min.js"></script>
+    <script src="https://d3js.org/d3-time-format.v2.min.js"></script>
+    <script src="https://d3js.org/d3-time.v1.min.js"></script>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <script src="/js/gopro.js"></script>
+    <script>
+      initGoPro();
+    </script>
+  </body>
+</html>

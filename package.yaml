@@ -40,6 +40,10 @@ dependencies:
 - random
 - extra
 - monad-logger
+- filepath
+- scotty
+- wai
+- wai-middleware-static
 
 library:
   source-dirs: src

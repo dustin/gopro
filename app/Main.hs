@@ -1,36 +1,48 @@
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE GeneralisedNewtypeDeriving #-}
+{-# LANGUAGE TupleSections              #-}
+
 
 module Main where
 
-import           Control.Concurrent.Async (mapConcurrently)
-import           Control.Concurrent.QSem  (newQSem, signalQSem, waitQSem)
-import           Control.Exception        (bracket_)
-import           Control.Lens             hiding (argument)
-import           Control.Monad            (when)
-import           Control.Monad.IO.Class   (MonadIO (..))
-import           Control.Monad.Logger     (LogLevel (..), LoggingT, MonadLogger,
-                                           filterLogger, logDebugN, logInfoN,
-                                           runStderrLoggingT)
-import           Control.Monad.Reader     (ReaderT (..), asks, runReaderT)
-import           Data.List.Extra          (chunksOf)
-import qualified Data.Set                 as Set
-import           Data.Text                (Text)
-import qualified Data.Text                as T
+import           Control.Concurrent.Async      (mapConcurrently)
+import           Control.Concurrent.QSem       (newQSem, signalQSem, waitQSem)
+import           Control.Exception             (bracket_)
+import           Control.Lens                  hiding (argument)
+import           Control.Monad                 (when)
+import           Control.Monad.IO.Class        (MonadIO (..))
+import           Control.Monad.Logger          (LogLevel (..), LoggingT,
+                                                MonadLogger, filterLogger,
+                                                logDebugN, logInfoN,
+                                                runStderrLoggingT)
+import           Control.Monad.Reader          (MonadReader, ReaderT (..), ask,
+                                                asks, lift, runReaderT)
+import           Data.List.Extra               (chunksOf)
+import qualified Data.Set                      as Set
+import qualified Data.Text                     as T
+import qualified Data.Text.Lazy                as LT
 import           GoPro
 import           GoPro.AuthDB
 import           GoPro.DB
-import           Options.Applicative      (Parser, argument, execParser,
-                                           fullDesc, help, helper, info, long,
-                                           metavar, progDesc, short,
-                                           showDefault, some, str, strOption,
-                                           switch, value, (<**>))
-import           System.IO                (hFlush, hGetEcho, hSetEcho, stdin,
-                                           stdout)
+import           Network.Wai.Middleware.Static (addBase, noDots, staticPolicy,
+                                                (>->))
+import           Options.Applicative           (Parser, argument, execParser,
+                                                fullDesc, help, helper, info,
+                                                long, metavar, progDesc, short,
+                                                showDefault, some, str,
+                                                strOption, switch, value,
+                                                (<**>))
+import           System.FilePath.Posix         ((</>))
+import           System.IO                     (hFlush, hGetEcho, hSetEcho,
+                                                stdin, stdout)
+import           Web.Scotty.Trans              (ScottyT, file, get, json,
+                                                middleware, param, raw, scottyT,
+                                                setHeader)
 
 data Options = Options {
-  optDBPath  :: String,
-  optVerbose :: Bool,
-  optArgv    :: [String]
+  optDBPath     :: String,
+  optStaticPath :: FilePath,
+  optVerbose    :: Bool,
+  optArgv       :: [String]
   }
 
 data Env = Env {
@@ -38,21 +50,26 @@ data Env = Env {
   gpToken   :: String
   }
 
+newtype EnvM a = EnvM
+  { runEnvM :: ReaderT Env IO a
+  } deriving (Applicative, Functor, Monad, MonadIO, MonadReader Env)
+
 type GoPro = ReaderT Env (LoggingT IO)
 
 options :: Parser Options
 options = Options
   <$> strOption (long "dbpath" <> showDefault <> value "gopro.db" <> help "db path")
+  <*> strOption (long "static" <> showDefault <> value "static" <> help "static asset path")
   <*> switch (short 'v' <> long "verbose" <> help "enable debug logging")
   <*> some (argument str (metavar "cmd args..."))
 
-logInfo :: MonadLogger m => Text -> m ()
+logInfo :: MonadLogger m => T.Text -> m ()
 logInfo = logInfoN
 
-logDbg :: MonadLogger m => Text -> m ()
+logDbg :: MonadLogger m => T.Text -> m ()
 logDbg = logDebugN
 
-tshow :: Show a => a -> Text
+tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
 mapConcurrentlyLimited :: (Traversable f, Foldable f) => Int -> (a -> IO b) -> f a -> IO (f b)
@@ -108,11 +125,39 @@ runReauth = do
   res <- refreshAuth a
   updateAuth db res
 
+runServer :: GoPro ()
+runServer = ask >>= \x -> scottyT 8008 (runIO x) application
+  where
+    runIO :: Env -> EnvM a -> IO a
+    runIO e m = runReaderT (runEnvM m) e
+
+    application :: ScottyT LT.Text EnvM ()
+    application = do
+      let staticPath = "static"
+      middleware $ staticPolicy (noDots >-> addBase staticPath)
+
+      get "/" $ do
+        setHeader "Content-Type" "text/html"
+        file $ staticPath </> "index.html"
+
+      get "/api/media" $ do
+        db <- lift $ asks (optDBPath . gpOptions)
+        meds <- loadMedia db
+        json meds
+
+      get "/thumb/:id" $ do
+        db <- lift $ asks (optDBPath . gpOptions)
+        imgid <- param "id"
+        imgdata <- loadThumbnail db imgid
+        setHeader "Content-Type" "image/jpeg"
+        raw imgdata
+
 run :: String -> GoPro ()
 run "auth"     = runAuth
 run "reauth"   = runReauth
 run "sync"     = runSync Incremental
 run "fullsync" = runSync Full
+run "serve"    = runServer
 run x          = fail ("unknown command: " <> x)
 
 main :: IO ()
