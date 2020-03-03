@@ -67,13 +67,17 @@ function process(media) {
         });
     });
 
+    const capBounds = d3.extent(media, d => d.captured_at);
+    capBounds[0] = new Date(capBounds[0]).setDate(capBounds[0].getDate() - 1);
+    capBounds[1] = new Date(capBounds[1]).setDate(capBounds[1].getDate() + 1);
+
     const charts = [
         barChart()
             .dimension(date)
             .group(dates)
             .round(d3.timeDay.round)
             .x(d3.scaleTime()
-               .domain(d3.extent(media, d => d.captured_at))
+               .domain(capBounds)
                .rangeRound([0, 10 * 90]))
     ];
 
