@@ -89,7 +89,7 @@ runSync stype = do
   mapM_ (storeSome tok db) $ chunksOf 100 ms
 
     where resolve tok m = MediaRow m <$> fetchThumbnail tok m
-          todo tok seen = filter (\m@Media{..} -> notSeen m && _ready_to_view == "ready")
+          todo tok seen = filter (\m@Media{..} -> notSeen m && _media_ready_to_view == "ready")
                           <$> listWhile tok (listPred stype)
             where
               notSeen = (`Set.notMember` seen) . _media_id

@@ -92,30 +92,28 @@ instance FromJSON PageInfo where
   parseJSON = genericParseJSON jsonOpts
 
 data Media = Media {
-  _media_id          :: String,
-  _captured_at       :: UTCTime,
-  _content_title     :: Maybe String,
-  _content_type      :: Maybe String,
-  _created_at        :: UTCTime,
-  _file_size         :: Maybe Int,
-  _gopro_user_id     :: String,
-  _moments_count     :: Int,
-  _on_public_profile :: Bool,
-  _play_as           :: String,
-  _ready_to_edit     :: Bool,
-  _ready_to_view     :: String,
-  _resolution        :: Maybe String,
-  _source_duration   :: Maybe String,
-  _media_type        :: String,
-  _token             :: String
+  _media_id              :: String,
+  _media_camera_model    :: Maybe String,
+  _media_captured_at     :: UTCTime,
+  _media_created_at      :: UTCTime,
+  _media_file_size       :: Maybe Int,
+  _media_moments_count   :: Int,
+  _media_ready_to_view   :: String,
+  _media_resolution      :: Maybe String,
+  _media_source_duration :: Maybe String,
+  _media_type            :: String,
+  _media_token           :: String,
+  _media_width           :: Maybe Int,
+  _media_height          :: Maybe Int
   } deriving (Generic, Show)
 
 makeLenses ''Media
 
+dropPrefix :: String -> (String -> String)
+dropPrefix s = drop (length s)
+
 mediaMod :: String -> String
-mediaMod "_media_type" = "type"
-mediaMod "_media_id"   = "id"
-mediaMod x             = dropWhile (== '_') x
+mediaMod              = dropPrefix "_media_"
 
 instance ToJSON Media where
   toEncoding = genericToEncoding jsonOpts{ fieldLabelModifier = mediaMod}
@@ -125,7 +123,7 @@ instance FromJSON Media where
 
 -- | Get the thumbnail token for a given media result.
 thumbnailURL :: Int -> Media -> String
-thumbnailURL n Media{_token} = "https://images-0" <> show n <> ".gopro.com/resize/450wwp/" <> _token
+thumbnailURL n Media{_media_token} = "https://images-0" <> show n <> ".gopro.com/resize/450wwp/" <> _media_token
 
 fetchThumbnail :: MonadIO m => String -> Media -> m BL.ByteString
 fetchThumbnail tok m = do
@@ -155,7 +153,7 @@ jget tok u = view responseBody <$> liftIO (getWith (authOpts tok) u >>= asJSON)
 -- | List a page worth of media.
 list :: MonadIO m => String -> Int -> Int -> m ([Media], PageInfo)
 list tok psize page = do
-  r <- jget tok ("https://api.gopro.com/media/search?fields=captured_at,content_title,content_type,created_at,gopro_user_id,file_size,id,moments_count,moments_count,on_public_profile,play_as,ready_to_edit,ready_to_view,source_duration,type,resolution,token&order_by=created_at&per_page=" <> show psize <> "&page=" <> show page)
+  r <- jget tok ("https://api.gopro.com/media/search?fields=captured_at,created_at,file_size,id,moments_count,ready_to_view,source_duration,type,resolution,token,width,height,camera_model&order_by=created_at&per_page=" <> show psize <> "&page=" <> show page)
   pure $ (r ^.. media . folded,
           r ^. pages)
 
@@ -189,7 +187,7 @@ makeLenses  ''File
 
 instance FromJSON File where
   parseJSON = genericParseJSON defaultOptions {
-    fieldLabelModifier = drop 6
+    fieldLabelModifier = dropPrefix "_file_"
     }
 
 data Variation = Variation {
@@ -205,7 +203,7 @@ makeLenses ''Variation
 
 instance FromJSON Variation where
   parseJSON = genericParseJSON defaultOptions {
-  fieldLabelModifier = drop 5
+  fieldLabelModifier = dropPrefix "_var_"
   }
 
 data SpriteFrame = SpriteFrame {
@@ -218,7 +216,7 @@ makeLenses ''SpriteFrame
 
 instance FromJSON SpriteFrame where
   parseJSON = genericParseJSON defaultOptions {
-    fieldLabelModifier = drop 7
+    fieldLabelModifier = dropPrefix "_frame_"
   }
 
 data Sprite = Sprite {
@@ -232,7 +230,7 @@ data Sprite = Sprite {
 
 instance FromJSON Sprite where
   parseJSON = genericParseJSON defaultOptions {
-    fieldLabelModifier = drop 8
+    fieldLabelModifier = dropPrefix "_sprite_"
   }
 
 data FileStuff = FileStuff {
@@ -264,3 +262,16 @@ instance FromJSON FileInfo where
 -- | Retrieve stuff describing a file.
 retrieve :: MonadIO m => String -> String -> m FileInfo
 retrieve tok k = jget tok ("https://api.gopro.com/media/" <> k <> "/download")
+
+-- | Delete an item.
+{-
+Request URL: https://api.gopro.com/media?ids=LvXbPOgepgLKX
+Request Method: DELETE
+Status Code: 200
+Remote Address: 143.204.147.33:443
+Referrer Policy: no-referrer-when-downgrade
+
+-->
+
+{"_embedded":{"media":[{"id":"LvXbPOgepgLKX"}],"errors":[]}}
+-}

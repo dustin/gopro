@@ -16,10 +16,10 @@ import           Database.SQLite.Simple.ToField
 import           GoPro                          (Media (..))
 
 createMediaStatement :: Query
-createMediaStatement = "create table if not exists media (media_id primary key, captured_at, content_title, content_type, created_at, file_size, gopro_user_id, moments_count, on_public_profile, play_as, ready_to_edit, ready_to_view, resolution, source_duration, media_type, thumbnail)"
+createMediaStatement = "create table if not exists media (media_id primary key, camera_model, captured_at, created_at, file_size, moments_count, resolution, source_duration, media_type, width, height, thumbnail)"
 
 insertMediaStatement :: Query
-insertMediaStatement = "insert into media (media_id, captured_at, content_title, content_type, created_at, file_size, gopro_user_id, moments_count, on_public_profile, play_as, ready_to_edit, ready_to_view, resolution, source_duration, media_type,thumbnail) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+insertMediaStatement = "insert into media (media_id, camera_model, captured_at, created_at, file_size, moments_count, resolution, source_duration, media_type, width, height, thumbnail) values(?,?,?,?,?,?,?,?,?,?,?,?)"
 
 data MediaRow = MediaRow {
   _row_media     :: Media,
@@ -31,20 +31,16 @@ makeLenses ''MediaRow
 instance ToRow MediaRow where
   toRow (MediaRow Media{..} thumbnail) = [
     toField _media_id,
-    toField _captured_at,
-    toField _content_title,
-    toField _content_type,
-    toField _created_at,
-    toField _file_size,
-    toField _gopro_user_id,
-    toField _moments_count,
-    toField _on_public_profile,
-    toField _play_as,
-    toField _ready_to_edit,
-    toField _ready_to_view,
-    toField _resolution,
-    toField _source_duration,
+    toField _media_camera_model,
+    toField _media_captured_at,
+    toField _media_created_at,
+    toField _media_file_size,
+    toField _media_moments_count,
+    toField _media_resolution,
+    toField _media_source_duration,
     toField _media_type,
+    toField _media_width,
+    toField _media_height,
     toField thumbnail
     ]
 
@@ -64,26 +60,23 @@ loadMediaIDs dbPath = coerce <$> (liftIO $ withConnection dbPath sel)
 
 
 selectMediaStatement :: Query
-selectMediaStatement = "select media_id, captured_at, content_title, content_type, created_at, file_size, gopro_user_id, moments_count, on_public_profile, play_as, ready_to_edit, ready_to_view, resolution, source_duration, media_type from media"
+selectMediaStatement = "select media_id, camera_model, captured_at, created_at, file_size, moments_count, resolution, source_duration, media_type, width, height from media"
 
 instance FromRow Media where
   fromRow =
-    Media <$> field -- _media_id
-    <*> field -- _captured_at
-    <*> field -- _content_title
-    <*> field -- _content_type
-    <*> field -- _created_at
-    <*> field -- _file_size
-    <*> field -- _gopro_user_id
-    <*> field -- _moments_count
-    <*> field -- _on_public_profile
-    <*> field -- _play_as
-    <*> field -- _ready_to_edit
-    <*> field -- _ready_to_view
-    <*> field -- _resolution
-    <*> field -- _source_duration
+    Media <$> field -- media_id
+    <*> field -- _media_camera_model
+    <*> field -- _media_captured_at
+    <*> field -- _media_created_at
+    <*> field -- _media_file_size
+    <*> field -- _media_moments_count
+    <*>  pure "ready" -- _media_ready_to_view
+    <*> field -- _media_resolution
+    <*> field -- _media_source_duration
     <*> field -- _media_type
-    <*> pure ""
+    <*> pure "" -- _media_token
+    <*> field -- _media_width
+    <*> field -- _media_height
 
 loadMedia :: MonadIO m => FilePath -> m [Media]
 loadMedia dbPath = liftIO $ withConnection dbPath sel
