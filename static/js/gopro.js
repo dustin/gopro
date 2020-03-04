@@ -34,6 +34,7 @@ function process(media) {
         d.index = i;
         d.created_at = new Date(d.created_at);
         d.captured_at = new Date(d.captured_at);
+        d.camera_model = d.camera_model || 'Unknown';
     });
 
     // Create the crossfilter for the relevant dimensions and groups.
@@ -44,17 +45,9 @@ function process(media) {
           mtypes = medium.dimension(d => d.type),
           mtype = mtypes.group();
 
-    const typesel = d3.select("#typeselect");
-    typesel.on("change", function() {
-        var options = typesel.selectAll('option');
-        var selectedIndex = typesel.property('selectedIndex'),
-            data          = options[0][selectedIndex].__data__;
-        mtype.filterRange([0, data ? data.key+1 : 10000]);
-        renderAll();
-    });
-
     const fields = [
-        {field: 'type'}
+        {field: 'type'},
+        {field: 'camera_model'}
     ];
 
     fields.forEach(function(dd,i) {
