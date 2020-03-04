@@ -123,10 +123,10 @@ function process(media) {
     };
 
     function mediaList(div) {
-        var mediaByDate = nestByDate.entries(date.top(40));
+        const mediaByDate = nestByDate.entries(date.top(40));
 
         div.each(function() {
-            var date = d3.select(this).selectAll(".date")
+            const date = d3.select(this).selectAll(".date")
                 .data(mediaByDate, d => d.key);
 
             date.enter().append("div")
@@ -137,15 +137,18 @@ function process(media) {
 
             date.exit().remove();
 
-            var m = date.order().selectAll(".medium")
+            const m = date.order().selectAll(".medium")
                 .data(d => d.values, d => d.index);
 
-            var mEnter = m.enter().append("div")
+            const mEnter = m.enter().append("div")
                 .attr("class", "medium");
 
-            mEnter.append("div")
+            const desc = mEnter.append("div")
                 .attr("class", "time")
-                .text(d => formatTime(d.captured_at));
+                  .text(d => formatTime(d.captured_at));
+            desc.append("span")
+                .attr("class", "dims")
+                .text(d => mediaType(d.type) + d.width + "x" + d.height);
             mEnter.append("img")
                 .attr("class", "thumb")
                 .attr("src", d => "/thumb/" + d.id);
@@ -154,6 +157,16 @@ function process(media) {
 
             m.order();
         });
+    }
+
+    function mediaType(t) {
+        if (t == "Video") {
+            return "🎥";
+        } else if( t == "TimeLapseVideo") {
+            return "📽️";
+        } else {
+            return "📷";
+        }
     }
 
     function barChart() {
