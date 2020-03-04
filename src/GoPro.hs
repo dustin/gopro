@@ -125,11 +125,17 @@ instance FromJSON Media where
 thumbnailURL :: Int -> Media -> String
 thumbnailURL n Media{_media_token} = "https://images-0" <> show n <> ".gopro.com/resize/450wwp/" <> _media_token
 
+-- | Proxy a request to GoPro with authentication.
+proxy :: MonadIO m => String -> String -> m BL.ByteString
+proxy tok u = do
+  r <- liftIO $ getWith (authOpts tok) u
+  pure $ r ^. responseBody
+
+-- | Fetch thumbnail data for the given media.
 fetchThumbnail :: MonadIO m => String -> Media -> m BL.ByteString
 fetchThumbnail tok m = do
   n <- liftIO $ getStdRandom (randomR (1,4))
-  r <- liftIO $ getWith (authOpts tok) (thumbnailURL n m)
-  pure $ r ^. responseBody
+  proxy tok (thumbnailURL n m)
 
 data Listing = Listing {
   _media :: [Media],
@@ -259,9 +265,12 @@ instance FromJSON FileInfo where
     FileInfo fs <$> v .: "filename"
   parseJSON invalid    = typeMismatch "Response" invalid
 
+dlURL :: String -> String
+dlURL k = "https://api.gopro.com/media/" <> k <> "/download"
+
 -- | Retrieve stuff describing a file.
 retrieve :: MonadIO m => String -> String -> m FileInfo
-retrieve tok k = jget tok ("https://api.gopro.com/media/" <> k <> "/download")
+retrieve tok k = jget tok (dlURL k)
 
 -- | Delete an item.
 {-

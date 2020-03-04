@@ -144,15 +144,19 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
 
       get "/api/media" $ do
         db <- lift $ asks dbConn
-        meds <- loadMedia db
-        json meds
+        json =<< loadMedia db
+
+      get "/api/retrieve/:id" $ do
+        imgid <- param "id"
+        tok <- lift $ asks gpToken
+        setHeader "Content-Type" "application/json"
+        raw =<< (lift $ proxy tok (dlURL imgid))
 
       get "/thumb/:id" $ do
         db <- lift $ asks dbConn
         imgid <- param "id"
-        imgdata <- loadThumbnail db imgid
         setHeader "Content-Type" "image/jpeg"
-        raw imgdata
+        raw =<< loadThumbnail db imgid
 
 run :: String -> GoPro ()
 run "auth"     = runAuth
