@@ -44,17 +44,17 @@ instance ToRow MediaRow where
     toField thumbnail
     ]
 
-storeMedia :: MonadIO m => FilePath -> [MediaRow] -> m ()
-storeMedia dbPath media = liftIO $ withConnection dbPath up
-  where up db = do
+storeMedia :: MonadIO m => Connection -> [MediaRow] -> m ()
+storeMedia db media = liftIO up
+  where up = do
           execute_ db createMediaStatement
           executeMany db insertMediaStatement media
 
-loadMediaIDs :: MonadIO m => FilePath -> m [String]
-loadMediaIDs dbPath = coerce <$> (liftIO $ withConnection dbPath sel)
+loadMediaIDs :: MonadIO m => Connection -> m [String]
+loadMediaIDs db = coerce <$> liftIO sel
   where
-    sel :: Connection -> IO [Only String]
-    sel db = do
+    sel :: IO [Only String]
+    sel = do
       execute_ db createMediaStatement
       query_ db "select media_id from media"
 
@@ -78,16 +78,13 @@ instance FromRow Media where
     <*> field -- _media_width
     <*> field -- _media_height
 
-loadMedia :: MonadIO m => FilePath -> m [Media]
-loadMedia dbPath = liftIO $ withConnection dbPath sel
-  where
-    sel :: Connection -> IO [Media]
-    sel db = query_ db selectMediaStatement
+loadMedia :: MonadIO m => Connection -> m [Media]
+loadMedia db = liftIO $ query_ db selectMediaStatement
 
-loadThumbnail :: MonadIO m => FilePath -> String -> m BL.ByteString
-loadThumbnail dbPath imgid = liftIO $ withConnection dbPath sel
+loadThumbnail :: MonadIO m => Connection -> String -> m BL.ByteString
+loadThumbnail db imgid = liftIO sel
   where
-    sel :: Connection -> IO BL.ByteString
-    sel db = do
+    sel :: IO BL.ByteString
+    sel = do
       [Only r] <- query db "select thumbnail from media where media_id = ?" (Only imgid) :: IO [Only BL.ByteString]
       pure r

@@ -20,6 +20,7 @@ import           Data.List.Extra               (chunksOf)
 import qualified Data.Set                      as Set
 import qualified Data.Text                     as T
 import qualified Data.Text.Lazy                as LT
+import           Database.SQLite.Simple        (Connection, withConnection)
 import           GoPro
 import           GoPro.AuthDB
 import           GoPro.DB
@@ -47,7 +48,8 @@ data Options = Options {
 
 data Env = Env {
   gpOptions :: Options,
-  gpToken   :: String
+  gpToken   :: String,
+  dbConn    :: Connection
   }
 
 newtype EnvM a = EnvM
@@ -81,7 +83,7 @@ data SyncType = Full | Incremental
 runSync :: SyncType -> GoPro ()
 runSync stype = do
   tok <- asks gpToken
-  db <- asks (optDBPath . gpOptions)
+  db <- asks dbConn
   seen <- Set.fromList <$> loadMediaIDs db
   ms <- todo tok seen
   logInfo $ tshow (length ms) <> " new items"
@@ -105,7 +107,7 @@ runAuth = do
   liftIO (prompt "Enter email: ")
   u <- liftIO getLine
   p <- liftIO getPass
-  db <- asks (optDBPath . gpOptions)
+  db <- asks dbConn
   res <- authenticate u p
   updateAuth db res
 
@@ -120,7 +122,7 @@ runAuth = do
 
 runReauth :: GoPro ()
 runReauth = do
-  db <- asks (optDBPath . gpOptions)
+  db <- asks dbConn
   a <- loadAuth db
   res <- refreshAuth a
   updateAuth db res
@@ -141,12 +143,12 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
         file $ staticPath </> "index.html"
 
       get "/api/media" $ do
-        db <- lift $ asks (optDBPath . gpOptions)
+        db <- lift $ asks dbConn
         meds <- loadMedia db
         json meds
 
       get "/thumb/:id" $ do
-        db <- lift $ asks (optDBPath . gpOptions)
+        db <- lift $ asks dbConn
         imgid <- param "id"
         imgdata <- loadThumbnail db imgid
         setHeader "Content-Type" "image/jpeg"
@@ -163,10 +165,15 @@ run x          = fail ("unknown command: " <> x)
 main :: IO ()
 main = do
   o@Options{..} <- execParser opts
-  tok <- loadToken optDBPath
-  runStderrLoggingT . logfilt o $ runReaderT (run (head optArgv)) (Env o tok)
+  withConnection optDBPath (runConn o)
 
   where
     opts = info (options <**> helper)
            ( fullDesc <> progDesc "GoPro cloud utility.")
-    logfilt Options{..} = filterLogger (\_ -> flip (if optVerbose then (>=) else (>)) LevelDebug)
+
+    runConn o@Options{..} db = do
+      tok <- loadToken db
+      runStderrLoggingT . logfilt $ runReaderT (run (head optArgv)) (Env o tok db)
+
+        where
+          logfilt = filterLogger (\_ -> flip (if optVerbose then (>=) else (>)) LevelDebug)
