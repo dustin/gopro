@@ -56,11 +56,11 @@ loadMediaIDs db = coerce <$> liftIO sel
     sel :: IO [Only String]
     sel = do
       execute_ db createMediaStatement
-      query_ db "select media_id from media"
+      query_ db "select media_id from media order by captured_at desc"
 
 
 selectMediaStatement :: Query
-selectMediaStatement = "select media_id, camera_model, captured_at, created_at, file_size, moments_count, resolution, source_duration, media_type, width, height from media"
+selectMediaStatement = "select media_id, camera_model, captured_at, created_at, file_size, moments_count, resolution, source_duration, media_type, width, height from media order by captured_at desc"
 
 instance FromRow Media where
   fromRow =
