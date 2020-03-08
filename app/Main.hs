@@ -16,10 +16,13 @@ import           Control.Monad.Logger          (LogLevel (..), LoggingT,
                                                 runStderrLoggingT)
 import           Control.Monad.Reader          (MonadReader, ReaderT (..), ask,
                                                 asks, lift, runReaderT)
+import qualified Data.Aeson                    as J
+import qualified Data.HashMap.Strict           as HM
 import           Data.List.Extra               (chunksOf)
 import qualified Data.Set                      as Set
 import qualified Data.Text                     as T
 import qualified Data.Text.Lazy                as LT
+import qualified Data.Vector                   as V
 import           Database.SQLite.Simple        (Connection, withConnection)
 import           GoPro
 import           GoPro.AuthDB
@@ -158,6 +161,23 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
         setHeader "Content-Type" "image/jpeg"
         setHeader "Cache-Control" "max-age=86400"
         raw =<< loadThumbnail db imgid
+
+      get "/api/retrieve2/:id" $ do
+        imgid <- param "id"
+        tok <- lift $ asks gpToken
+        fi <- _fileStuff <$> retrieve tok imgid
+        json (encd fi)
+          where
+            wh w h = T.pack (show w <> "x" <> show h)
+            ts = J.String . T.pack
+            encd FileStuff{..} = J.Array . V.fromList . fmap J.Object $ (
+              map (\f -> HM.fromList [("url", ts (f ^. file_url)),
+                                      ("name", ts "file"),
+                                      ("desc", J.String $ wh (f ^. file_width) (f ^. file_height))]) _files
+              <> map (\f -> HM.fromList [("url", ts (f ^. var_url)),
+                                         ("name", ts (f ^. var_label)),
+                                         ("desc", J.String $ "var " <> wh (f ^. var_width) (f ^. var_height))]) _variations
+              )
 
 run :: String -> GoPro ()
 run "auth"     = runAuth

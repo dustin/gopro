@@ -70,11 +70,22 @@ mediaDecoder =
 mediaListDecoder : Decoder (List Medium)
 mediaListDecoder = Decode.list mediaDecoder
 
+type alias DLOpts =
+    { url : String
+    , name : String
+    , desc : String
+    }
+
+dloptsDecoder : Decoder (List DLOpts)
+dloptsDecoder = Decode.list (Decode.map3 DLOpts (Decode.field "url" string)
+                                 (Decode.field "name" string)
+                                 (Decode.field "desc" string))
+    
 type alias RunningState =
     { media : List Medium
     , zone  : Time.Zone
     , overlay : ScreenOverlay.ScreenOverlay
-    , current : Maybe Medium
+    , current : (Maybe Medium, List DLOpts)
     }
                    
 type Model
@@ -84,6 +95,7 @@ type Model
 
 type Msg
   = SomeMedia (Result Http.Error (List Medium))
+  | SomeDLOpts (Result Http.Error (List DLOpts))
   | ZoneHere Time.Zone
   | OpenOverlay Medium
   | CloseOverlay
@@ -164,25 +176,32 @@ view model =
                               [ScreenOverlay.overlayView rs.overlay CloseOverlay (renderOverlay z rs.current)])]
 
 
-renderOverlay : Time.Zone -> Maybe Medium -> Html Msg
-renderOverlay z mm = case mm of
+renderOverlay : Time.Zone -> (Maybe Medium, List DLOpts) -> Html Msg
+renderOverlay z (mm, dls) = case mm of
                         Nothing -> text "wtf"
                         Just m -> div [ H.class "details" ]
-                                  [h2 [] [ text (m.id) ]
-                                  , img [ H.src ("/thumb/" ++ m.id) ] []
-                                  , dl [ H.class "deets" ] [
-                                        dt [] [text "Captured"]
-                                       , dd [] [text <| formatDay z m.captured_at ++ " " ++ formatTime z m.captured_at]
-                                       , dt [] [text "Camera Model"]
-                                       , dd [] [text m.camera_model]
-                                       , dt [] [text "Dims"]
-                                       , dd [] [text (String.fromInt m.width ++ "x" ++ String.fromInt m.height)]
-                                       , dt [] [text "Size"]
-                                       , dd [] [text <| String.fromInt m.file_size ]
-                                       , dt [] [text "Type"]
-                                       , dd [] [ text m.media_type ]
-                                       ]
-                                  ]
+                                  ([h2 [] [ text (m.id) ]
+                                   , img [ H.src ("/thumb/" ++ m.id) ] []
+                                   , dl [ H.class "deets" ] [
+                                         h2 [] [text "Details" ]
+                                        , dt [] [text "Captured"]
+                                        , dd [] [text <| formatDay z m.captured_at ++ " " ++ formatTime z m.captured_at]
+                                        , dt [] [text "Camera Model"]
+                                        , dd [] [text m.camera_model]
+                                        , dt [] [text "Dims"]
+                                        , dd [] [text (String.fromInt m.width ++ "x" ++ String.fromInt m.height)]
+                                        , dt [] [text "Size"]
+                                        , dd [] [text <| String.fromInt m.file_size ]
+                                        , dt [] [text "Type"]
+                                        , dd [] [ text m.media_type ]
+                                        ]
+                                   ] ++ if List.isEmpty dls then []
+                                        else [ul [ H.class "dls" ]
+                                                  (h2 [] [text "Downloads"]
+                                                  :: List.map (\d -> li []
+                                                                   [a [ H.href d.url, H.title d.desc] [text d.name]])
+                                                      dls)])
+                                                                                 
 
 init : () -> (Model, Cmd Msg)
 init _ =
@@ -200,7 +219,7 @@ timeDown a b = compare (Time.posixToMillis b.captured_at) (Time.posixToMillis a.
 updRunning : Model -> RunningState
 updRunning m = case m of
                    Success r -> r
-                   _ -> RunningState [] Time.utc ScreenOverlay.initOverlay Nothing
+                   _ -> RunningState [] Time.utc ScreenOverlay.initOverlay (Nothing, [])
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -213,14 +232,29 @@ update msg model =
 
                 Err x ->
                     (Failure x, Cmd.none)
-                        
+
+        SomeDLOpts result ->
+            case result of
+                Ok dls ->
+                    let r = updRunning model
+                        (m, _) = r.current in
+                    (Success {r | current = (m, dls)}, Cmd.none)
+
+                Err x ->
+                    (Failure x, Cmd.none)
+
         ZoneHere z ->
             let r = updRunning model in
             (Success {r | zone = z}, Cmd.none)
 
         OpenOverlay m ->
             let r = updRunning model in
-            (Success { r | overlay = ScreenOverlay.show r.overlay, current = Just m }, lockScroll Nothing )
+            (Success { r | overlay = ScreenOverlay.show r.overlay, current = (Just m, []) },
+                 Cmd.batch [lockScroll Nothing,
+                            Http.get
+                                { url = "/api/retrieve2/" ++ m.id
+                                , expect = Http.expectJson SomeDLOpts dloptsDecoder
+                           }])
 
         CloseOverlay ->
             let r = updRunning model in
