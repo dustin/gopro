@@ -156,6 +156,7 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
         db <- lift $ asks dbConn
         imgid <- param "id"
         setHeader "Content-Type" "image/jpeg"
+        setHeader "Cache-Control" "max-age=86400"
         raw =<< loadThumbnail db imgid
 
 run :: String -> GoPro ()
