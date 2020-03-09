@@ -1,18 +1,19 @@
-port module HomePage exposing (main)
+port module Main exposing (main)
 
-import Html exposing (..)
 import Browser
-import Time
+import Html exposing (..)
+import Html.Attributes as H
 import Html.Events exposing (onClick)
-import Iso8601
 import Html.Lazy exposing (lazy)
+import Http
+import Iso8601
+import Json.Decode as Decode exposing (Decoder, string)
 import Task
+import Time
+
 import ScreenOverlay
 import ListExtra exposing (groupWhile)
-import Html.Attributes as H
-import Json.Decode as Decode exposing (Decoder, decodeString, null, int, string, float)
-import Json.Decode.Pipeline exposing (required, optional, hardcoded)
-import Http
+import Media exposing (..)
 
 {-
 id: "0r1LLLDBPPLVd",
@@ -33,43 +34,6 @@ height: 3000
 port lockScroll : Maybe String -> Cmd msg
 port unlockScroll : Maybe String -> Cmd msg
 
-
-type alias Medium =
-    { id : String
-    , camera_model : String
-    , captured_at : Time.Posix
-    , created_at : Time.Posix
-    , file_size : Int
-    , moments_count : Int
-    , ready_to_view : String
-    , resolution : String
-    , source_duration : String
-    , media_type : String
-    , token : String
-    , width : Int
-    , height : Int
-    }
-
-mediaDecoder : Decoder Medium
-mediaDecoder =
-    Decode.succeed Medium
-        |> required "id" string
-        |> optional "camera_model" string "Unknown"
-        |> required "captured_at" Iso8601.decoder
-        |> required "created_at" Iso8601.decoder
-        |> required "file_size" int
-        |> required "moments_count" int
-        |> required "ready_to_view" string
-        |> optional "resolution" string ""
-        |> optional "source_duration" string ""
-        |> optional "type" string "Unknown"
-        |> required "token" string
-        |> required "width" int
-        |> required "height" int
-           
-mediaListDecoder : Decoder (List Medium)
-mediaListDecoder = Decode.list mediaDecoder
-
 type alias DLOpts =
     { url : String
     , name : String
@@ -80,17 +44,16 @@ dloptsDecoder : Decoder (List DLOpts)
 dloptsDecoder = Decode.list (Decode.map3 DLOpts (Decode.field "url" string)
                                  (Decode.field "name" string)
                                  (Decode.field "desc" string))
-    
+
 type alias RunningState =
     { media : List Medium
     , zone  : Time.Zone
     , overlay : ScreenOverlay.ScreenOverlay
     , current : (Maybe Medium, List DLOpts)
     }
-                   
+
 type Model
   = Failure Http.Error
-  | Loading
   | Success RunningState
 
 type Msg
@@ -99,7 +62,7 @@ type Msg
   | ZoneHere Time.Zone
   | OpenOverlay Medium
   | CloseOverlay
-    
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
   Sub.none
@@ -120,7 +83,6 @@ monthStr month =
     Time.Nov -> "Nov"
     Time.Dec -> "Dec"
 
--- padLeft 5 '.' "1"   == "....1"
 formatTime : Time.Zone -> Time.Posix -> String
 formatTime z t = String.fromInt (Time.toHour z t) ++ ":" ++ String.padLeft 2 '0' (String.fromInt (Time.toMinute z t))
 
@@ -162,9 +124,6 @@ view model =
         Failure s ->
             pre [] [text ("I was unable to load the media: " ++ httpErrStr s)]
 
-        Loading ->
-            text "Loading..."
-
         Success rs ->
             let z = rs.zone
                 groupies = groupWhile (\a b -> formatDay z a.captured_at == formatDay z b.captured_at) rs.media
@@ -175,6 +134,11 @@ view model =
                          (mediaHTML z groupies ++
                               [ScreenOverlay.overlayView rs.overlay CloseOverlay (renderOverlay z rs.current)])]
 
+htmlIf : Bool -> List (Html Msg) -> List (Html Msg)
+htmlIf b l = if b then l else []
+
+dts : String -> Html Msg
+dts s = dt [] [text s]
 
 renderOverlay : Time.Zone -> (Maybe Medium, List DLOpts) -> Html Msg
 renderOverlay z (mm, dls) = case mm of
@@ -184,28 +148,29 @@ renderOverlay z (mm, dls) = case mm of
                                    , img [ H.src ("/thumb/" ++ m.id) ] []
                                    , dl [ H.class "deets" ] [
                                          h2 [] [text "Details" ]
-                                        , dt [] [text "Captured"]
-                                        , dd [] [text <| formatDay z m.captured_at ++ " " ++ formatTime z m.captured_at]
-                                        , dt [] [text "Camera Model"]
+                                        , dts "Captured"
+                                        , dd [ H.title (String.fromInt (Time.posixToMillis m.captured_at))]
+                                             [text <| formatDay z m.captured_at ++ " " ++ formatTime z m.captured_at]
+                                        , dts "Camera Model"
                                         , dd [] [text m.camera_model]
-                                        , dt [] [text "Dims"]
+                                        , dts "Dims"
                                         , dd [] [text (String.fromInt m.width ++ "x" ++ String.fromInt m.height)]
-                                        , dt [] [text "Size"]
+                                        , dts "Size"
                                         , dd [] [text <| String.fromInt m.file_size ]
-                                        , dt [] [text "Type"]
+                                        , dts "Type"
                                         , dd [] [ text m.media_type ]
                                         ]
-                                   ] ++ if List.isEmpty dls then []
-                                        else [ul [ H.class "dls" ]
-                                                  (h2 [] [text "Downloads"]
-                                                  :: List.map (\d -> li []
-                                                                   [a [ H.href d.url, H.title d.desc] [text d.name]])
-                                                      dls)])
-                                                                                 
+                                   ] ++ htmlIf (not (List.isEmpty dls))
+                                        [ul [ H.class "dls" ]
+                                            (h2 [] [text "Downloads"]
+                                            :: List.map (\d -> li []
+                                                             [a [ H.href d.url, H.title d.desc] [text d.name]])
+                                                dls)])
+
 
 init : () -> (Model, Cmd Msg)
 init _ =
-  ( Loading
+  ( Success emptyState
   , Cmd.batch [Http.get
                    { url = "/api/media"
                    , expect = Http.expectJson SomeMedia mediaListDecoder
@@ -213,13 +178,13 @@ init _ =
                    Task.perform ZoneHere Time.here]
   )
 
-timeDown : Medium -> Medium -> Order
-timeDown a b = compare (Time.posixToMillis b.captured_at) (Time.posixToMillis a.captured_at)
+emptyState : RunningState
+emptyState = RunningState [] Time.utc ScreenOverlay.initOverlay (Nothing, [])
 
 updRunning : Model -> RunningState
 updRunning m = case m of
                    Success r -> r
-                   _ -> RunningState [] Time.utc ScreenOverlay.initOverlay (Nothing, [])
+                   _ -> emptyState
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -241,7 +206,10 @@ update msg model =
                     (Success {r | current = (m, dls)}, Cmd.none)
 
                 Err x ->
-                    (Failure x, Cmd.none)
+                    let fakedls = [DLOpts "" ("error fetching downloads: " ++ httpErrStr x) ""]
+                        r = updRunning model
+                        (m, _) = r.current in
+                    (Success {r | current = (m, fakedls)}, Cmd.none)
 
         ZoneHere z ->
             let r = updRunning model in
