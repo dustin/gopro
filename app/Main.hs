@@ -1,6 +1,6 @@
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE TupleSections              #-}
-
 
 module Main where
 
@@ -51,7 +51,6 @@ data Options = Options {
 
 data Env = Env {
   gpOptions :: Options,
-  gpToken   :: String,
   dbConn    :: Connection
   }
 
@@ -85,7 +84,7 @@ data SyncType = Full | Incremental
 
 runSync :: SyncType -> GoPro ()
 runSync stype = do
-  tok <- asks gpToken
+  tok <- getToken
   db <- asks dbConn
   seen <- Set.fromList <$> loadMediaIDs db
   ms <- todo tok seen
@@ -130,6 +129,9 @@ runReauth = do
   res <- refreshAuth a
   updateAuth db res
 
+getToken :: (MonadIO m, MonadReader Env m) => m String
+getToken = loadToken =<< asks dbConn
+
 runServer :: GoPro ()
 runServer = ask >>= \x -> scottyT 8008 (runIO x) application
   where
@@ -151,7 +153,7 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
 
       get "/api/retrieve/:id" $ do
         imgid <- param "id"
-        tok <- lift $ asks gpToken
+        tok <- lift getToken
         setHeader "Content-Type" "application/json"
         raw =<< (lift $ proxy tok (dlURL imgid))
 
@@ -164,7 +166,7 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
 
       get "/api/retrieve2/:id" $ do
         imgid <- param "id"
-        tok <- lift $ asks gpToken
+        tok <- lift getToken
         fi <- _fileStuff <$> retrieve tok imgid
         json (encd fi)
           where
@@ -197,8 +199,7 @@ main = do
            ( fullDesc <> progDesc "GoPro cloud utility.")
 
     runConn o@Options{..} db = do
-      tok <- loadToken db
-      runStderrLoggingT . logfilt $ runReaderT (run (head optArgv)) (Env o tok db)
+      runStderrLoggingT . logfilt $ runReaderT (run (head optArgv)) (Env o db)
 
         where
           logfilt = filterLogger (\_ -> flip (if optVerbose then (>=) else (>)) LevelDebug)
