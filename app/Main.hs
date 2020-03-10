@@ -10,9 +10,13 @@ import           Control.Exception             (bracket_)
 import           Control.Lens                  hiding (argument)
 import           Control.Monad                 (when)
 import           Control.Monad.IO.Class        (MonadIO (..))
-import           Control.Monad.Logger          (LogLevel (..), LoggingT,
-                                                MonadLogger, filterLogger,
+import           Control.Monad.Logger          (Loc (..), LogLevel (..),
+                                                LogSource, LogStr, LoggingT,
+                                                MonadLogger (..),
+                                                MonadLoggerIO (..),
+                                                ToLogStr (..), filterLogger,
                                                 logDebugN, logInfoN,
+                                                monadLoggerLog,
                                                 runStderrLoggingT)
 import           Control.Monad.Reader          (MonadReader, ReaderT (..), ask,
                                                 asks, lift, runReaderT)
@@ -51,12 +55,18 @@ data Options = Options {
 
 data Env = Env {
   gpOptions :: Options,
-  dbConn    :: Connection
+  dbConn    :: Connection,
+  envLogger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
   }
 
 newtype EnvM a = EnvM
   { runEnvM :: ReaderT Env IO a
   } deriving (Applicative, Functor, Monad, MonadIO, MonadReader Env)
+
+instance MonadLogger EnvM where
+  monadLoggerLog loc src lvl msg = do
+    l <- asks envLogger
+    liftIO $ l loc src lvl (toLogStr msg)
 
 type GoPro = ReaderT Env (LoggingT IO)
 
@@ -129,8 +139,10 @@ runReauth = do
   res <- refreshAuth a
   updateAuth db res
 
-getToken :: (MonadIO m, MonadReader Env m) => m String
-getToken = loadToken =<< asks dbConn
+getToken :: (MonadLogger m, MonadIO m, MonadReader Env m) => m String
+getToken = do
+  logDbg "Loading token"
+  loadToken =<< asks dbConn
 
 runServer :: GoPro ()
 runServer = ask >>= \x -> scottyT 8008 (runIO x) application
@@ -199,7 +211,9 @@ main = do
            ( fullDesc <> progDesc "GoPro cloud utility.")
 
     runConn o@Options{..} db = do
-      runStderrLoggingT . logfilt $ runReaderT (run (head optArgv)) (Env o db)
+      runStderrLoggingT . logfilt $ do
+        l <- askLoggerIO
+        runReaderT (run (head optArgv)) (Env o db l)
 
         where
           logfilt = filterLogger (\_ -> flip (if optVerbose then (>=) else (>)) LevelDebug)
