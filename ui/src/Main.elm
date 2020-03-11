@@ -12,6 +12,7 @@ import Task
 import Filesize
 import Time
 import Set
+import Dict
 
 import ScreenOverlay
 import List.Extra exposing (groupWhile, unfoldr)
@@ -53,6 +54,7 @@ type alias RunningState =
     , overlay : ScreenOverlay.ScreenOverlay
     , current : (Maybe Medium, List DLOpts)
     , yearsChecked : Set.Set Int
+    , yearsMap : Dict.Dict Int (List Medium)
     }
 
 type Model
@@ -147,10 +149,11 @@ yearList checked years =
 renderMediaList : RunningState -> Html Msg
 renderMediaList rs =
     let z = rs.zone
-        filty = List.filter (\m -> Set.member (Time.toYear z m.captured_at) rs.yearsChecked) rs.media
+        filty = List.concatMap (\y -> Maybe.withDefault [] (Dict.get y rs.yearsMap))
+                (List.reverse (Set.toList rs.yearsChecked))
         groupies = groupWhile (\a b -> formatDay z a.captured_at == formatDay z b.captured_at) filty
         totalSize = List.foldl (\x o -> x.file_size + o) 0 filty
-        years = Set.fromList <| List.map (\x -> Time.toYear z x.captured_at) rs.media
+        years = Dict.keys rs.yearsMap
     in
     div [ H.id "main" ]
         [
@@ -158,10 +161,10 @@ renderMediaList rs =
              [ div [ ] [ text (comma (List.length filty)),
                          text " totaling ",
                          text (Filesize.format totalSize),
-                         yearList rs.yearsChecked (List.reverse <| Set.toList years)]],
+                         yearList rs.yearsChecked (List.reverse years)]],
+         div [] [ScreenOverlay.overlayView rs.overlay CloseOverlay (renderOverlay z rs.current)],
          div [ H.class "media" ]
-             (mediaHTML z groupies ++
-                  [ScreenOverlay.overlayView rs.overlay CloseOverlay (renderOverlay z rs.current)])]
+             (mediaHTML z groupies)]
 
 view : Model -> Html Msg
 view model =
@@ -215,7 +218,7 @@ init _ =
   )
 
 emptyState : RunningState
-emptyState = RunningState [] Time.utc ScreenOverlay.initOverlay (Nothing, []) Set.empty
+emptyState = RunningState [] Time.utc ScreenOverlay.initOverlay (Nothing, []) Set.empty Dict.empty
 
 updRunning : Model -> RunningState
 updRunning m = case m of
@@ -230,11 +233,18 @@ update msg model =
                 Ok meds ->
                     let r = updRunning model
                         z = r.zone
-                        maxYear = case List.maximum (List.map (\m -> Time.toYear z m.captured_at) meds) of
+                        ymap = List.foldl (\x o -> Dict.update (Time.toYear z x.captured_at)
+                                                   (\e -> Just <| case e of
+                                                                      Nothing -> [x]
+                                                                      Just l -> l ++ [x])
+                                                       o) Dict.empty meds
+                        maxYear = case List.maximum (Dict.keys ymap) of
                                       Nothing -> Set.empty
                                       Just x -> Set.singleton x
                     in
-                    (Success {r | media = meds, yearsChecked = maxYear}, Cmd.none)
+                    (Success {r | media = meds,
+                                  yearsChecked = maxYear,
+                                  yearsMap = ymap}, Cmd.none)
 
                 Err x ->
                     (Failure x, Cmd.none)
