@@ -9,6 +9,7 @@ import Http
 import Iso8601
 import Json.Decode as Decode exposing (Decoder, string)
 import Task
+import Filesize
 import Time
 
 import ScreenOverlay
@@ -118,6 +119,28 @@ httpErrStr e = case e of
                    Http.BadStatus i -> "bad status: " ++ String.fromInt i
                    Http.BadBody b -> "bad body: " ++ b
 
+htmlIf : Bool -> List (Html Msg) -> List (Html Msg)
+htmlIf b l = if b then l else []
+
+comma : Int -> String
+comma = String.fromInt
+
+renderMediaList : RunningState -> Html Msg
+renderMediaList rs =
+    let z = rs.zone
+        groupies = groupWhile (\a b -> formatDay z a.captured_at == formatDay z b.captured_at) rs.media
+        totalSize = List.foldl (\x o -> x.file_size + o) 0 rs.media
+    in
+    div [ H.id "main" ]
+        [
+         div [ H.class "header" ]
+             [ div [ ] [ text (comma (List.length rs.media)),
+                         text " text totaling ",
+                         text (Filesize.format totalSize) ]],
+         div [ H.class "media" ]
+             (mediaHTML z groupies ++
+                  [ScreenOverlay.overlayView rs.overlay CloseOverlay (renderOverlay z rs.current)])]
+
 view : Model -> Html Msg
 view model =
     case model of
@@ -125,17 +148,8 @@ view model =
             pre [] [text ("I was unable to load the media: " ++ httpErrStr s)]
 
         Success rs ->
-            let z = rs.zone
-                groupies = groupWhile (\a b -> formatDay z a.captured_at == formatDay z b.captured_at) rs.media
-            in
-                if List.isEmpty rs.media then text "Loading..."
-                else div [ H.id "main" ]
-                    [div [ H.class "media" ]
-                         (mediaHTML z groupies ++
-                              [ScreenOverlay.overlayView rs.overlay CloseOverlay (renderOverlay z rs.current)])]
-
-htmlIf : Bool -> List (Html Msg) -> List (Html Msg)
-htmlIf b l = if b then l else []
+            if List.isEmpty rs.media then text "Loading..."
+            else renderMediaList rs
 
 dts : String -> Html Msg
 dts s = dt [] [text s]
