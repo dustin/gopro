@@ -3,7 +3,7 @@ port module Main exposing (main)
 import Browser
 import Html exposing (..)
 import Html.Attributes as H
-import Html.Events exposing (onClick)
+import Html.Events exposing (onClick, onCheck)
 import Html.Lazy exposing (lazy)
 import Http
 import Iso8601
@@ -11,9 +11,10 @@ import Json.Decode as Decode exposing (Decoder, string)
 import Task
 import Filesize
 import Time
+import Set
 
 import ScreenOverlay
-import List.Extra exposing (groupWhile)
+import List.Extra exposing (groupWhile, unfoldr)
 import Media exposing (..)
 
 {-
@@ -51,6 +52,7 @@ type alias RunningState =
     , zone  : Time.Zone
     , overlay : ScreenOverlay.ScreenOverlay
     , current : (Maybe Medium, List DLOpts)
+    , yearsChecked : Set.Set Int
     }
 
 type Model
@@ -63,6 +65,7 @@ type Msg
   | ZoneHere Time.Zone
   | OpenOverlay Medium
   | CloseOverlay
+  | CheckedYear Int Bool
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -126,18 +129,36 @@ comma i = let seg x = String.padLeft (if x >= 1000 then 3 else 0) '0' (String.fr
                                                 else Just (seg x, x // 1000)) i
           in String.join "," (List.reverse parts)
 
+yearList : Set.Set Int -> List Int -> Html Msg
+yearList checked years =
+    div [ H.class "years" ]
+        (List.concatMap (\y ->
+                             [
+                              input [ H.type_ "checkbox", H.id ("yr" ++ String.fromInt y),
+                                      H.name (String.fromInt y),
+                                      H.checked (Set.member y checked),
+                                      onCheck (CheckedYear y)
+                                    ] [],
+                              label [ H.for ("yr" ++ String.fromInt y) ] [
+                                   text (String.fromInt y) ]
+                             ]
+                        ) years)
+
 renderMediaList : RunningState -> Html Msg
 renderMediaList rs =
     let z = rs.zone
-        groupies = groupWhile (\a b -> formatDay z a.captured_at == formatDay z b.captured_at) rs.media
-        totalSize = List.foldl (\x o -> x.file_size + o) 0 rs.media
+        filty = List.filter (\m -> Set.member (Time.toYear z m.captured_at) rs.yearsChecked) rs.media
+        groupies = groupWhile (\a b -> formatDay z a.captured_at == formatDay z b.captured_at) filty
+        totalSize = List.foldl (\x o -> x.file_size + o) 0 filty
+        years = Set.fromList <| List.map (\x -> Time.toYear z x.captured_at) rs.media
     in
     div [ H.id "main" ]
         [
          div [ H.class "header" ]
-             [ div [ ] [ text (comma (List.length rs.media)),
+             [ div [ ] [ text (comma (List.length filty)),
                          text " totaling ",
-                         text (Filesize.format totalSize) ]],
+                         text (Filesize.format totalSize),
+                         yearList rs.yearsChecked (List.reverse <| Set.toList years)]],
          div [ H.class "media" ]
              (mediaHTML z groupies ++
                   [ScreenOverlay.overlayView rs.overlay CloseOverlay (renderOverlay z rs.current)])]
@@ -194,7 +215,7 @@ init _ =
   )
 
 emptyState : RunningState
-emptyState = RunningState [] Time.utc ScreenOverlay.initOverlay (Nothing, [])
+emptyState = RunningState [] Time.utc ScreenOverlay.initOverlay (Nothing, []) Set.empty
 
 updRunning : Model -> RunningState
 updRunning m = case m of
@@ -207,8 +228,13 @@ update msg model =
         SomeMedia result ->
             case result of
                 Ok meds ->
-                    let r = updRunning model in
-                    (Success {r | media = meds}, Cmd.none)
+                    let r = updRunning model
+                        z = r.zone
+                        maxYear = case List.maximum (List.map (\m -> Time.toYear z m.captured_at) meds) of
+                                      Nothing -> Set.empty
+                                      Just x -> Set.singleton x
+                    in
+                    (Success {r | media = meds, yearsChecked = maxYear}, Cmd.none)
 
                 Err x ->
                     (Failure x, Cmd.none)
@@ -242,6 +268,12 @@ update msg model =
         CloseOverlay ->
             let r = updRunning model in
             (Success { r | overlay = ScreenOverlay.hide r.overlay }, unlockScroll Nothing )
+
+        CheckedYear y checked ->
+            let r = updRunning model in
+            (Success { r | yearsChecked = (if checked then Set.insert else Set.remove) y r.yearsChecked },
+             Cmd.none)
+
 
 main = Browser.element
     { init = init
