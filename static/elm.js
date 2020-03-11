@@ -8263,75 +8263,35 @@ var $author$project$Main$formatDay = F2(
 			A2($elm$time$Time$toMonth, z, t)) + ('-' + two(
 			A2($elm$time$Time$toDay, z, t)))));
 	});
-var $author$project$ListExtra$dropWhile = F2(
-	function (predicate, list) {
-		dropWhile:
-		while (true) {
-			if (!list.b) {
-				return _List_Nil;
-			} else {
-				var x = list.a;
-				var xs = list.b;
-				if (predicate(x)) {
-					var $temp$predicate = predicate,
-						$temp$list = xs;
-					predicate = $temp$predicate;
-					list = $temp$list;
-					continue dropWhile;
-				} else {
-					return list;
-				}
-			}
-		}
-	});
-var $author$project$ListExtra$takeWhile = function (predicate) {
-	var takeWhileMemo = F2(
-		function (memo, list) {
-			takeWhileMemo:
-			while (true) {
-				if (!list.b) {
-					return $elm$core$List$reverse(memo);
-				} else {
-					var x = list.a;
-					var xs = list.b;
-					if (predicate(x)) {
-						var $temp$memo = A2($elm$core$List$cons, x, memo),
-							$temp$list = xs;
-						memo = $temp$memo;
-						list = $temp$list;
-						continue takeWhileMemo;
+var $elm_community$list_extra$List$Extra$groupWhile = F2(
+	function (isSameGroup, items) {
+		return A3(
+			$elm$core$List$foldr,
+			F2(
+				function (x, acc) {
+					if (!acc.b) {
+						return _List_fromArray(
+							[
+								_Utils_Tuple2(x, _List_Nil)
+							]);
 					} else {
-						return $elm$core$List$reverse(memo);
+						var _v1 = acc.a;
+						var y = _v1.a;
+						var restOfGroup = _v1.b;
+						var groups = acc.b;
+						return A2(isSameGroup, x, y) ? A2(
+							$elm$core$List$cons,
+							_Utils_Tuple2(
+								x,
+								A2($elm$core$List$cons, y, restOfGroup)),
+							groups) : A2(
+							$elm$core$List$cons,
+							_Utils_Tuple2(x, _List_Nil),
+							acc);
 					}
-				}
-			}
-		});
-	return takeWhileMemo(_List_Nil);
-};
-var $author$project$ListExtra$span = F2(
-	function (p, xs) {
-		return _Utils_Tuple2(
-			A2($author$project$ListExtra$takeWhile, p, xs),
-			A2($author$project$ListExtra$dropWhile, p, xs));
-	});
-var $author$project$ListExtra$groupWhile = F2(
-	function (eq, xs_) {
-		if (!xs_.b) {
-			return _List_Nil;
-		} else {
-			var x = xs_.a;
-			var xs = xs_.b;
-			var _v1 = A2(
-				$author$project$ListExtra$span,
-				eq(x),
-				xs);
-			var ys = _v1.a;
-			var zs = _v1.b;
-			return A2(
-				$elm$core$List$cons,
-				A2($elm$core$List$cons, x, ys),
-				A2($author$project$ListExtra$groupWhile, eq, zs));
-		}
+				}),
+			_List_Nil,
+			items);
 	});
 var $elm$html$Html$Attributes$id = $elm$html$Html$Attributes$stringProperty('id');
 var $elm$html$Html$h2 = _VirtualDom_node('h2');
@@ -8440,16 +8400,10 @@ var $author$project$Main$mediumHTML = F2(
 	});
 var $author$project$Main$mediaHTML = F2(
 	function (z, ls) {
-		var oneDay = function (d) {
-			var theDay = function () {
-				var _v0 = $elm$core$List$head(d);
-				if (!_v0.$) {
-					var first = _v0.a;
-					return first.Q;
-				} else {
-					return $elm$time$Time$millisToPosix(0);
-				}
-			}();
+		var oneDay = function (_v0) {
+			var first = _v0.a;
+			var rest = _v0.b;
+			var theDay = first.Q;
 			return A2(
 				$elm$html$Html$div,
 				_List_fromArray(
@@ -8469,7 +8423,7 @@ var $author$project$Main$mediaHTML = F2(
 					A2(
 						$elm$core$List$map,
 						$author$project$Main$mediumHTML(z),
-						d)));
+						A2($elm$core$List$cons, first, rest))));
 		};
 		return A2(
 			$elm$core$List$map,
@@ -11195,7 +11149,7 @@ var $author$project$Main$renderMediaList = function (rs) {
 		0,
 		rs.an);
 	var groupies = A2(
-		$author$project$ListExtra$groupWhile,
+		$elm_community$list_extra$List$Extra$groupWhile,
 		F2(
 			function (a, b) {
 				return _Utils_eq(

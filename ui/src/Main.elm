@@ -13,7 +13,7 @@ import Filesize
 import Time
 
 import ScreenOverlay
-import ListExtra exposing (groupWhile)
+import List.Extra exposing (groupWhile)
 import Media exposing (..)
 
 {-
@@ -100,15 +100,12 @@ mediumHTML z m = div [ H.class "medium", onClick (OpenOverlay m) ] [
                       img [ H.class "thumb", H.src ("/thumb/" ++ m.id) ] []
                  ]
 
-mediaHTML : Time.Zone -> List (List Medium) -> List (Html Msg)
-mediaHTML z ls = let oneDay d =
-                         let theDay = case List.head d of
-                                         Just first -> first.captured_at
-                                         Nothing -> Time.millisToPosix 0
-                         in
+mediaHTML : Time.Zone -> List (Medium, List Medium) -> List (Html Msg)
+mediaHTML z ls = let oneDay (first, rest) =
+                         let theDay = first.captured_at in
                          div [ H.class "aday" ]
                              (h2 [ ] [text (formatDay z theDay)]
-                             :: List.map (mediumHTML z) d)
+                             :: List.map (mediumHTML z) (first::rest))
                  in List.map (lazy oneDay) ls
 
 httpErrStr : Http.Error -> String
