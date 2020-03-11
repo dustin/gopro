@@ -48,18 +48,15 @@ dloptsDecoder = Decode.list (Decode.map3 DLOpts (Decode.field "url" string)
                                  (Decode.field "name" string)
                                  (Decode.field "desc" string))
 
-type alias RunningState =
-    { media : List Medium
+type alias Model =
+    { httpError : Maybe Http.Error
+    , media : List Medium
     , zone  : Time.Zone
     , overlay : ScreenOverlay.ScreenOverlay
     , current : (Maybe Medium, List DLOpts)
     , yearsChecked : Set.Set Int
     , yearsMap : Dict.Dict Int (List Medium)
     }
-
-type Model
-  = Failure Http.Error
-  | Success RunningState
 
 type Msg
   = SomeMedia (Result Http.Error (List Medium))
@@ -146,7 +143,7 @@ yearList checked years =
                              ]
                         ) years)
 
-renderMediaList : RunningState -> Html Msg
+renderMediaList : Model -> Html Msg
 renderMediaList rs =
     let z = rs.zone
         filty = List.concatMap (\y -> Maybe.withDefault [] (Dict.get y rs.yearsMap))
@@ -168,48 +165,48 @@ renderMediaList rs =
 
 view : Model -> Html Msg
 view model =
-    case model of
-        Failure s ->
-            pre [] [text ("I was unable to load the media: " ++ httpErrStr s)]
+    case model.httpError of
+        Nothing ->
+            if List.isEmpty model.media then text "Loading..."
+            else renderMediaList model
+        Just x -> pre [] [text ("I was unable to load the media: " ++ httpErrStr x)]
 
-        Success rs ->
-            if List.isEmpty rs.media then text "Loading..."
-            else renderMediaList rs
 
 dts : String -> Html Msg
 dts s = dt [] [text s]
 
 renderOverlay : Time.Zone -> (Maybe Medium, List DLOpts) -> Html Msg
-renderOverlay z (mm, dls) = case mm of
-                        Nothing -> text "wtf"
-                        Just m -> div [ H.class "details" ]
-                                  ([h2 [] [ text (m.id) ]
-                                   , img [ H.src ("/thumb/" ++ m.id) ] []
-                                   , dl [ H.class "deets" ] [
-                                         h2 [] [text "Details" ]
-                                        , dts "Captured"
-                                        , dd [ H.title (String.fromInt (Time.posixToMillis m.captured_at))]
-                                             [text <| formatDay z m.captured_at ++ " " ++ formatTime z m.captured_at]
-                                        , dts "Camera Model"
-                                        , dd [] [text m.camera_model]
-                                        , dts "Dims"
-                                        , dd [] [text (String.fromInt m.width ++ "x" ++ String.fromInt m.height)]
-                                        , dts "Size"
-                                        , dd [] [text <| String.fromInt m.file_size ]
-                                        , dts "Type"
-                                        , dd [] [ text m.media_type ]
-                                        ]
-                                   ] ++ htmlIf (not (List.isEmpty dls))
-                                        [ul [ H.class "dls" ]
-                                            (h2 [] [text "Downloads"]
-                                            :: List.map (\d -> li []
-                                                             [a [ H.href d.url, H.title d.desc] [text d.name]])
-                                                dls)])
+renderOverlay z (mm, dls) =
+    case mm of
+        Nothing -> text "wtf"
+        Just m -> div [ H.class "details" ]
+                  ([h2 [] [ text (m.id) ]
+                   , img [ H.src ("/thumb/" ++ m.id) ] []
+                   , dl [ H.class "deets" ] [
+                         h2 [] [text "Details" ]
+                        , dts "Captured"
+                        , dd [ H.title (String.fromInt (Time.posixToMillis m.captured_at))]
+                             [text <| formatDay z m.captured_at ++ " " ++ formatTime z m.captured_at]
+                        , dts "Camera Model"
+                        , dd [] [text m.camera_model]
+                        , dts "Dims"
+                        , dd [] [text (String.fromInt m.width ++ "x" ++ String.fromInt m.height)]
+                        , dts "Size"
+                        , dd [] [text <| String.fromInt m.file_size ]
+                        , dts "Type"
+                        , dd [] [ text m.media_type ]
+                        ]
+                   ] ++ htmlIf (not (List.isEmpty dls))
+                       [ul [ H.class "dls" ]
+                            (h2 [] [text "Downloads"]
+                             :: List.map (\d -> li []
+                                                [a [ H.href d.url, H.title d.desc] [text d.name]])
+                                 dls)])
 
 
 init : () -> (Model, Cmd Msg)
 init _ =
-  ( Success emptyState
+  ( emptyState
   , Cmd.batch [Http.get
                    { url = "/api/media"
                    , expect = Http.expectJson SomeMedia mediaListDecoder
@@ -217,13 +214,8 @@ init _ =
                    Task.perform ZoneHere Time.here]
   )
 
-emptyState : RunningState
-emptyState = RunningState [] Time.utc ScreenOverlay.initOverlay (Nothing, []) Set.empty Dict.empty
-
-updRunning : Model -> RunningState
-updRunning m = case m of
-                   Success r -> r
-                   _ -> emptyState
+emptyState : Model
+emptyState = Model Nothing [] Time.utc ScreenOverlay.initOverlay (Nothing, []) Set.empty Dict.empty
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -231,8 +223,7 @@ update msg model =
         SomeMedia result ->
             case result of
                 Ok meds ->
-                    let r = updRunning model
-                        z = r.zone
+                    let z = model.zone
                         ymap = List.foldl (\x o -> Dict.update (Time.toYear z x.captured_at)
                                                    (\e -> Just <| case e of
                                                                       Nothing -> [x]
@@ -242,33 +233,29 @@ update msg model =
                                       Nothing -> Set.empty
                                       Just x -> Set.singleton x
                     in
-                    (Success {r | media = meds,
-                                  yearsChecked = maxYear,
-                                  yearsMap = ymap}, Cmd.none)
+                    ({model | media = meds,
+                          yearsChecked = maxYear,
+                          yearsMap = ymap}, Cmd.none)
 
                 Err x ->
-                    (Failure x, Cmd.none)
+                    ({model | httpError = Just  x}, Cmd.none)
 
         SomeDLOpts result ->
             case result of
                 Ok dls ->
-                    let r = updRunning model
-                        (m, _) = r.current in
-                    (Success {r | current = (m, dls)}, Cmd.none)
+                    let (m, _) = model.current in
+                    ({model | current = (m, dls)}, Cmd.none)
 
                 Err x ->
                     let fakedls = [DLOpts "" ("error fetching downloads: " ++ httpErrStr x) ""]
-                        r = updRunning model
-                        (m, _) = r.current in
-                    (Success {r | current = (m, fakedls)}, Cmd.none)
+                        (m, _) = model.current in
+                    ({model | current = (m, fakedls)}, Cmd.none)
 
         ZoneHere z ->
-            let r = updRunning model in
-            (Success {r | zone = z}, Cmd.none)
+            ({model | zone = z}, Cmd.none)
 
         OpenOverlay m ->
-            let r = updRunning model in
-            (Success { r | overlay = ScreenOverlay.show r.overlay, current = (Just m, []) },
+            ({ model | overlay = ScreenOverlay.show model.overlay, current = (Just m, []) },
                  Cmd.batch [lockScroll Nothing,
                             Http.get
                                 { url = "/api/retrieve2/" ++ m.id
@@ -276,12 +263,10 @@ update msg model =
                            }])
 
         CloseOverlay ->
-            let r = updRunning model in
-            (Success { r | overlay = ScreenOverlay.hide r.overlay }, unlockScroll Nothing )
+            ({ model | overlay = ScreenOverlay.hide model.overlay }, unlockScroll Nothing )
 
         CheckedYear y checked ->
-            let r = updRunning model in
-            (Success { r | yearsChecked = (if checked then Set.insert else Set.remove) y r.yearsChecked },
+            ({ model | yearsChecked = (if checked then Set.insert else Set.remove) y model.yearsChecked },
              Cmd.none)
 
 
