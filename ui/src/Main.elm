@@ -120,7 +120,11 @@ htmlIf : Bool -> List (Html Msg) -> List (Html Msg)
 htmlIf b l = if b then l else []
 
 comma : Int -> String
-comma = String.fromInt
+comma i = let seg x = String.padLeft (if x >= 1000 then 3 else 0) '0' (String.fromInt (modBy 1000 x))
+              parts = List.Extra.unfoldr (\x -> if x == 0
+                                                then Nothing
+                                                else Just (seg x, x // 1000)) i
+          in String.join "," (List.reverse parts)
 
 renderMediaList : RunningState -> Html Msg
 renderMediaList rs =
@@ -132,7 +136,7 @@ renderMediaList rs =
         [
          div [ H.class "header" ]
              [ div [ ] [ text (comma (List.length rs.media)),
-                         text " text totaling ",
+                         text " totaling ",
                          text (Filesize.format totalSize) ]],
          div [ H.class "media" ]
              (mediaHTML z groupies ++

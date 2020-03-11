@@ -4708,6 +4708,43 @@ var _Parser_findSubString = F5(function(smallString, offset, row, col, bigString
 });
 
 
+
+var _Bitwise_and = F2(function(a, b)
+{
+	return a & b;
+});
+
+var _Bitwise_or = F2(function(a, b)
+{
+	return a | b;
+});
+
+var _Bitwise_xor = F2(function(a, b)
+{
+	return a ^ b;
+});
+
+function _Bitwise_complement(a)
+{
+	return ~a;
+};
+
+var _Bitwise_shiftLeftBy = F2(function(offset, a)
+{
+	return a << offset;
+});
+
+var _Bitwise_shiftRightBy = F2(function(offset, a)
+{
+	return a >> offset;
+});
+
+var _Bitwise_shiftRightZfBy = F2(function(offset, a)
+{
+	return a >>> offset;
+});
+
+
 // CREATE
 
 var _Regex_never = /.^/;
@@ -4807,43 +4844,6 @@ var _Regex_splitAtMost = F3(function(n, re, str)
 });
 
 var _Regex_infinity = Infinity;
-
-
-
-var _Bitwise_and = F2(function(a, b)
-{
-	return a & b;
-});
-
-var _Bitwise_or = F2(function(a, b)
-{
-	return a | b;
-});
-
-var _Bitwise_xor = F2(function(a, b)
-{
-	return a ^ b;
-});
-
-function _Bitwise_complement(a)
-{
-	return ~a;
-};
-
-var _Bitwise_shiftLeftBy = F2(function(offset, a)
-{
-	return a << offset;
-});
-
-var _Bitwise_shiftRightBy = F2(function(offset, a)
-{
-	return a >> offset;
-});
-
-var _Bitwise_shiftRightZfBy = F2(function(offset, a)
-{
-	return a >>> offset;
-});
 var $elm$core$Basics$EQ = 1;
 var $elm$core$Basics$GT = 2;
 var $elm$core$Basics$LT = 0;
@@ -7578,7 +7578,72 @@ var $elm$html$Html$Attributes$stringProperty = F2(
 			$elm$json$Json$Encode$string(string));
 	});
 var $elm$html$Html$Attributes$class = $elm$html$Html$Attributes$stringProperty('className');
-var $author$project$Main$comma = $elm$core$String$fromInt;
+var $elm$core$Basics$ge = _Utils_ge;
+var $elm$core$String$cons = _String_cons;
+var $elm$core$String$fromChar = function (_char) {
+	return A2($elm$core$String$cons, _char, '');
+};
+var $elm$core$Bitwise$and = _Bitwise_and;
+var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
+var $elm$core$String$repeatHelp = F3(
+	function (n, chunk, result) {
+		return (n <= 0) ? result : A3(
+			$elm$core$String$repeatHelp,
+			n >> 1,
+			_Utils_ap(chunk, chunk),
+			(!(n & 1)) ? result : _Utils_ap(result, chunk));
+	});
+var $elm$core$String$repeat = F2(
+	function (n, chunk) {
+		return A3($elm$core$String$repeatHelp, n, chunk, '');
+	});
+var $elm$core$String$padLeft = F3(
+	function (n, _char, string) {
+		return _Utils_ap(
+			A2(
+				$elm$core$String$repeat,
+				n - $elm$core$String$length(string),
+				$elm$core$String$fromChar(_char)),
+			string);
+	});
+var $elm_community$list_extra$List$Extra$unfoldr = F2(
+	function (f, seed) {
+		var _v0 = f(seed);
+		if (_v0.$ === 1) {
+			return _List_Nil;
+		} else {
+			var _v1 = _v0.a;
+			var a = _v1.a;
+			var b = _v1.b;
+			return A2(
+				$elm$core$List$cons,
+				a,
+				A2($elm_community$list_extra$List$Extra$unfoldr, f, b));
+		}
+	});
+var $author$project$Main$comma = function (i) {
+	var seg = function (x) {
+		return A3(
+			$elm$core$String$padLeft,
+			(x >= 1000) ? 3 : 0,
+			'0',
+			$elm$core$String$fromInt(
+				A2($elm$core$Basics$modBy, 1000, x)));
+	};
+	var parts = A2(
+		$elm_community$list_extra$List$Extra$unfoldr,
+		function (x) {
+			return (!x) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
+				_Utils_Tuple2(
+					seg(x),
+					(x / 1000) | 0));
+		},
+		i);
+	return A2(
+		$elm$core$String$join,
+		',',
+		$elm$core$List$reverse(parts));
+};
 var $elm$html$Html$div = _VirtualDom_node('div');
 var $basti1302$elm_human_readable_filesize$Filesize$Base10 = 0;
 var $basti1302$elm_human_readable_filesize$Filesize$defaultSettings = {a2: 2, aP: '.', aL: 0};
@@ -7593,7 +7658,6 @@ var $elm$core$List$filter = F2(
 			_List_Nil,
 			list);
 	});
-var $elm$core$Basics$ge = _Utils_ge;
 var $basti1302$elm_human_readable_filesize$Filesize$base10UnitList = _List_fromArray(
 	[
 		{p: 'B', n: 1},
@@ -7700,7 +7764,6 @@ var $myrho$elm_round$Round$addSign = F2(
 			str);
 	});
 var $elm$core$String$fromFloat = _String_fromNumber;
-var $elm$core$String$cons = _String_cons;
 var $elm$core$Char$fromCode = _Char_fromCode;
 var $myrho$elm_round$Round$increaseNum = function (_v0) {
 	var head = _v0.a;
@@ -7735,23 +7798,6 @@ var $elm$core$Maybe$map = F2(
 		} else {
 			return $elm$core$Maybe$Nothing;
 		}
-	});
-var $elm$core$String$fromChar = function (_char) {
-	return A2($elm$core$String$cons, _char, '');
-};
-var $elm$core$Bitwise$and = _Bitwise_and;
-var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
-var $elm$core$String$repeatHelp = F3(
-	function (n, chunk, result) {
-		return (n <= 0) ? result : A3(
-			$elm$core$String$repeatHelp,
-			n >> 1,
-			_Utils_ap(chunk, chunk),
-			(!(n & 1)) ? result : _Utils_ap(result, chunk));
-	});
-var $elm$core$String$repeat = F2(
-	function (n, chunk) {
-		return A3($elm$core$String$repeatHelp, n, chunk, '');
 	});
 var $elm$core$String$padRight = F3(
 	function (n, _char, string) {
@@ -8128,15 +8174,6 @@ var $author$project$Main$monthStr = function (month) {
 			return 'Dec';
 	}
 };
-var $elm$core$String$padLeft = F3(
-	function (n, _char, string) {
-		return _Utils_ap(
-			A2(
-				$elm$core$String$repeat,
-				n - $elm$core$String$length(string),
-				$elm$core$String$fromChar(_char)),
-			string);
-	});
 var $elm$time$Time$flooredDiv = F2(
 	function (numerator, denominator) {
 		return $elm$core$Basics$floor(numerator / denominator);
@@ -11181,7 +11218,7 @@ var $author$project$Main$renderMediaList = function (rs) {
 								$elm$html$Html$text(
 								$author$project$Main$comma(
 									$elm$core$List$length(rs.an))),
-								$elm$html$Html$text(' text totaling '),
+								$elm$html$Html$text(' totaling '),
 								$elm$html$Html$text(
 								$basti1302$elm_human_readable_filesize$Filesize$format(totalSize))
 							]))
