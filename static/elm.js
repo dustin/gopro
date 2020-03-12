@@ -4844,6 +4844,10 @@ var _Regex_splitAtMost = F3(function(n, re, str)
 });
 
 var _Regex_infinity = Infinity;
+var $elm$core$Basics$always = F2(
+	function (a, _v0) {
+		return a;
+	});
 var $elm$core$Basics$EQ = 1;
 var $elm$core$Basics$GT = 2;
 var $elm$core$Basics$LT = 0;
@@ -6606,10 +6610,6 @@ var $elm$parser$Parser$Advanced$chompWhile = function (isGood) {
 	};
 };
 var $elm$parser$Parser$chompWhile = $elm$parser$Parser$Advanced$chompWhile;
-var $elm$core$Basics$always = F2(
-	function (a, _v0) {
-		return a;
-	});
 var $elm$parser$Parser$Advanced$mapChompedString = F2(
 	function (func, _v0) {
 		var parse = _v0;
@@ -7398,9 +7398,6 @@ var $author$project$Main$init = function (_v0) {
 };
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
-var $author$project$Main$subscriptions = function (model) {
-	return $elm$core$Platform$Sub$none;
-};
 var $author$project$Main$DLOpts = F3(
 	function (url, name, desc) {
 		return {bA: desc, bV: name, a0: url};
@@ -7420,7 +7417,7 @@ var $author$project$ScreenOverlay$hide = function (_v0) {
 	var styles = _v0.b;
 	return A2($author$project$ScreenOverlay$ScreenOverlay, 1, styles);
 };
-var $author$project$Main$httpErrStr = function (e) {
+var $author$project$Formats$httpErr = function (e) {
 	switch (e.$) {
 		case 0:
 			var u = e.a;
@@ -7635,7 +7632,7 @@ var $author$project$Main$update = F2(
 							A3(
 							$author$project$Main$DLOpts,
 							'',
-							'error fetching downloads: ' + $author$project$Main$httpErrStr(x),
+							'error fetching downloads: ' + $author$project$Formats$httpErr(x),
 							'')
 						]);
 					var _v6 = model.R;
@@ -7758,7 +7755,7 @@ var $elm_community$list_extra$List$Extra$unfoldr = F2(
 				A2($elm_community$list_extra$List$Extra$unfoldr, f, b));
 		}
 	});
-var $author$project$Main$comma = function (i) {
+var $author$project$Formats$comma = function (i) {
 	var seg = function (x) {
 		return A3(
 			$elm$core$String$padLeft,
@@ -7796,6 +7793,96 @@ var $elm$core$List$concatMap = F2(
 	function (f, list) {
 		return $elm$core$List$concat(
 			A2($elm$core$List$map, f, list));
+	});
+var $author$project$Formats$monthStr = function (month) {
+	switch (month) {
+		case 0:
+			return 'Jan';
+		case 1:
+			return 'Feb';
+		case 2:
+			return 'Mar';
+		case 3:
+			return 'Apr';
+		case 4:
+			return 'May';
+		case 5:
+			return 'Jun';
+		case 6:
+			return 'Jul';
+		case 7:
+			return 'Aug';
+		case 8:
+			return 'Sep';
+		case 9:
+			return 'Oct';
+		case 10:
+			return 'Nov';
+		default:
+			return 'Dec';
+	}
+};
+var $elm$time$Time$toDay = F2(
+	function (zone, time) {
+		return $elm$time$Time$toCivil(
+			A2($elm$time$Time$toAdjustedMinutes, zone, time)).bz;
+	});
+var $elm$time$Time$Apr = 3;
+var $elm$time$Time$Aug = 7;
+var $elm$time$Time$Dec = 11;
+var $elm$time$Time$Feb = 1;
+var $elm$time$Time$Jan = 0;
+var $elm$time$Time$Jul = 6;
+var $elm$time$Time$Jun = 5;
+var $elm$time$Time$Mar = 2;
+var $elm$time$Time$May = 4;
+var $elm$time$Time$Nov = 10;
+var $elm$time$Time$Oct = 9;
+var $elm$time$Time$Sep = 8;
+var $elm$time$Time$toMonth = F2(
+	function (zone, time) {
+		var _v0 = $elm$time$Time$toCivil(
+			A2($elm$time$Time$toAdjustedMinutes, zone, time)).bU;
+		switch (_v0) {
+			case 1:
+				return 0;
+			case 2:
+				return 1;
+			case 3:
+				return 2;
+			case 4:
+				return 3;
+			case 5:
+				return 4;
+			case 6:
+				return 5;
+			case 7:
+				return 6;
+			case 8:
+				return 7;
+			case 9:
+				return 8;
+			case 10:
+				return 9;
+			case 11:
+				return 10;
+			default:
+				return 11;
+		}
+	});
+var $author$project$Formats$day = F2(
+	function (z, t) {
+		var two = function (x) {
+			return A3(
+				$elm$core$String$padLeft,
+				2,
+				'0',
+				$elm$core$String$fromInt(x));
+		};
+		return $elm$core$String$fromInt(
+			A2($elm$time$Time$toYear, z, t)) + ('-' + ($author$project$Formats$monthStr(
+			A2($elm$time$Time$toMonth, z, t)) + ('-' + two(
+			A2($elm$time$Time$toDay, z, t)))));
 	});
 var $elm$html$Html$div = _VirtualDom_node('div');
 var $basti1302$elm_human_readable_filesize$Filesize$Base10 = 0;
@@ -8299,96 +8386,6 @@ var $basti1302$elm_human_readable_filesize$Filesize$format = function (num) {
 	var unit = _v0.b;
 	return size + (' ' + unit);
 };
-var $author$project$Main$monthStr = function (month) {
-	switch (month) {
-		case 0:
-			return 'Jan';
-		case 1:
-			return 'Feb';
-		case 2:
-			return 'Mar';
-		case 3:
-			return 'Apr';
-		case 4:
-			return 'May';
-		case 5:
-			return 'Jun';
-		case 6:
-			return 'Jul';
-		case 7:
-			return 'Aug';
-		case 8:
-			return 'Sep';
-		case 9:
-			return 'Oct';
-		case 10:
-			return 'Nov';
-		default:
-			return 'Dec';
-	}
-};
-var $elm$time$Time$toDay = F2(
-	function (zone, time) {
-		return $elm$time$Time$toCivil(
-			A2($elm$time$Time$toAdjustedMinutes, zone, time)).bz;
-	});
-var $elm$time$Time$Apr = 3;
-var $elm$time$Time$Aug = 7;
-var $elm$time$Time$Dec = 11;
-var $elm$time$Time$Feb = 1;
-var $elm$time$Time$Jan = 0;
-var $elm$time$Time$Jul = 6;
-var $elm$time$Time$Jun = 5;
-var $elm$time$Time$Mar = 2;
-var $elm$time$Time$May = 4;
-var $elm$time$Time$Nov = 10;
-var $elm$time$Time$Oct = 9;
-var $elm$time$Time$Sep = 8;
-var $elm$time$Time$toMonth = F2(
-	function (zone, time) {
-		var _v0 = $elm$time$Time$toCivil(
-			A2($elm$time$Time$toAdjustedMinutes, zone, time)).bU;
-		switch (_v0) {
-			case 1:
-				return 0;
-			case 2:
-				return 1;
-			case 3:
-				return 2;
-			case 4:
-				return 3;
-			case 5:
-				return 4;
-			case 6:
-				return 5;
-			case 7:
-				return 6;
-			case 8:
-				return 7;
-			case 9:
-				return 8;
-			case 10:
-				return 9;
-			case 11:
-				return 10;
-			default:
-				return 11;
-		}
-	});
-var $author$project$Main$formatDay = F2(
-	function (z, t) {
-		var two = function (x) {
-			return A3(
-				$elm$core$String$padLeft,
-				2,
-				'0',
-				$elm$core$String$fromInt(x));
-		};
-		return $elm$core$String$fromInt(
-			A2($elm$time$Time$toYear, z, t)) + ('-' + ($author$project$Main$monthStr(
-			A2($elm$time$Time$toMonth, z, t)) + ('-' + two(
-			A2($elm$time$Time$toDay, z, t)))));
-	});
 var $elm_community$list_extra$List$Extra$groupWhile = F2(
 	function (isSameGroup, items) {
 		return A3(
@@ -8426,7 +8423,8 @@ var $elm$html$Html$Lazy$lazy = $elm$virtual_dom$VirtualDom$lazy;
 var $author$project$Main$OpenOverlay = function (a) {
 	return {$: 3, a: a};
 };
-var $author$project$Main$formatMillis = function (i) {
+var $elm$html$Html$img = _VirtualDom_node('img');
+var $author$project$Formats$millis = function (i) {
 	var seg = function (x) {
 		return A3(
 			$elm$core$String$padLeft,
@@ -8449,7 +8447,6 @@ var $author$project$Main$formatMillis = function (i) {
 		':',
 		$elm$core$List$reverse(parts));
 };
-var $elm$html$Html$img = _VirtualDom_node('img');
 var $elm$virtual_dom$VirtualDom$Normal = function (a) {
 	return {$: 0, a: a};
 };
@@ -8511,7 +8508,7 @@ var $author$project$Main$mediumHTML = F2(
 							_List_fromArray(
 								[
 									$elm$html$Html$text(
-									$author$project$Main$formatMillis(t))
+									$author$project$Formats$millis(t))
 								]));
 					}
 				}()
@@ -8537,7 +8534,7 @@ var $author$project$Main$mediaHTML = F2(
 						_List_fromArray(
 							[
 								$elm$html$Html$text(
-								A2($author$project$Main$formatDay, z, theDay))
+								A2($author$project$Formats$day, z, theDay))
 							])),
 					A2(
 						$elm$core$List$map,
@@ -11083,6 +11080,17 @@ var $author$project$Main$dts = function (s) {
 				$elm$html$Html$text(s)
 			]));
 };
+var $elm$html$Html$Attributes$href = function (url) {
+	return A2(
+		$elm$html$Html$Attributes$stringProperty,
+		'href',
+		_VirtualDom_noJavaScriptUri(url));
+};
+var $author$project$Main$htmlIf = F2(
+	function (b, l) {
+		return b ? l : _List_Nil;
+	});
+var $elm$html$Html$li = _VirtualDom_node('li');
 var $elm$time$Time$toHour = F2(
 	function (zone, time) {
 		return A2(
@@ -11100,7 +11108,7 @@ var $elm$time$Time$toMinute = F2(
 			60,
 			A2($elm$time$Time$toAdjustedMinutes, zone, time));
 	});
-var $author$project$Main$formatTime = F2(
+var $author$project$Formats$time = F2(
 	function (z, t) {
 		return $elm$core$String$fromInt(
 			A2($elm$time$Time$toHour, z, t)) + (':' + A3(
@@ -11110,17 +11118,6 @@ var $author$project$Main$formatTime = F2(
 			$elm$core$String$fromInt(
 				A2($elm$time$Time$toMinute, z, t))));
 	});
-var $elm$html$Html$Attributes$href = function (url) {
-	return A2(
-		$elm$html$Html$Attributes$stringProperty,
-		'href',
-		_VirtualDom_noJavaScriptUri(url));
-};
-var $author$project$Main$htmlIf = F2(
-	function (b, l) {
-		return b ? l : _List_Nil;
-	});
-var $elm$html$Html$li = _VirtualDom_node('li');
 var $elm$html$Html$Attributes$title = $elm$html$Html$Attributes$stringProperty('title');
 var $elm$html$Html$ul = _VirtualDom_node('ul');
 var $author$project$Main$renderOverlay = F2(
@@ -11182,7 +11179,7 @@ var $author$project$Main$renderOverlay = F2(
 										_List_fromArray(
 											[
 												$elm$html$Html$text(
-												A2($author$project$Main$formatDay, z, m.Q) + (' ' + A2($author$project$Main$formatTime, z, m.Q)))
+												A2($author$project$Formats$day, z, m.Q) + (' ' + A2($author$project$Formats$time, z, m.Q)))
 											])),
 										$author$project$Main$dts('Camera Model'),
 										A2(
@@ -11207,7 +11204,7 @@ var $author$project$Main$renderOverlay = F2(
 										_List_fromArray(
 											[
 												$elm$html$Html$Attributes$title(
-												$author$project$Main$comma(m.a6))
+												$author$project$Formats$comma(m.a6))
 											]),
 										_List_fromArray(
 											[
@@ -11238,7 +11235,7 @@ var $author$project$Main$renderOverlay = F2(
 												_List_fromArray(
 													[
 														$elm$html$Html$text(
-														$author$project$Main$formatMillis(
+														$author$project$Formats$millis(
 															A2($elm$core$Maybe$withDefault, 0, m.bh)))
 													]))
 											]);
@@ -11400,8 +11397,8 @@ var $author$project$Main$renderMediaList = function (rs) {
 		F2(
 			function (a, b) {
 				return _Utils_eq(
-					A2($author$project$Main$formatDay, z, a.Q),
-					A2($author$project$Main$formatDay, z, b.Q));
+					A2($author$project$Formats$day, z, a.Q),
+					A2($author$project$Formats$day, z, b.Q));
 			}),
 		filty);
 	var totalSize = A3(
@@ -11434,7 +11431,7 @@ var $author$project$Main$renderMediaList = function (rs) {
 						_List_fromArray(
 							[
 								$elm$html$Html$text(
-								$author$project$Main$comma(
+								$author$project$Formats$comma(
 									$elm$core$List$length(filty))),
 								$elm$html$Html$text(' totaling '),
 								$elm$html$Html$text(
@@ -11477,11 +11474,16 @@ var $author$project$Main$view = function (model) {
 			_List_fromArray(
 				[
 					$elm$html$Html$text(
-					'I was unable to load the media: ' + $author$project$Main$httpErrStr(x))
+					'I was unable to load the media: ' + $author$project$Formats$httpErr(x))
 				]));
 	}
 };
 var $author$project$Main$main = $elm$browser$Browser$element(
-	{cL: $author$project$Main$init, c7: $author$project$Main$subscriptions, db: $author$project$Main$update, dd: $author$project$Main$view});
+	{
+		cL: $author$project$Main$init,
+		c7: $elm$core$Basics$always($elm$core$Platform$Sub$none),
+		db: $author$project$Main$update,
+		dd: $author$project$Main$view
+	});
 _Platform_export({'Main':{'init':$author$project$Main$main(
 	$elm$json$Json$Decode$succeed(0))(0)}});}(this));
