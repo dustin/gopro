@@ -2,7 +2,7 @@ module Media exposing (..)
 
 import Iso8601
 import Time
-import Json.Decode as Decode exposing (Decoder, int, string, float)
+import Json.Decode as Decode exposing (Decoder, int, string, nullable, float)
 import Json.Decode.Pipeline exposing (required, optional)
 
 type alias Medium =
@@ -14,12 +14,15 @@ type alias Medium =
     , moments_count : Int
     , ready_to_view : String
     , resolution : String
-    , source_duration : String
+    , source_duration : Maybe Int
     , media_type : String
     , token : String
     , width : Int
     , height : Int
     }
+
+stringInt : Decoder (Maybe Int)
+stringInt = Decode.oneOf [Decode.map String.toInt string, Decode.maybe int]
 
 mediaDecoder : Decoder Medium
 mediaDecoder =
@@ -32,7 +35,7 @@ mediaDecoder =
         |> required "moments_count" int
         |> required "ready_to_view" string
         |> optional "resolution" string ""
-        |> optional "source_duration" string ""
+        |> required "source_duration" stringInt
         |> optional "type" string "Unknown"
         |> required "token" string
         |> required "width" int

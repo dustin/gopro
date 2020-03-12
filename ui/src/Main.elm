@@ -175,6 +175,13 @@ view model =
 dts : String -> Html Msg
 dts s = dt [] [text s]
 
+formatMillis : Int -> String
+formatMillis i = let seg x = String.padLeft (if x >= 60 then 2 else 0) '0' (String.fromInt (modBy 60 x))
+                     parts = List.Extra.unfoldr (\x -> if x == 0
+                                                       then Nothing
+                                                       else Just (seg x, x // 60)) (i // 1000)
+                 in String.join ":" (List.reverse parts)
+
 renderOverlay : Time.Zone -> (Maybe Medium, List DLOpts) -> Html Msg
 renderOverlay z (mm, dls) =
     case mm of
@@ -182,7 +189,7 @@ renderOverlay z (mm, dls) =
         Just m -> div [ H.class "details" ]
                   ([h2 [] [ text (m.id) ]
                    , img [ H.src ("/thumb/" ++ m.id) ] []
-                   , dl [ H.class "deets" ] [
+                   , dl [ H.class "deets" ] ([
                          h2 [] [text "Details" ]
                         , dts "Captured"
                         , dd [ H.title (String.fromInt (Time.posixToMillis m.captured_at))]
@@ -195,7 +202,10 @@ renderOverlay z (mm, dls) =
                         , dd [] [text <| String.fromInt m.file_size ]
                         , dts "Type"
                         , dd [] [ text m.media_type ]
-                        ]
+                        ] ++ case m.source_duration of
+                                 Nothing -> []
+                                 Just x -> [ dts "Duration"
+                                           , dd [] [text (formatMillis (Maybe.withDefault 0 m.source_duration))]])
                    ] ++ htmlIf (not (List.isEmpty dls))
                        [ul [ H.class "dls" ]
                             (h2 [] [text "Downloads"]
