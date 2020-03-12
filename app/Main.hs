@@ -110,9 +110,8 @@ runSync stype = do
               notSeen = (`Set.notMember` seen) . _media_id
               listPred Incremental = all notSeen
               listPred Full        = const True
-              wanted Media{..} = (_media_ready_to_view == "transcoding"
-                                  || _media_ready_to_view == "ready")
-                                 && isJust _media_file_size
+              wanted Media{..} = isJust _media_file_size
+                                 && _media_ready_to_view `elem` ["transcoding", "ready"]
           storeSome tok db l = do
             logInfo $ "Storing batch of " <> tshow (length l)
             storeMedia db =<< fetch tok l
