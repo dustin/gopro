@@ -198,7 +198,7 @@ renderOverlay z (mm, dls) =
                         , dts "Dims"
                         , dd [] [text (String.fromInt m.width ++ "x" ++ String.fromInt m.height)]
                         , dts "Size"
-                        , dd [] [text <| String.fromInt m.file_size ]
+                        , dd [ H.title (comma m.file_size) ] [text <| Filesize.format m.file_size ]
                         , dts "Type"
                         , dd [] [ text m.media_type ]
                         ] ++ case m.source_duration of
