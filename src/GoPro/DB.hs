@@ -16,10 +16,10 @@ import           Database.SQLite.Simple.ToField
 import           GoPro                          (Media (..))
 
 createMediaStatement :: Query
-createMediaStatement = "create table if not exists media (media_id primary key, camera_model, captured_at, created_at, file_size, moments_count, resolution, source_duration, media_type, width, height, thumbnail)"
+createMediaStatement = "create table if not exists media (media_id primary key, camera_model, captured_at, created_at, file_size, moments_count, resolution, source_duration, media_type, width, height, ready_to_view, thumbnail)"
 
 insertMediaStatement :: Query
-insertMediaStatement = "insert into media (media_id, camera_model, captured_at, created_at, file_size, moments_count, resolution, source_duration, media_type, width, height, thumbnail) values(?,?,?,?,?,?,?,?,?,?,?,?)"
+insertMediaStatement = "insert into media (media_id, camera_model, captured_at, created_at, file_size, moments_count, resolution, source_duration, media_type, width, height, ready_to_view, thumbnail) values(?,?,?,?,?,?,?,?,?,?,?,?,?)"
 
 data MediaRow = MediaRow {
   _row_media     :: Media,
@@ -41,6 +41,7 @@ instance ToRow MediaRow where
     toField _media_type,
     toField _media_width,
     toField _media_height,
+    toField _media_ready_to_view,
     toField thumbnail
     ]
 
@@ -60,7 +61,7 @@ loadMediaIDs db = coerce <$> liftIO sel
 
 
 selectMediaStatement :: Query
-selectMediaStatement = "select media_id, camera_model, captured_at, created_at, file_size, moments_count, resolution, source_duration, media_type, width, height from media order by captured_at desc"
+selectMediaStatement = "select media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view, resolution, source_duration, media_type, width, height from media order by captured_at desc"
 
 instance FromRow Media where
   fromRow =
@@ -70,7 +71,7 @@ instance FromRow Media where
     <*> field -- _media_created_at
     <*> field -- _media_file_size
     <*> field -- _media_moments_count
-    <*>  pure "ready" -- _media_ready_to_view
+    <*> field -- _media_ready_to_view
     <*> field -- _media_resolution
     <*> field -- _media_source_duration
     <*> field -- _media_type

@@ -23,6 +23,7 @@ import           Control.Monad.Reader          (MonadReader, ReaderT (..), ask,
 import qualified Data.Aeson                    as J
 import qualified Data.HashMap.Strict           as HM
 import           Data.List.Extra               (chunksOf)
+import           Data.Maybe                    (isJust)
 import qualified Data.Set                      as Set
 import qualified Data.Text                     as T
 import qualified Data.Text.Lazy                as LT
@@ -103,12 +104,15 @@ runSync stype = do
   mapM_ (storeSome tok db) $ chunksOf 100 ms
 
     where resolve tok m = MediaRow m <$> fetchThumbnail tok m
-          todo tok seen = filter (\m@Media{..} -> notSeen m && _media_ready_to_view == "ready")
+          todo tok seen = filter (\m@Media{..} -> notSeen m && wanted m)
                           <$> listWhile tok (listPred stype)
             where
               notSeen = (`Set.notMember` seen) . _media_id
               listPred Incremental = all notSeen
               listPred Full        = const True
+              wanted Media{..} = (_media_ready_to_view == "transcoding"
+                                  || _media_ready_to_view == "ready")
+                                 && isJust _media_file_size
           storeSome tok db l = do
             logInfo $ "Storing batch of " <> tshow (length l)
             storeMedia db =<< fetch tok l

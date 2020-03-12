@@ -91,6 +91,12 @@ makeLenses ''PageInfo
 instance FromJSON PageInfo where
   parseJSON = genericParseJSON jsonOpts
 
+{-
+failure
+transcoding
+uploading
+-}
+
 data Media = Media {
   _media_id              :: String,
   _media_camera_model    :: Maybe String,
