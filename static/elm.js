@@ -784,11 +784,11 @@ function _Debug_crash_UNUSED(identifier, fact1, fact2, fact3, fact4)
 
 function _Debug_regionToString(region)
 {
-	if (region.bg.aE === region.bA.aE)
+	if (region.bh.aE === region.bB.aE)
 	{
-		return 'on line ' + region.bg.aE;
+		return 'on line ' + region.bh.aE;
 	}
-	return 'on lines ' + region.bg.aE + ' through ' + region.bA.aE;
+	return 'on lines ' + region.bh.aE + ' through ' + region.bB.aE;
 }
 
 
@@ -1857,9 +1857,9 @@ var _Platform_worker = F4(function(impl, flagDecoder, debugMetadata, args)
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.cM,
-		impl.dc,
-		impl.c8,
+		impl.cL,
+		impl.db,
+		impl.c7,
 		function() { return function() {} }
 	);
 });
@@ -2704,8 +2704,8 @@ var _VirtualDom_mapEventTuple = F2(function(func, tuple)
 var _VirtualDom_mapEventRecord = F2(function(func, record)
 {
 	return {
-		M: func(record.M),
-		bh: record.bh,
+		L: func(record.L),
+		bi: record.bi,
 		be: record.be
 	}
 });
@@ -2974,8 +2974,8 @@ function _VirtualDom_makeCallback(eventNode, initialHandler)
 		// 3 = Custom
 
 		var value = result.a;
-		var message = !tag ? value : tag < 3 ? value.a : value.M;
-		var stopPropagation = tag == 1 ? value.b : tag == 3 && value.bh;
+		var message = !tag ? value : tag < 3 ? value.a : value.L;
+		var stopPropagation = tag == 1 ? value.b : tag == 3 && value.bi;
 		var currentEventNode = (
 			stopPropagation && event.stopPropagation(),
 			(tag == 2 ? value.b : tag == 3 && value.be) && event.preventDefault(),
@@ -3928,11 +3928,11 @@ var _Browser_element = _Debugger_element || F4(function(impl, flagDecoder, debug
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.cM,
-		impl.dc,
-		impl.c8,
+		impl.cL,
+		impl.db,
+		impl.c7,
 		function(sendToApp, initialModel) {
-			var view = impl.de;
+			var view = impl.dd;
 			/**/
 			var domNode = args['node'];
 			//*/
@@ -3964,12 +3964,12 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.cM,
-		impl.dc,
-		impl.c8,
+		impl.cL,
+		impl.db,
+		impl.c7,
 		function(sendToApp, initialModel) {
 			var divertHrefToApp = impl.bf && impl.bf(sendToApp)
-			var view = impl.de;
+			var view = impl.dd;
 			var title = _VirtualDom_doc.title;
 			var bodyNode = _VirtualDom_doc.body;
 			var currNode = _VirtualDom_virtualize(bodyNode);
@@ -3977,12 +3977,12 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 			{
 				_VirtualDom_divertHrefToApp = divertHrefToApp;
 				var doc = view(model);
-				var nextNode = _VirtualDom_node('body')(_List_Nil)(doc.cx);
+				var nextNode = _VirtualDom_node('body')(_List_Nil)(doc.cv);
 				var patches = _VirtualDom_diff(currNode, nextNode);
 				bodyNode = _VirtualDom_applyPatches(bodyNode, currNode, patches, sendToApp);
 				currNode = nextNode;
 				_VirtualDom_divertHrefToApp = 0;
-				(title !== doc.da) && (_VirtualDom_doc.title = title = doc.da);
+				(title !== doc.c9) && (_VirtualDom_doc.title = title = doc.c9);
 			});
 		}
 	);
@@ -4038,8 +4038,8 @@ function _Browser_makeAnimator(model, draw)
 
 function _Browser_application(impl)
 {
-	var onUrlChange = impl.cW;
-	var onUrlRequest = impl.cX;
+	var onUrlChange = impl.cV;
+	var onUrlRequest = impl.cW;
 	var key = function() { key.a(onUrlChange(_Browser_getUrl())); };
 
 	return _Browser_document({
@@ -4069,13 +4069,13 @@ function _Browser_application(impl)
 				}
 			});
 		},
-		cM: function(flags)
+		cL: function(flags)
 		{
-			return A3(impl.cM, flags, _Browser_getUrl(), key);
+			return A3(impl.cL, flags, _Browser_getUrl(), key);
 		},
-		de: impl.de,
-		dc: impl.dc,
-		c8: impl.c8
+		dd: impl.dd,
+		db: impl.db,
+		c7: impl.c7
 	});
 }
 
@@ -4141,17 +4141,17 @@ var _Browser_decodeEvent = F2(function(decoder, event)
 function _Browser_visibilityInfo()
 {
 	return (typeof _VirtualDom_doc.hidden !== 'undefined')
-		? { cI: 'hidden', cA: 'visibilitychange' }
+		? { cH: 'hidden', cy: 'visibilitychange' }
 		:
 	(typeof _VirtualDom_doc.mozHidden !== 'undefined')
-		? { cI: 'mozHidden', cA: 'mozvisibilitychange' }
+		? { cH: 'mozHidden', cy: 'mozvisibilitychange' }
 		:
 	(typeof _VirtualDom_doc.msHidden !== 'undefined')
-		? { cI: 'msHidden', cA: 'msvisibilitychange' }
+		? { cH: 'msHidden', cy: 'msvisibilitychange' }
 		:
 	(typeof _VirtualDom_doc.webkitHidden !== 'undefined')
-		? { cI: 'webkitHidden', cA: 'webkitvisibilitychange' }
-		: { cI: 'hidden', cA: 'visibilitychange' };
+		? { cH: 'webkitHidden', cy: 'webkitvisibilitychange' }
+		: { cH: 'hidden', cy: 'visibilitychange' };
 }
 
 
@@ -4233,11 +4233,11 @@ function _Browser_getViewport()
 {
 	return {
 		cb: _Browser_getScene(),
-		co: {
-			cq: _Browser_window.pageXOffset,
-			cr: _Browser_window.pageYOffset,
-			cp: _Browser_doc.documentElement.clientWidth,
-			bJ: _Browser_doc.documentElement.clientHeight
+		cn: {
+			co: _Browser_window.pageXOffset,
+			cp: _Browser_window.pageYOffset,
+			de: _Browser_doc.documentElement.clientWidth,
+			cG: _Browser_doc.documentElement.clientHeight
 		}
 	};
 }
@@ -4247,8 +4247,8 @@ function _Browser_getScene()
 	var body = _Browser_doc.body;
 	var elem = _Browser_doc.documentElement;
 	return {
-		cp: Math.max(body.scrollWidth, body.offsetWidth, elem.scrollWidth, elem.offsetWidth, elem.clientWidth),
-		bJ: Math.max(body.scrollHeight, body.offsetHeight, elem.scrollHeight, elem.offsetHeight, elem.clientHeight)
+		de: Math.max(body.scrollWidth, body.offsetWidth, elem.scrollWidth, elem.offsetWidth, elem.clientWidth),
+		cG: Math.max(body.scrollHeight, body.offsetHeight, elem.scrollHeight, elem.offsetHeight, elem.clientHeight)
 	};
 }
 
@@ -4272,14 +4272,14 @@ function _Browser_getViewportOf(id)
 	{
 		return {
 			cb: {
-				cp: node.scrollWidth,
-				bJ: node.scrollHeight
+				de: node.scrollWidth,
+				cG: node.scrollHeight
 			},
-			co: {
-				cq: node.scrollLeft,
-				cr: node.scrollTop,
-				cp: node.clientWidth,
-				bJ: node.clientHeight
+			cn: {
+				co: node.scrollLeft,
+				cp: node.scrollTop,
+				de: node.clientWidth,
+				cG: node.clientHeight
 			}
 		};
 	});
@@ -4310,17 +4310,17 @@ function _Browser_getElement(id)
 		var y = _Browser_window.pageYOffset;
 		return {
 			cb: _Browser_getScene(),
-			co: {
-				cq: x,
-				cr: y,
-				cp: _Browser_doc.documentElement.clientWidth,
-				bJ: _Browser_doc.documentElement.clientHeight
+			cn: {
+				co: x,
+				cp: y,
+				de: _Browser_doc.documentElement.clientWidth,
+				cG: _Browser_doc.documentElement.clientHeight
 			},
-			cG: {
-				cq: x + rect.left,
-				cr: y + rect.top,
-				cp: rect.width,
-				bJ: rect.height
+			cE: {
+				co: x + rect.left,
+				cp: y + rect.top,
+				de: rect.width,
+				cG: rect.height
 			}
 		};
 	});
@@ -4365,25 +4365,25 @@ var _Http_toTask = F3(function(router, toTask, request)
 	return _Scheduler_binding(function(callback)
 	{
 		function done(response) {
-			callback(toTask(request.bC.a(response)));
+			callback(toTask(request.bD.a(response)));
 		}
 
 		var xhr = new XMLHttpRequest();
 		xhr.addEventListener('error', function() { done($elm$http$Http$NetworkError_); });
 		xhr.addEventListener('timeout', function() { done($elm$http$Http$Timeout_); });
-		xhr.addEventListener('load', function() { done(_Http_toResponse(request.bC.b, xhr)); });
-		$elm$core$Maybe$isJust(request.ck) && _Http_track(router, xhr, request.ck.a);
+		xhr.addEventListener('load', function() { done(_Http_toResponse(request.bD.b, xhr)); });
+		$elm$core$Maybe$isJust(request.cj) && _Http_track(router, xhr, request.cj.a);
 
 		try {
-			xhr.open(request.cR, request.a0, true);
+			xhr.open(request.cQ, request.a0, true);
 		} catch (e) {
 			return done($elm$http$Http$BadUrl_(request.a0));
 		}
 
 		_Http_configureRequest(xhr, request);
 
-		request.cx.a && xhr.setRequestHeader('Content-Type', request.cx.a);
-		xhr.send(request.cx.b);
+		request.cv.a && xhr.setRequestHeader('Content-Type', request.cv.a);
+		xhr.send(request.cv.b);
 
 		return function() { xhr.c = true; xhr.abort(); };
 	});
@@ -4394,13 +4394,13 @@ var _Http_toTask = F3(function(router, toTask, request)
 
 function _Http_configureRequest(xhr, request)
 {
-	for (var headers = request.bI; headers.b; headers = headers.b) // WHILE_CONS
+	for (var headers = request.bJ; headers.b; headers = headers.b) // WHILE_CONS
 	{
 		xhr.setRequestHeader(headers.a.a, headers.a.b);
 	}
-	xhr.timeout = request.c9.a || 0;
-	xhr.responseType = request.bC.d;
-	xhr.withCredentials = request.cu;
+	xhr.timeout = request.c8.a || 0;
+	xhr.responseType = request.bD.d;
+	xhr.withCredentials = request.cs;
 }
 
 
@@ -4422,9 +4422,9 @@ function _Http_toMetadata(xhr)
 {
 	return {
 		a0: xhr.responseURL,
-		c5: xhr.status,
-		c6: xhr.statusText,
-		bI: _Http_parseHeaders(xhr.getAllResponseHeaders())
+		c4: xhr.status,
+		c5: xhr.statusText,
+		bJ: _Http_parseHeaders(xhr.getAllResponseHeaders())
 	};
 }
 
@@ -4519,14 +4519,14 @@ function _Http_track(router, xhr, tracker)
 	xhr.upload.addEventListener('progress', function(event) {
 		if (xhr.c) { return; }
 		_Scheduler_rawSpawn(A2($elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, $elm$http$Http$Sending({
-			c4: event.loaded,
+			c3: event.loaded,
 			cd: event.total
 		}))));
 	});
 	xhr.addEventListener('progress', function(event) {
 		if (xhr.c) { return; }
 		_Scheduler_rawSpawn(A2($elm$core$Platform$sendToSelf, router, _Utils_Tuple2(tracker, $elm$http$Http$Receiving({
-			c$: event.loaded,
+			c_: event.loaded,
 			cd: event.lengthComputable ? $elm$core$Maybe$Just(event.total) : $elm$core$Maybe$Nothing
 		}))));
 	});
@@ -4752,8 +4752,8 @@ var _Regex_never = /.^/;
 var _Regex_fromStringWith = F2(function(options, string)
 {
 	var flags = 'g';
-	if (options.cU) { flags += 'm'; }
-	if (options.cz) { flags += 'i'; }
+	if (options.cT) { flags += 'm'; }
+	if (options.cx) { flags += 'i'; }
 
 	try
 	{
@@ -5348,7 +5348,7 @@ var $elm$url$Url$Http = 0;
 var $elm$url$Url$Https = 1;
 var $elm$url$Url$Url = F6(
 	function (protocol, host, port_, path, query, fragment) {
-		return {bH: fragment, bL: host, bY: path, b_: port_, b2: protocol, b3: query};
+		return {bI: fragment, bL: host, bY: path, b_: port_, b2: protocol, b3: query};
 	});
 var $elm$core$String$contains = _String_contains;
 var $elm$core$String$length = _String_length;
@@ -6252,7 +6252,7 @@ var $elm$http$Http$resolve = F2(
 			case 3:
 				var metadata = response.a;
 				return $elm$core$Result$Err(
-					$elm$http$Http$BadStatus(metadata.c5));
+					$elm$http$Http$BadStatus(metadata.c4));
 			default:
 				var body = response.b;
 				return A2(
@@ -6280,7 +6280,7 @@ var $elm$http$Http$Request = function (a) {
 };
 var $elm$http$Http$State = F2(
 	function (reqs, subs) {
-		return {b6: reqs, ch: subs};
+		return {b6: reqs, cg: subs};
 	});
 var $elm$http$Http$init = $elm$core$Task$succeed(
 	A2($elm$http$Http$State, $elm$core$Dict$empty, _List_Nil));
@@ -6324,7 +6324,7 @@ var $elm$http$Http$updateReqs = F3(
 					return A2(
 						$elm$core$Task$andThen,
 						function (pid) {
-							var _v4 = req.ck;
+							var _v4 = req.cj;
 							if (_v4.$ === 1) {
 								return A3($elm$http$Http$updateReqs, router, otherCmds, reqs);
 							} else {
@@ -6397,7 +6397,7 @@ var $elm$http$Http$onSelfMsg = F3(
 				A2(
 					$elm$core$List$filterMap,
 					A3($elm$http$Http$maybeSend, router, tracker, progress),
-					state.ch)));
+					state.cg)));
 	});
 var $elm$http$Http$Cancel = function (a) {
 	return {$: 0, a: a};
@@ -6411,13 +6411,13 @@ var $elm$http$Http$cmdMap = F2(
 			var r = cmd.a;
 			return $elm$http$Http$Request(
 				{
-					cu: r.cu,
-					cx: r.cx,
-					bC: A2(_Http_mapExpect, func, r.bC),
-					bI: r.bI,
-					cR: r.cR,
-					c9: r.c9,
-					ck: r.ck,
+					cs: r.cs,
+					cv: r.cv,
+					bD: A2(_Http_mapExpect, func, r.bD),
+					bJ: r.bJ,
+					cQ: r.cQ,
+					c8: r.c8,
+					cj: r.cj,
 					a0: r.a0
 				});
 		}
@@ -6441,11 +6441,11 @@ var $elm$http$Http$subscription = _Platform_leaf('Http');
 var $elm$http$Http$request = function (r) {
 	return $elm$http$Http$command(
 		$elm$http$Http$Request(
-			{cu: false, cx: r.cx, bC: r.bC, bI: r.bI, cR: r.cR, c9: r.c9, ck: r.ck, a0: r.a0}));
+			{cs: false, cv: r.cv, bD: r.bD, bJ: r.bJ, cQ: r.cQ, c8: r.c8, cj: r.cj, a0: r.a0}));
 };
 var $elm$http$Http$get = function (r) {
 	return $elm$http$Http$request(
-		{cx: $elm$http$Http$emptyBody, bC: r.bC, bI: _List_Nil, cR: 'GET', c9: $elm$core$Maybe$Nothing, ck: $elm$core$Maybe$Nothing, a0: r.a0});
+		{cv: $elm$http$Http$emptyBody, bD: r.bD, bJ: _List_Nil, cQ: 'GET', c8: $elm$core$Maybe$Nothing, cj: $elm$core$Maybe$Nothing, a0: r.a0});
 };
 var $elm$time$Time$Name = function (a) {
 	return {$: 0, a: a};
@@ -6469,7 +6469,7 @@ var $author$project$Media$Medium = function (id) {
 										return function (token) {
 											return function (width) {
 												return function (height) {
-													return {cy: camera_model, H: captured_at, cC: created_at, bF: file_size, bJ: height, aS: id, cQ: media_type, cT: moments_count, c_: ready_to_view, c0: resolution, cf: source_duration, db: token, cp: width};
+													return {cw: camera_model, Q: captured_at, cA: created_at, bG: file_size, cG: height, aS: id, cP: media_type, cS: moments_count, cZ: ready_to_view, c$: resolution, bg: source_duration, da: token, de: width};
 												};
 											};
 										};
@@ -6535,7 +6535,7 @@ var $elm$parser$Parser$Advanced$AddRight = F2(
 	});
 var $elm$parser$Parser$Advanced$DeadEnd = F4(
 	function (row, col, problem, contextStack) {
-		return {bw: col, cB: contextStack, b$: problem, ca: row};
+		return {bx: col, cz: contextStack, b$: problem, ca: row};
 	});
 var $elm$parser$Parser$Advanced$Empty = {$: 0};
 var $elm$parser$Parser$Advanced$fromState = F2(
@@ -6543,7 +6543,7 @@ var $elm$parser$Parser$Advanced$fromState = F2(
 		return A2(
 			$elm$parser$Parser$Advanced$AddRight,
 			$elm$parser$Parser$Advanced$Empty,
-			A4($elm$parser$Parser$Advanced$DeadEnd, s.ca, s.bw, x, s.f));
+			A4($elm$parser$Parser$Advanced$DeadEnd, s.ca, s.bx, x, s.f));
 	});
 var $elm$parser$Parser$Advanced$end = function (x) {
 	return function (s) {
@@ -6570,7 +6570,7 @@ var $elm$parser$Parser$Advanced$chompWhileHelp = F5(
 					$elm$parser$Parser$Advanced$Good,
 					_Utils_cmp(s0.b, offset) < 0,
 					0,
-					{bw: col, f: s0.f, g: s0.g, b: offset, ca: row, a: s0.a});
+					{bx: col, f: s0.f, g: s0.g, b: offset, ca: row, a: s0.a});
 			} else {
 				if (_Utils_eq(newOffset, -2)) {
 					var $temp$isGood = isGood,
@@ -6602,7 +6602,7 @@ var $elm$parser$Parser$Advanced$chompWhileHelp = F5(
 	});
 var $elm$parser$Parser$Advanced$chompWhile = function (isGood) {
 	return function (s) {
-		return A5($elm$parser$Parser$Advanced$chompWhileHelp, isGood, s.b, s.ca, s.bw, s);
+		return A5($elm$parser$Parser$Advanced$chompWhileHelp, isGood, s.b, s.ca, s.bx, s);
 	};
 };
 var $elm$parser$Parser$chompWhile = $elm$parser$Parser$Advanced$chompWhile;
@@ -6790,11 +6790,11 @@ var $elm$parser$Parser$Advanced$chompIf = F2(
 				$elm$parser$Parser$Advanced$Good,
 				true,
 				0,
-				{bw: 1, f: s.f, g: s.g, b: s.b + 1, ca: s.ca + 1, a: s.a}) : A3(
+				{bx: 1, f: s.f, g: s.g, b: s.b + 1, ca: s.ca + 1, a: s.a}) : A3(
 				$elm$parser$Parser$Advanced$Good,
 				true,
 				0,
-				{bw: s.bw + 1, f: s.f, g: s.g, b: newOffset, ca: s.ca, a: s.a}));
+				{bx: s.bx + 1, f: s.f, g: s.g, b: newOffset, ca: s.ca, a: s.a}));
 		};
 	});
 var $elm$parser$Parser$chompIf = function (isGood) {
@@ -6930,7 +6930,7 @@ var $elm$parser$Parser$Advanced$token = function (_v0) {
 	var expecting = _v0.b;
 	var progress = !$elm$core$String$isEmpty(str);
 	return function (s) {
-		var _v1 = A5($elm$parser$Parser$Advanced$isSubString, str, s.b, s.ca, s.bw, s.a);
+		var _v1 = A5($elm$parser$Parser$Advanced$isSubString, str, s.b, s.ca, s.bx, s.a);
 		var newOffset = _v1.a;
 		var newRow = _v1.b;
 		var newCol = _v1.c;
@@ -6941,7 +6941,7 @@ var $elm$parser$Parser$Advanced$token = function (_v0) {
 			$elm$parser$Parser$Advanced$Good,
 			progress,
 			0,
-			{bw: newCol, f: s.f, g: s.g, b: newOffset, ca: newRow, a: s.a});
+			{bx: newCol, f: s.f, g: s.g, b: newOffset, ca: newRow, a: s.a});
 	};
 };
 var $elm$parser$Parser$Advanced$symbol = $elm$parser$Parser$Advanced$token;
@@ -7180,10 +7180,10 @@ var $rtfeldman$elm_iso8601_date_strings$Iso8601$iso8601 = A2(
 	$rtfeldman$elm_iso8601_date_strings$Iso8601$monthYearDayInMs);
 var $elm$parser$Parser$DeadEnd = F3(
 	function (row, col, problem) {
-		return {bw: col, b$: problem, ca: row};
+		return {bx: col, b$: problem, ca: row};
 	});
 var $elm$parser$Parser$problemToDeadEnd = function (p) {
-	return A3($elm$parser$Parser$DeadEnd, p.ca, p.bw, p.b$);
+	return A3($elm$parser$Parser$DeadEnd, p.ca, p.bx, p.b$);
 };
 var $elm$parser$Parser$Advanced$bagToList = F2(
 	function (bag, list) {
@@ -7215,7 +7215,7 @@ var $elm$parser$Parser$Advanced$run = F2(
 	function (_v0, src) {
 		var parse = _v0;
 		var _v1 = parse(
-			{bw: 1, f: _List_Nil, g: 1, b: 0, ca: 1, a: src});
+			{bx: 1, f: _List_Nil, g: 1, b: 0, ca: 1, a: src});
 		if (!_v1.$) {
 			var value = _v1.b;
 			return $elm$core$Result$Ok(value);
@@ -7390,7 +7390,7 @@ var $author$project$Main$init = function (_v0) {
 				[
 					$elm$http$Http$get(
 					{
-						bC: A2($elm$http$Http$expectJson, $author$project$Main$SomeMedia, $author$project$Media$mediaListDecoder),
+						bD: A2($elm$http$Http$expectJson, $author$project$Main$SomeMedia, $author$project$Media$mediaListDecoder),
 						a0: '/api/media'
 					}),
 					A2($elm$core$Task$perform, $author$project$Main$ZoneHere, $elm$time$Time$here)
@@ -7403,7 +7403,7 @@ var $author$project$Main$subscriptions = function (model) {
 };
 var $author$project$Main$DLOpts = F3(
 	function (url, name, desc) {
-		return {by: desc, bV: name, a0: url};
+		return {bz: desc, bV: name, a0: url};
 	});
 var $author$project$Main$SomeDLOpts = function (a) {
 	return {$: 1, a: a};
@@ -7503,7 +7503,7 @@ var $elm$time$Time$toAdjustedMinutesHelp = F3(
 			} else {
 				var era = eras.a;
 				var olderEras = eras.b;
-				if (_Utils_cmp(era.bg, posixMinutes) < 0) {
+				if (_Utils_cmp(era.bh, posixMinutes) < 0) {
 					return posixMinutes + era.b;
 				} else {
 					var $temp$defaultOffset = defaultOffset,
@@ -7541,15 +7541,15 @@ var $elm$time$Time$toCivil = function (minutes) {
 	var month = mp + ((mp < 10) ? 3 : (-9));
 	var year = yearOfEra + (era * 400);
 	return {
-		bx: (dayOfYear - ((((153 * mp) + 2) / 5) | 0)) + 1,
+		by: (dayOfYear - ((((153 * mp) + 2) / 5) | 0)) + 1,
 		bU: month,
-		cs: year + ((month <= 2) ? 1 : 0)
+		cq: year + ((month <= 2) ? 1 : 0)
 	};
 };
 var $elm$time$Time$toYear = F2(
 	function (zone, time) {
 		return $elm$time$Time$toCivil(
-			A2($elm$time$Time$toAdjustedMinutes, zone, time)).cs;
+			A2($elm$time$Time$toAdjustedMinutes, zone, time)).cq;
 	});
 var $author$project$Main$unlockScroll = _Platform_outgoingPort(
 	'unlockScroll',
@@ -7570,7 +7570,7 @@ var $author$project$Main$update = F2(
 							function (x, o) {
 								return A3(
 									$elm$core$Dict$update,
-									A2($elm$time$Time$toYear, z, x.H),
+									A2($elm$time$Time$toYear, z, x.Q),
 									function (e) {
 										return $elm$core$Maybe$Just(
 											function () {
@@ -7672,7 +7672,7 @@ var $author$project$Main$update = F2(
 								$author$project$Main$lockScroll($elm$core$Maybe$Nothing),
 								$elm$http$Http$get(
 								{
-									bC: A2($elm$http$Http$expectJson, $author$project$Main$SomeDLOpts, $author$project$Main$dloptsDecoder),
+									bD: A2($elm$http$Http$expectJson, $author$project$Main$SomeDLOpts, $author$project$Main$dloptsDecoder),
 									a0: '/api/retrieve2/' + m.aS
 								})
 							])));
@@ -7848,13 +7848,13 @@ var $elm$core$List$head = function (list) {
 };
 var $elm$regex$Regex$Match = F4(
 	function (match, index, number, submatches) {
-		return {cL: index, cP: match, cV: number, c7: submatches};
+		return {cK: index, cO: match, cU: number, c6: submatches};
 	});
 var $elm$regex$Regex$fromStringWith = _Regex_fromStringWith;
 var $elm$regex$Regex$fromString = function (string) {
 	return A2(
 		$elm$regex$Regex$fromStringWith,
-		{cz: false, cU: false},
+		{cx: false, cT: false},
 		string);
 };
 var $elm$regex$Regex$never = _Regex_never;
@@ -8246,7 +8246,7 @@ var $basti1302$elm_human_readable_filesize$Filesize$roundToDecimalPlaces = F2(
 			1,
 			$basti1302$elm_human_readable_filesize$Filesize$removeTrailingZeroesRegex,
 			function (_v1) {
-				var submatches = _v1.c7;
+				var submatches = _v1.c6;
 				return A2(
 					$elm$core$String$join,
 					'',
@@ -8330,7 +8330,7 @@ var $author$project$Main$monthStr = function (month) {
 var $elm$time$Time$toDay = F2(
 	function (zone, time) {
 		return $elm$time$Time$toCivil(
-			A2($elm$time$Time$toAdjustedMinutes, zone, time)).bx;
+			A2($elm$time$Time$toAdjustedMinutes, zone, time)).by;
 	});
 var $elm$time$Time$Apr = 3;
 var $elm$time$Time$Aug = 7;
@@ -8426,33 +8426,29 @@ var $elm$html$Html$Lazy$lazy = $elm$virtual_dom$VirtualDom$lazy;
 var $author$project$Main$OpenOverlay = function (a) {
 	return {$: 3, a: a};
 };
-var $elm$time$Time$toHour = F2(
-	function (zone, time) {
-		return A2(
-			$elm$core$Basics$modBy,
-			24,
-			A2(
-				$elm$time$Time$flooredDiv,
-				A2($elm$time$Time$toAdjustedMinutes, zone, time),
-				60));
-	});
-var $elm$time$Time$toMinute = F2(
-	function (zone, time) {
-		return A2(
-			$elm$core$Basics$modBy,
-			60,
-			A2($elm$time$Time$toAdjustedMinutes, zone, time));
-	});
-var $author$project$Main$formatTime = F2(
-	function (z, t) {
-		return $elm$core$String$fromInt(
-			A2($elm$time$Time$toHour, z, t)) + (':' + A3(
+var $author$project$Main$formatMillis = function (i) {
+	var seg = function (x) {
+		return A3(
 			$elm$core$String$padLeft,
-			2,
+			(x >= 60) ? 2 : 0,
 			'0',
 			$elm$core$String$fromInt(
-				A2($elm$time$Time$toMinute, z, t))));
-	});
+				A2($elm$core$Basics$modBy, 60, x)));
+	};
+	var parts = A2(
+		$elm_community$list_extra$List$Extra$unfoldr,
+		function (x) {
+			return (!x) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
+				_Utils_Tuple2(
+					seg(x),
+					(x / 60) | 0));
+		},
+		(i / 1000) | 0);
+	return A2(
+		$elm$core$String$join,
+		':',
+		$elm$core$List$reverse(parts));
+};
 var $elm$html$Html$img = _VirtualDom_node('img');
 var $elm$virtual_dom$VirtualDom$Normal = function (a) {
 	return {$: 0, a: a};
@@ -8493,35 +8489,32 @@ var $author$project$Main$mediumHTML = F2(
 			_List_fromArray(
 				[
 					A2(
-					$elm$html$Html$div,
-					_List_fromArray(
-						[
-							$elm$html$Html$Attributes$class('time')
-						]),
-					_List_fromArray(
-						[
-							$elm$html$Html$text(
-							A2($author$project$Main$formatTime, z, m.H)),
-							A2(
-							$elm$html$Html$span,
-							_List_fromArray(
-								[
-									$elm$html$Html$Attributes$class('dims')
-								]),
-							_List_fromArray(
-								[
-									$elm$html$Html$text(
-									$elm$core$String$fromInt(m.cp) + ('x' + $elm$core$String$fromInt(m.bJ)))
-								]))
-						])),
-					A2(
 					$elm$html$Html$img,
 					_List_fromArray(
 						[
 							$elm$html$Html$Attributes$class('thumb'),
 							$elm$html$Html$Attributes$src('/thumb/' + m.aS)
 						]),
-					_List_Nil)
+					_List_Nil),
+					function () {
+					var _v0 = m.bg;
+					if (_v0.$ === 1) {
+						return $elm$html$Html$text('');
+					} else {
+						var t = _v0.a;
+						return A2(
+							$elm$html$Html$span,
+							_List_fromArray(
+								[
+									$elm$html$Html$Attributes$class('duration')
+								]),
+							_List_fromArray(
+								[
+									$elm$html$Html$text(
+									$author$project$Main$formatMillis(t))
+								]));
+					}
+				}()
 				]));
 	});
 var $author$project$Main$mediaHTML = F2(
@@ -8529,7 +8522,7 @@ var $author$project$Main$mediaHTML = F2(
 		var oneDay = function (_v0) {
 			var first = _v0.a;
 			var rest = _v0.b;
-			var theDay = first.H;
+			var theDay = first.Q;
 			return A2(
 				$elm$html$Html$div,
 				_List_fromArray(
@@ -8605,19 +8598,19 @@ var $rtfeldman$elm_css$Css$Structure$Compatible = 0;
 var $rtfeldman$elm_css$Css$Internal$lengthConverter = F3(
 	function (units, unitLabel, numericValue) {
 		return {
-			bj: 0,
-			bt: 0,
+			bk: 0,
+			bu: 0,
 			ag: 0,
 			r: 0,
 			aD: 0,
 			ak: 0,
-			L: 0,
+			K: 0,
 			al: 0,
 			am: 0,
 			U: 0,
 			V: 0,
 			C: 0,
-			N: numericValue,
+			M: numericValue,
 			as: 0,
 			au: unitLabel,
 			aL: units,
@@ -8632,7 +8625,7 @@ var $rtfeldman$elm_css$Css$relative = {aF: 0, E: 'relative'};
 var $rtfeldman$elm_css$Css$RemUnits = 0;
 var $rtfeldman$elm_css$Css$rem = A2($rtfeldman$elm_css$Css$Internal$lengthConverter, 0, 'rem');
 var $rtfeldman$elm_css$Css$UnitlessInteger = 0;
-var $rtfeldman$elm_css$Css$zero = {aD: 0, ak: 0, L: 0, al: 0, am: 0, U: 0, V: 0, cV: 0, N: 0, aX: 0, au: '', aL: 0, E: '0'};
+var $rtfeldman$elm_css$Css$zero = {aD: 0, ak: 0, K: 0, al: 0, am: 0, U: 0, V: 0, cU: 0, M: 0, aX: 0, au: '', aL: 0, E: '0'};
 var $author$project$ScreenOverlay$contentStyle = function (onScreen) {
 	return $rtfeldman$elm_css$Css$batch(
 		_List_fromArray(
@@ -8709,8 +8702,8 @@ var $rtfeldman$elm_css$Css$Structure$compactHelp = F2(
 					A2($elm$core$List$cons, declaration, declarations));
 			case 6:
 				var record = declaration.a;
-				return $elm$core$String$isEmpty(record.cD) ? _Utils_Tuple2(keyframesByName, declarations) : _Utils_Tuple2(
-					A3($elm$core$Dict$insert, record.bV, record.cD, keyframesByName),
+				return $elm$core$String$isEmpty(record.cB) ? _Utils_Tuple2(keyframesByName, declarations) : _Utils_Tuple2(
+					A3($elm$core$Dict$insert, record.bV, record.cB, keyframesByName),
 					declarations);
 			case 7:
 				var properties = declaration.a;
@@ -8748,16 +8741,16 @@ var $rtfeldman$elm_css$Css$Structure$withKeyframeDeclarations = F2(
 					var name = _v0.a;
 					var decl = _v0.b;
 					return $rtfeldman$elm_css$Css$Structure$Keyframes(
-						{cD: decl, bV: name});
+						{cB: decl, bV: name});
 				},
 				$elm$core$Dict$toList(keyframesByName)),
 			compactedDeclarations);
 	});
 var $rtfeldman$elm_css$Css$Structure$compactStylesheet = function (_v0) {
-	var charset = _v0.bv;
+	var charset = _v0.bw;
 	var imports = _v0.bM;
 	var namespaces = _v0.bW;
-	var declarations = _v0.cE;
+	var declarations = _v0.cC;
 	var _v1 = A3(
 		$elm$core$List$foldr,
 		$rtfeldman$elm_css$Css$Structure$compactHelp,
@@ -8766,7 +8759,7 @@ var $rtfeldman$elm_css$Css$Structure$compactStylesheet = function (_v0) {
 	var keyframesByName = _v1.a;
 	var compactedDeclarations = _v1.b;
 	var finalDeclarations = A2($rtfeldman$elm_css$Css$Structure$withKeyframeDeclarations, keyframesByName, compactedDeclarations);
-	return {bv: charset, cE: finalDeclarations, bM: imports, bW: namespaces};
+	return {bw: charset, cC: finalDeclarations, bM: imports, bW: namespaces};
 };
 var $rtfeldman$elm_css$Css$Structure$Output$charsetToString = function (charset) {
 	return A2(
@@ -8780,7 +8773,7 @@ var $rtfeldman$elm_css$Css$Structure$Output$charsetToString = function (charset)
 			charset));
 };
 var $rtfeldman$elm_css$Css$Structure$Output$mediaExpressionToString = function (expression) {
-	return '(' + (expression.bE + (A2(
+	return '(' + (expression.bF + (A2(
 		$elm$core$Maybe$withDefault,
 		'',
 		A2(
@@ -9028,7 +9021,7 @@ var $rtfeldman$elm_css$Css$Structure$Output$prettyPrintDeclaration = function (d
 			return 'TODO';
 		case 6:
 			var name = decl.a.bV;
-			var declaration = decl.a.cD;
+			var declaration = decl.a.cB;
 			return '@keyframes ' + (name + (' {\n' + (declaration + '\n}')));
 		case 7:
 			return 'TODO';
@@ -9039,10 +9032,10 @@ var $rtfeldman$elm_css$Css$Structure$Output$prettyPrintDeclaration = function (d
 	}
 };
 var $rtfeldman$elm_css$Css$Structure$Output$prettyPrint = function (_v0) {
-	var charset = _v0.bv;
+	var charset = _v0.bw;
 	var imports = _v0.bM;
 	var namespaces = _v0.bW;
-	var declarations = _v0.cE;
+	var declarations = _v0.cC;
 	return A2(
 		$elm$core$String$join,
 		'\n\n',
@@ -9987,7 +9980,7 @@ var $rtfeldman$elm_css$Css$Preprocess$Resolve$applyStyles = F2(
 						_List_fromArray(
 							[
 								$rtfeldman$elm_css$Css$Structure$Keyframes(
-								{cD: str, bV: name})
+								{cB: str, bV: name})
 							]));
 				case 4:
 					var _v12 = styles.a;
@@ -10122,13 +10115,13 @@ var $rtfeldman$elm_css$Css$Preprocess$Resolve$toDeclarations = function (snippet
 	}
 };
 var $rtfeldman$elm_css$Css$Preprocess$Resolve$toStructure = function (_v0) {
-	var charset = _v0.bv;
+	var charset = _v0.bw;
 	var imports = _v0.bM;
 	var namespaces = _v0.bW;
 	var snippets = _v0.ce;
 	var declarations = $rtfeldman$elm_css$Css$Preprocess$Resolve$extract(
 		A2($elm$core$List$concatMap, $rtfeldman$elm_css$Css$Preprocess$unwrapSnippet, snippets));
-	return {bv: charset, cE: declarations, bM: imports, bW: namespaces};
+	return {bw: charset, cC: declarations, bM: imports, bW: namespaces};
 };
 var $rtfeldman$elm_css$Css$Preprocess$Resolve$compileHelp = function (sheet) {
 	return $rtfeldman$elm_css$Css$Structure$Output$prettyPrint(
@@ -10160,7 +10153,7 @@ var $rtfeldman$elm_css$VirtualDom$Styled$makeSnippet = F2(
 	});
 var $rtfeldman$elm_css$VirtualDom$Styled$murmurSeed = 15739;
 var $rtfeldman$elm_css$Css$Preprocess$stylesheet = function (snippets) {
-	return {bv: $elm$core$Maybe$Nothing, bM: _List_Nil, bW: _List_Nil, ce: snippets};
+	return {bw: $elm$core$Maybe$Nothing, bM: _List_Nil, bW: _List_Nil, ce: snippets};
 };
 var $rtfeldman$elm_css$VirtualDom$Styled$getClassname = function (styles) {
 	return $elm$core$List$isEmpty(styles) ? 'unstyled' : A2(
@@ -10220,7 +10213,7 @@ var $rtfeldman$elm_css$Css$border = $rtfeldman$elm_css$Css$prop1('border');
 var $rtfeldman$elm_css$Css$angleConverter = F2(
 	function (suffix, angleVal) {
 		return {
-			cv: 0,
+			ct: 0,
 			A: 0,
 			E: _Utils_ap(
 				$elm$core$String$fromFloat(angleVal),
@@ -10244,13 +10237,13 @@ var $rtfeldman$elm_css$Css$focus = $rtfeldman$elm_css$Css$pseudoClass('focus');
 var $rtfeldman$elm_css$Css$hover = $rtfeldman$elm_css$Css$pseudoClass('hover');
 var $rtfeldman$elm_css$Css$int = function (val) {
 	return {
-		K: 0,
+		J: 0,
 		aT: 0,
 		V: 0,
 		C: 0,
-		cV: 0,
+		cU: 0,
 		aV: 0,
-		N: val,
+		M: val,
 		au: '',
 		aL: 0,
 		E: $elm$core$String$fromInt(val)
@@ -10487,7 +10480,7 @@ var $author$project$ScreenOverlay$extractOverrideStyles = function (override) {
 		return styles;
 	}
 };
-var $rtfeldman$elm_css$Css$auto = {ct: 0, c: 0, ag: 0, aT: 0, cO: 0, ak: 0, L: 0, C: 0, an: 0, z: 0, a_: 0, at: 0, w: 0, E: 'auto'};
+var $rtfeldman$elm_css$Css$auto = {cr: 0, c: 0, ag: 0, aT: 0, cN: 0, ak: 0, K: 0, C: 0, an: 0, z: 0, a_: 0, at: 0, w: 0, E: 'auto'};
 var $rtfeldman$elm_css$Css$height = $rtfeldman$elm_css$Css$prop1('height');
 var $rtfeldman$elm_css$Css$overflowX = $rtfeldman$elm_css$Css$prop1('overflow-x');
 var $rtfeldman$elm_css$Css$padding4 = $rtfeldman$elm_css$Css$prop4('padding');
@@ -11090,29 +11083,33 @@ var $author$project$Main$dts = function (s) {
 				$elm$html$Html$text(s)
 			]));
 };
-var $author$project$Main$formatMillis = function (i) {
-	var seg = function (x) {
-		return A3(
+var $elm$time$Time$toHour = F2(
+	function (zone, time) {
+		return A2(
+			$elm$core$Basics$modBy,
+			24,
+			A2(
+				$elm$time$Time$flooredDiv,
+				A2($elm$time$Time$toAdjustedMinutes, zone, time),
+				60));
+	});
+var $elm$time$Time$toMinute = F2(
+	function (zone, time) {
+		return A2(
+			$elm$core$Basics$modBy,
+			60,
+			A2($elm$time$Time$toAdjustedMinutes, zone, time));
+	});
+var $author$project$Main$formatTime = F2(
+	function (z, t) {
+		return $elm$core$String$fromInt(
+			A2($elm$time$Time$toHour, z, t)) + (':' + A3(
 			$elm$core$String$padLeft,
-			(x >= 60) ? 2 : 0,
+			2,
 			'0',
 			$elm$core$String$fromInt(
-				A2($elm$core$Basics$modBy, 60, x)));
-	};
-	var parts = A2(
-		$elm_community$list_extra$List$Extra$unfoldr,
-		function (x) {
-			return (!x) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
-				_Utils_Tuple2(
-					seg(x),
-					(x / 60) | 0));
-		},
-		(i / 1000) | 0);
-	return A2(
-		$elm$core$String$join,
-		':',
-		$elm$core$List$reverse(parts));
-};
+				A2($elm$time$Time$toMinute, z, t))));
+	});
 var $elm$html$Html$Attributes$href = function (url) {
 	return A2(
 		$elm$html$Html$Attributes$stringProperty,
@@ -11180,12 +11177,12 @@ var $author$project$Main$renderOverlay = F2(
 											[
 												$elm$html$Html$Attributes$title(
 												$elm$core$String$fromInt(
-													$elm$time$Time$posixToMillis(m.H)))
+													$elm$time$Time$posixToMillis(m.Q)))
 											]),
 										_List_fromArray(
 											[
 												$elm$html$Html$text(
-												A2($author$project$Main$formatDay, z, m.H) + (' ' + A2($author$project$Main$formatTime, z, m.H)))
+												A2($author$project$Main$formatDay, z, m.Q) + (' ' + A2($author$project$Main$formatTime, z, m.Q)))
 											])),
 										$author$project$Main$dts('Camera Model'),
 										A2(
@@ -11193,7 +11190,7 @@ var $author$project$Main$renderOverlay = F2(
 										_List_Nil,
 										_List_fromArray(
 											[
-												$elm$html$Html$text(m.cy)
+												$elm$html$Html$text(m.cw)
 											])),
 										$author$project$Main$dts('Dims'),
 										A2(
@@ -11202,7 +11199,7 @@ var $author$project$Main$renderOverlay = F2(
 										_List_fromArray(
 											[
 												$elm$html$Html$text(
-												$elm$core$String$fromInt(m.cp) + ('x' + $elm$core$String$fromInt(m.bJ)))
+												$elm$core$String$fromInt(m.de) + ('x' + $elm$core$String$fromInt(m.cG)))
 											])),
 										$author$project$Main$dts('Size'),
 										A2(
@@ -11211,7 +11208,7 @@ var $author$project$Main$renderOverlay = F2(
 										_List_fromArray(
 											[
 												$elm$html$Html$text(
-												$elm$core$String$fromInt(m.bF))
+												$elm$core$String$fromInt(m.bG))
 											])),
 										$author$project$Main$dts('Type'),
 										A2(
@@ -11219,11 +11216,11 @@ var $author$project$Main$renderOverlay = F2(
 										_List_Nil,
 										_List_fromArray(
 											[
-												$elm$html$Html$text(m.cQ)
+												$elm$html$Html$text(m.cP)
 											]))
 									]),
 								function () {
-									var _v2 = m.cf;
+									var _v2 = m.bg;
 									if (_v2.$ === 1) {
 										return _List_Nil;
 									} else {
@@ -11238,7 +11235,7 @@ var $author$project$Main$renderOverlay = F2(
 													[
 														$elm$html$Html$text(
 														$author$project$Main$formatMillis(
-															A2($elm$core$Maybe$withDefault, 0, m.cf)))
+															A2($elm$core$Maybe$withDefault, 0, m.bg)))
 													]))
 											]);
 									}
@@ -11277,7 +11274,7 @@ var $author$project$Main$renderOverlay = F2(
 														_List_fromArray(
 															[
 																$elm$html$Html$Attributes$href(d.a0),
-																$elm$html$Html$Attributes$title(d.by)
+																$elm$html$Html$Attributes$title(d.bz)
 															]),
 														_List_fromArray(
 															[
@@ -11399,15 +11396,15 @@ var $author$project$Main$renderMediaList = function (rs) {
 		F2(
 			function (a, b) {
 				return _Utils_eq(
-					A2($author$project$Main$formatDay, z, a.H),
-					A2($author$project$Main$formatDay, z, b.H));
+					A2($author$project$Main$formatDay, z, a.Q),
+					A2($author$project$Main$formatDay, z, b.Q));
 			}),
 		filty);
 	var totalSize = A3(
 		$elm$core$List$foldl,
 		F2(
 			function (x, o) {
-				return x.bF + o;
+				return x.bG + o;
 			}),
 		0,
 		filty);
@@ -11481,6 +11478,6 @@ var $author$project$Main$view = function (model) {
 	}
 };
 var $author$project$Main$main = $elm$browser$Browser$element(
-	{cM: $author$project$Main$init, c8: $author$project$Main$subscriptions, dc: $author$project$Main$update, de: $author$project$Main$view});
+	{cL: $author$project$Main$init, c7: $author$project$Main$subscriptions, db: $author$project$Main$update, dd: $author$project$Main$view});
 _Platform_export({'Main':{'init':$author$project$Main$main(
 	$elm$json$Json$Decode$succeed(0))(0)}});}(this));

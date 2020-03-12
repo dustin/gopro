@@ -95,11 +95,10 @@ formatDay z t = let two x = String.padLeft 2 '0' (String.fromInt x) in
 
 mediumHTML : Time.Zone -> Medium -> Html Msg
 mediumHTML z m = div [ H.class "medium", onClick (OpenOverlay m) ] [
-                  div [ H.class "time" ] [
-                       text (formatTime z m.captured_at),
-                       span [ H.class "dims" ] [ text (String.fromInt m.width ++ "x" ++ String.fromInt m.height) ]
-                      ],
-                      img [ H.class "thumb", H.src ("/thumb/" ++ m.id) ] []
+                      img [ H.class "thumb", H.src ("/thumb/" ++ m.id) ] [],
+                      case m.source_duration of
+                          Nothing -> text ""
+                          Just t -> span [ H.class "duration" ] [ text (formatMillis t) ]
                  ]
 
 mediaHTML : Time.Zone -> List (Medium, List Medium) -> List (Html Msg)
