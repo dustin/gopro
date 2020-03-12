@@ -118,6 +118,19 @@ runSync stype = do
             storeMedia db =<< fetch tok l
           fetch tok = liftIO . mapConcurrentlyLimited 11 (resolve tok)
 
+runCleanup :: GoPro ()
+runCleanup = do
+  tok <- getToken
+  ms <- filter wanted <$> listAll tok
+  liftIO $ mapM_ (rm tok) ms
+
+    where
+      wanted Media{..} = _media_ready_to_view `elem` ["uploading", "failure"]
+      rm tok Media{..} = do
+        putStrLn $ "Removing " <> _media_id <> " (" <> _media_ready_to_view <> ")"
+        errs <- delete tok _media_id
+        when (not $ null errs) $ putStrLn $ " error: " <> show errs
+
 runAuth :: GoPro ()
 runAuth = do
   liftIO (prompt "Enter email: ")
@@ -202,6 +215,7 @@ run "auth"     = runAuth
 run "reauth"   = runReauth
 run "sync"     = runSync Incremental
 run "fullsync" = runSync Full
+run "cleanup"  = runCleanup
 run "serve"    = runServer
 run x          = fail ("unknown command: " <> x)
 
