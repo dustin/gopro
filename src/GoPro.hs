@@ -20,8 +20,8 @@ import           Data.Time.Clock        (UTCTime)
 import qualified Data.Vector            as V
 import           Generics.Deriving.Base (Generic)
 import           Network.Wreq           (FormParam (..), Options, asJSON,
-                                         defaults, getWith, header, postWith,
-                                         responseBody)
+                                         defaults, deleteWith, getWith, header,
+                                         postWith, responseBody)
 import           System.Random          (getStdRandom, randomR)
 
 userAgent :: BC.ByteString
@@ -278,15 +278,32 @@ dlURL k = "https://api.gopro.com/media/" <> k <> "/download"
 retrieve :: MonadIO m => String -> String -> m FileInfo
 retrieve tok k = jget tok (dlURL k)
 
+data Error = Error {
+  _error_reason      :: String,
+  _error_code        :: Int,
+  _error_description :: String,
+  _error_id          :: String
+  } deriving (Generic, Show)
+
+makeLenses ''Error
+
+instance FromJSON Error where
+  parseJSON = genericParseJSON defaultOptions {
+    fieldLabelModifier = dropPrefix "_error_"
+  }
+
+newtype Errors = Errors [Error] deriving (Show)
+
+instance FromJSON Errors where
+  parseJSON (Object v) = do
+    o <- v .: "_embedded"
+    e <- o .: "errors"
+    Errors <$> parseJSON e
+  parseJSON invalid    = typeMismatch "Response" invalid
+
 -- | Delete an item.
-{-
-Request URL: https://api.gopro.com/media?ids=LvXbPOgepgLKX
-Request Method: DELETE
-Status Code: 200
-Remote Address: 143.204.147.33:443
-Referrer Policy: no-referrer-when-downgrade
-
--->
-
-{"_embedded":{"media":[{"id":"LvXbPOgepgLKX"}],"errors":[]}}
--}
+delete :: MonadIO m => String -> String -> m [Error]
+delete tok k = do
+  let u = "https://api.gopro.com/media?ids=" <> k
+  Errors r <- view responseBody <$> liftIO (deleteWith (authOpts tok) u >>= asJSON)
+  pure r
