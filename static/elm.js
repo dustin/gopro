@@ -7797,29 +7797,29 @@ var $elm$core$List$concatMap = F2(
 var $author$project$Formats$monthStr = function (month) {
 	switch (month) {
 		case 0:
-			return 'Jan';
+			return '01';
 		case 1:
-			return 'Feb';
+			return '02';
 		case 2:
-			return 'Mar';
+			return '03';
 		case 3:
-			return 'Apr';
+			return '04';
 		case 4:
-			return 'May';
+			return '05';
 		case 5:
-			return 'Jun';
+			return '06';
 		case 6:
-			return 'Jul';
+			return '07';
 		case 7:
-			return 'Aug';
+			return '08';
 		case 8:
-			return 'Sep';
+			return '09';
 		case 9:
-			return 'Oct';
+			return '10';
 		case 10:
-			return 'Nov';
+			return '11';
 		default:
-			return 'Dec';
+			return '12';
 	}
 };
 var $elm$time$Time$toDay = F2(

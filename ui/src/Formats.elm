@@ -24,18 +24,18 @@ time z t = String.fromInt (Time.toHour z t) ++ ":" ++ String.padLeft 2 '0' (Stri
 monthStr : Time.Month -> String
 monthStr month =
   case month of
-    Time.Jan -> "Jan"
-    Time.Feb -> "Feb"
-    Time.Mar -> "Mar"
-    Time.Apr -> "Apr"
-    Time.May -> "May"
-    Time.Jun -> "Jun"
-    Time.Jul -> "Jul"
-    Time.Aug -> "Aug"
-    Time.Sep -> "Sep"
-    Time.Oct -> "Oct"
-    Time.Nov -> "Nov"
-    Time.Dec -> "Dec"
+    Time.Jan -> "01"
+    Time.Feb -> "02"
+    Time.Mar -> "03"
+    Time.Apr -> "04"
+    Time.May -> "05"
+    Time.Jun -> "06"
+    Time.Jul -> "07"
+    Time.Aug -> "08"
+    Time.Sep -> "09"
+    Time.Oct -> "10"
+    Time.Nov -> "11"
+    Time.Dec -> "12"
 
 day : Time.Zone -> Time.Posix -> String
 day z t = let two x = String.padLeft 2 '0' (String.fromInt x) in
