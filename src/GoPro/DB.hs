@@ -13,7 +13,7 @@ import           Data.Coerce                    (coerce)
 import           Database.SQLite.Simple         hiding (bind, close)
 import           Database.SQLite.Simple.ToField
 
-import           GoPro                          (Media (..))
+import           GoPro.Plus                     (Media (..))
 
 createMediaStatement :: Query
 createMediaStatement = "create table if not exists media (media_id primary key, camera_model, captured_at, created_at, file_size, moments_count, resolution, source_duration, media_type, width, height, ready_to_view, thumbnail)"

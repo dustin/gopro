@@ -29,9 +29,9 @@ import qualified Data.Text                     as T
 import qualified Data.Text.Lazy                as LT
 import qualified Data.Vector                   as V
 import           Database.SQLite.Simple        (Connection, withConnection)
-import           GoPro
 import           GoPro.AuthDB
 import           GoPro.DB
+import           GoPro.Plus
 import           Network.Wai.Middleware.Static (addBase, noDots, staticPolicy,
                                                 (>->))
 import           Options.Applicative           (Parser, argument, execParser,

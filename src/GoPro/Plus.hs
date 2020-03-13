@@ -3,7 +3,7 @@
 {-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
-module GoPro where
+module GoPro.Plus where
 
 import           Control.Lens
 import           Control.Monad.IO.Class (MonadIO (..))

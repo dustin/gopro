@@ -7,7 +7,7 @@ import           Control.Monad          (guard)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Database.SQLite.Simple hiding (bind, close)
 
-import           GoPro                  (AuthResponse (..))
+import           GoPro.Plus             (AuthResponse (..))
 
 createStatement :: Query
 createStatement = "create table if not exists authinfo (ts, access_token, refresh_token, expires_in)"
