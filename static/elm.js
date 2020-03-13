@@ -7398,18 +7398,18 @@ var $author$project$Main$init = function (_v0) {
 };
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
-var $author$project$Main$DLOpts = F5(
+var $author$project$Main$DLOpt = F5(
 	function (url, name, desc, width, height) {
 		return {bA: desc, bK: height, bW: name, aM: url, cp: width};
 	});
-var $author$project$Main$SomeDLOpts = function (a) {
+var $author$project$Main$SomeDLOpt = function (a) {
 	return {$: 1, a: a};
 };
 var $elm$json$Json$Decode$map5 = _Json_map5;
-var $author$project$Main$dloptsDecoder = $elm$json$Json$Decode$list(
+var $author$project$Main$dloptDecoder = $elm$json$Json$Decode$list(
 	A6(
 		$elm$json$Json$Decode$map5,
-		$author$project$Main$DLOpts,
+		$author$project$Main$DLOpt,
 		A2($elm$json$Json$Decode$field, 'url', $elm$json$Json$Decode$string),
 		A2($elm$json$Json$Decode$field, 'name', $elm$json$Json$Decode$string),
 		A2($elm$json$Json$Decode$field, 'desc', $elm$json$Json$Decode$string),
@@ -7632,7 +7632,7 @@ var $author$project$Main$update = F2(
 					var fakedls = _List_fromArray(
 						[
 							A5(
-							$author$project$Main$DLOpts,
+							$author$project$Main$DLOpt,
 							'',
 							'error fetching downloads: ' + $author$project$Formats$httpErr(x),
 							'',
@@ -7673,7 +7673,7 @@ var $author$project$Main$update = F2(
 								$author$project$Main$lockScroll($elm$core$Maybe$Nothing),
 								$elm$http$Http$get(
 								{
-									bE: A2($elm$http$Http$expectJson, $author$project$Main$SomeDLOpts, $author$project$Main$dloptsDecoder),
+									bE: A2($elm$http$Http$expectJson, $author$project$Main$SomeDLOpt, $author$project$Main$dloptDecoder),
 									aM: '/api/retrieve2/' + m.aT
 								})
 							])));

@@ -38,7 +38,7 @@ height: 3000
 port lockScroll : Maybe String -> Cmd msg
 port unlockScroll : Maybe String -> Cmd msg
 
-type alias DLOpts =
+type alias DLOpt =
     { url : String
     , name : String
     , desc : String
@@ -46,26 +46,26 @@ type alias DLOpts =
     , height : Int
     }
 
-dloptsDecoder : Decoder (List DLOpts)
-dloptsDecoder = Decode.list (Decode.map5 DLOpts (Decode.field "url" string)
-                                 (Decode.field "name" string)
-                                 (Decode.field "desc" string)
-                                 (Decode.field "width" int)
-                                 (Decode.field "height" int))
+dloptDecoder : Decoder (List DLOpt)
+dloptDecoder = Decode.list (Decode.map5 DLOpt (Decode.field "url" string)
+                                (Decode.field "name" string)
+                                (Decode.field "desc" string)
+                                (Decode.field "width" int)
+                                (Decode.field "height" int))
 
 type alias Model =
     { httpError : Maybe Http.Error
     , media : List Medium
     , zone  : Time.Zone
     , overlay : ScreenOverlay.ScreenOverlay
-    , current : (Maybe Medium, List DLOpts)
+    , current : (Maybe Medium, List DLOpt)
     , yearsChecked : Set.Set Int
     , yearsMap : Dict.Dict Int (List Medium)
     }
 
 type Msg
   = SomeMedia (Result Http.Error (List Medium))
-  | SomeDLOpts (Result Http.Error (List DLOpts))
+  | SomeDLOpt (Result Http.Error (List DLOpt))
   | ZoneHere Time.Zone
   | OpenOverlay Medium
   | CloseOverlay
@@ -140,7 +140,7 @@ view model =
 dts : String -> Html Msg
 dts s = dt [] [text s]
 
-renderOverlay : Time.Zone -> (Maybe Medium, List DLOpts) -> Html Msg
+renderOverlay : Time.Zone -> (Maybe Medium, List DLOpt) -> Html Msg
 renderOverlay z (mm, dls) =
     case mm of
         Nothing -> text "wtf"
@@ -213,14 +213,14 @@ update msg model =
                 Err x ->
                     ({model | httpError = Just  x}, Cmd.none)
 
-        SomeDLOpts result ->
+        SomeDLOpt result ->
             case result of
                 Ok dls ->
                     let (m, _) = model.current in
                     ({model | current = (m, dls)}, Cmd.none)
 
                 Err x ->
-                    let fakedls = [DLOpts "" ("error fetching downloads: " ++ F.httpErr x) "" 0 0]
+                    let fakedls = [DLOpt "" ("error fetching downloads: " ++ F.httpErr x) "" 0 0]
                         (m, _) = model.current in
                     ({model | current = (m, fakedls)}, Cmd.none)
 
@@ -232,7 +232,7 @@ update msg model =
                  Cmd.batch [lockScroll Nothing,
                             Http.get
                                 { url = "/api/retrieve2/" ++ m.id
-                                , expect = Http.expectJson SomeDLOpts dloptsDecoder
+                                , expect = Http.expectJson SomeDLOpt dloptDecoder
                            }])
 
         CloseOverlay ->
