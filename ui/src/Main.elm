@@ -7,7 +7,7 @@ import Html.Events exposing (onClick, onCheck)
 import Html.Lazy exposing (lazy)
 import Http
 import Iso8601
-import Json.Decode as Decode exposing (Decoder, string)
+import Json.Decode as Decode exposing (Decoder, int, string)
 import Task
 import Filesize
 import Time
@@ -42,12 +42,16 @@ type alias DLOpts =
     { url : String
     , name : String
     , desc : String
+    , width : Int
+    , height : Int
     }
 
 dloptsDecoder : Decoder (List DLOpts)
-dloptsDecoder = Decode.list (Decode.map3 DLOpts (Decode.field "url" string)
+dloptsDecoder = Decode.list (Decode.map5 DLOpts (Decode.field "url" string)
                                  (Decode.field "name" string)
-                                 (Decode.field "desc" string))
+                                 (Decode.field "desc" string)
+                                 (Decode.field "width" int)
+                                 (Decode.field "height" int))
 
 type alias Model =
     { httpError : Maybe Http.Error
@@ -86,6 +90,9 @@ mediaHTML z ls = let oneDay (first, rest) =
 htmlIf : Bool -> List (Html Msg) -> List (Html Msg)
 htmlIf b l = if b then l else []
 
+htmlIf1 : Bool -> Html Msg -> Html Msg
+htmlIf1 b l = if b then l else (text "")
+             
 yearList : Set.Set Int -> List Int -> Html Msg
 yearList checked years =
     div [ H.class "years" ]
@@ -139,6 +146,11 @@ renderOverlay z (mm, dls) =
         Nothing -> text "wtf"
         Just m -> div [ H.class "details" ]
                   ([h2 [] [ text (m.id) ]
+                   , htmlIf1 (not (List.isEmpty dls))
+                       (video [ H.controls True ]
+                            (List.map (\s ->
+                                           source [ H.src s.url, H.type_ "video/mp4" ] []
+                                      ) dls))
                    , img [ H.src ("/thumb/" ++ m.id) ] []
                    , dl [ H.class "deets" ] ([
                          h2 [] [text "Details" ]
@@ -208,7 +220,7 @@ update msg model =
                     ({model | current = (m, dls)}, Cmd.none)
 
                 Err x ->
-                    let fakedls = [DLOpts "" ("error fetching downloads: " ++ F.httpErr x) ""]
+                    let fakedls = [DLOpts "" ("error fetching downloads: " ++ F.httpErr x) "" 0 0]
                         (m, _) = model.current in
                     ({model | current = (m, fakedls)}, Cmd.none)
 

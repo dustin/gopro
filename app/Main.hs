@@ -200,13 +200,18 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
           where
             wh w h = T.pack (show w <> "x" <> show h)
             ts = J.String . T.pack
+            jn = J.Number . fromIntegral
             encd FileStuff{..} = J.Array . V.fromList . fmap J.Object $ (
               map (\f -> HM.fromList [("url", ts (f ^. file_url)),
                                       ("name", ts "file"),
+                                      ("width", jn (f ^. file_width)),
+                                      ("height", jn (f ^. file_height)),
                                       ("desc", J.String $ wh (f ^. file_width) (f ^. file_height))]) _files
               <> map (\f -> HM.fromList [("url", ts (f ^. var_url)),
                                          ("name", ts (f ^. var_label)),
-                                         ("desc", J.String $ "var " <> wh (f ^. var_width) (f ^. var_height))]) _variations
+                                         ("desc", J.String $ "var " <> wh (f ^. var_width) (f ^. var_height)),
+                                         ("width", jn (f ^. var_width)),
+                                         ("height", jn (f ^. var_height))]) _variations
               )
 
 run :: String -> GoPro ()
