@@ -7333,6 +7333,25 @@ var $author$project$Media$strMediaType = function (s) {
 			return 5;
 	}
 };
+var $author$project$Media$Failure = 3;
+var $author$project$Media$Ready = 0;
+var $author$project$Media$Transcoding = 1;
+var $author$project$Media$UnknownReadyType = 4;
+var $author$project$Media$Uploading = 2;
+var $author$project$Media$strReadyType = function (s) {
+	switch (s) {
+		case 'ready':
+			return 0;
+		case 'transcoding':
+			return 1;
+		case 'uploading':
+			return 2;
+		case 'failure':
+			return 3;
+		default:
+			return 4;
+	}
+};
 var $elm$json$Json$Decode$maybe = function (decoder) {
 	return $elm$json$Json$Decode$oneOf(
 		_List_fromArray(
@@ -7375,7 +7394,7 @@ var $author$project$Media$mediaDecoder = A3(
 						A3(
 							$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 							'ready_to_view',
-							$elm$json$Json$Decode$string,
+							A2($elm$json$Json$Decode$map, $author$project$Media$strReadyType, $elm$json$Json$Decode$string),
 							A3(
 								$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 								'moments_count',
