@@ -47,25 +47,43 @@ type alias DLOpt =
     }
 
 dloptDecoder : Decoder (List DLOpt)
-dloptDecoder = Decode.list (Decode.map5 DLOpt (Decode.field "url" string)
+dloptDecoder = Decode.list (Decode.map5 DLOpt
+                                (Decode.field "url" string)
                                 (Decode.field "name" string)
                                 (Decode.field "desc" string)
                                 (Decode.field "width" int)
                                 (Decode.field "height" int))
+
+type alias DLOpts =
+    { default : DLOpt
+    , list : List DLOpt
+    }
+
+dloptsDecoder : Decoder DLOpts
+dloptsDecoder = Decode.map (\opts ->
+                                let ixd = Dict.fromList (List.map (\d -> (d.name, d)) opts)
+                                    best = case Dict.get "mp4_low" ixd of
+                                               Just d -> d
+                                               Nothing -> case List.head opts of
+                                                              Nothing -> DLOpt "" "" "" 0 0
+                                                              Just d -> d
+                                in
+                                DLOpts best opts
+                           ) dloptDecoder
 
 type alias Model =
     { httpError : Maybe Http.Error
     , media : List Medium
     , zone  : Time.Zone
     , overlay : ScreenOverlay.ScreenOverlay
-    , current : (Maybe Medium, List DLOpt)
+    , current : (Maybe Medium, Maybe DLOpts)
     , yearsChecked : Set.Set Int
     , yearsMap : Dict.Dict Int (List Medium)
     }
 
 type Msg
   = SomeMedia (Result Http.Error (List Medium))
-  | SomeDLOpt (Result Http.Error (List DLOpt))
+  | SomeDLOpts (Result Http.Error DLOpts)
   | ZoneHere Time.Zone
   | OpenOverlay Medium
   | CloseOverlay
@@ -86,12 +104,6 @@ mediaHTML z ls = let oneDay (first, rest) =
                              (h2 [ ] [text (F.day z theDay)]
                              :: List.map (mediumHTML z) (first::rest))
                  in List.map (lazy oneDay) ls
-
-htmlIf : Bool -> List (Html Msg) -> List (Html Msg)
-htmlIf b l = if b then l else []
-
-htmlIf1 : Bool -> Html Msg -> Html Msg
-htmlIf1 b l = if b then l else (text "")
              
 yearList : Set.Set Int -> List Int -> Html Msg
 yearList checked years =
@@ -140,18 +152,25 @@ view model =
 dts : String -> Html Msg
 dts s = dt [] [text s]
 
-renderOverlay : Time.Zone -> (Maybe Medium, List DLOpt) -> Html Msg
-renderOverlay z (mm, dls) =
+renderIcon : Medium -> Maybe DLOpts -> Html Msg
+renderIcon m mdls =
+    let thumb = img [ H.src ("/thumb/" ++ m.id) ] []
+        still = List.member m.media_type ["Photo", "Burst", "TimeLapse"] in
+    if still
+    then thumb
+    else case mdls of
+             Nothing -> thumb
+             Just dls -> (video [ H.controls True, H.autoplay True,
+                                      H.width dls.default.width, H.height dls.default.height ]
+                              [source [ H.src dls.default.url, H.type_ "video/mp4" ] []])
+
+renderOverlay : Time.Zone -> (Maybe Medium, Maybe DLOpts) -> Html Msg
+renderOverlay z (mm, mdls) =
     case mm of
-        Nothing -> text "wtf"
+        Nothing -> text "nothing to see here"
         Just m -> div [ H.class "details" ]
                   ([h2 [] [ text (m.id) ]
-                   , htmlIf1 (not (List.isEmpty dls))
-                       (video [ H.controls True ]
-                            (List.map (\s ->
-                                           source [ H.src s.url, H.type_ "video/mp4" ] []
-                                      ) dls))
-                   , img [ H.src ("/thumb/" ++ m.id) ] []
+                   , renderIcon m mdls
                    , dl [ H.class "deets" ] ([
                          h2 [] [text "Details" ]
                         , dts "Captured"
@@ -169,12 +188,14 @@ renderOverlay z (mm, dls) =
                                  Nothing -> []
                                  Just x -> [ dts "Duration"
                                            , dd [] [text (F.millis (Maybe.withDefault 0 m.source_duration))]])
-                   ] ++ htmlIf (not (List.isEmpty dls))
-                       [ul [ H.class "dls" ]
-                            (h2 [] [text "Downloads"]
-                             :: List.map (\d -> li []
-                                                [a [ H.href d.url, H.title d.desc] [text d.name]])
-                                 dls)])
+                   ] ++ case mdls of
+                            Nothing -> []
+                            Just dls ->
+                                [ul [ H.class "dls" ]
+                                     (h2 [] [text "Downloads"]
+                                     :: List.map (\d -> li []
+                                                      [a [ H.href d.url, H.title d.desc] [text d.name]])
+                                         dls.list)])
 
 
 init : () -> (Model, Cmd Msg)
@@ -188,7 +209,7 @@ init _ =
   )
 
 emptyState : Model
-emptyState = Model Nothing [] Time.utc ScreenOverlay.initOverlay (Nothing, []) Set.empty Dict.empty
+emptyState = Model Nothing [] Time.utc ScreenOverlay.initOverlay (Nothing, Nothing) Set.empty Dict.empty
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -213,30 +234,31 @@ update msg model =
                 Err x ->
                     ({model | httpError = Just  x}, Cmd.none)
 
-        SomeDLOpt result ->
+        SomeDLOpts result ->
             case result of
                 Ok dls ->
                     let (m, _) = model.current in
-                    ({model | current = (m, dls)}, Cmd.none)
+                    ({model | current = (m, Just dls)}, Cmd.none)
 
                 Err x ->
-                    let fakedls = [DLOpt "" ("error fetching downloads: " ++ F.httpErr x) "" 0 0]
+                    let fakedl = DLOpt "" ("error fetching downloads: " ++ F.httpErr x) "" 0 0
                         (m, _) = model.current in
-                    ({model | current = (m, fakedls)}, Cmd.none)
+                    ({model | current = (m, Just (DLOpts fakedl [fakedl]))}, Cmd.none)
 
         ZoneHere z ->
             ({model | zone = z}, Cmd.none)
 
         OpenOverlay m ->
-            ({ model | overlay = ScreenOverlay.show model.overlay, current = (Just m, []) },
+            ({ model | overlay = ScreenOverlay.show model.overlay, current = (Just m, Nothing) },
                  Cmd.batch [lockScroll Nothing,
                             Http.get
                                 { url = "/api/retrieve2/" ++ m.id
-                                , expect = Http.expectJson SomeDLOpt dloptDecoder
+                                , expect = Http.expectJson SomeDLOpts dloptsDecoder
                            }])
 
         CloseOverlay ->
-            ({ model | overlay = ScreenOverlay.hide model.overlay }, unlockScroll Nothing )
+            ({ model | overlay = ScreenOverlay.hide model.overlay,
+                       current = (Nothing, Nothing) }, unlockScroll Nothing )
 
         CheckedYear y checked ->
             ({ model | yearsChecked = (if checked then Set.insert else Set.remove) y model.yearsChecked },
