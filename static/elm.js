@@ -7311,6 +7311,28 @@ var $NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required = F3(
 			A2($elm$json$Json$Decode$field, key, valDecoder),
 			decoder);
 	});
+var $author$project$Media$Burst = 0;
+var $author$project$Media$Photo = 1;
+var $author$project$Media$TimeLapse = 2;
+var $author$project$Media$TimeLapseVideo = 3;
+var $author$project$Media$Unknown = 5;
+var $author$project$Media$Video = 4;
+var $author$project$Media$strMediaType = function (s) {
+	switch (s) {
+		case 'Burst':
+			return 0;
+		case 'Photo':
+			return 1;
+		case 'TimeLapse':
+			return 2;
+		case 'TimeLapseVideo':
+			return 3;
+		case 'Video':
+			return 4;
+		default:
+			return 5;
+	}
+};
 var $elm$json$Json$Decode$maybe = function (decoder) {
 	return $elm$json$Json$Decode$oneOf(
 		_List_fromArray(
@@ -7337,11 +7359,10 @@ var $author$project$Media$mediaDecoder = A3(
 			$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 			'token',
 			$elm$json$Json$Decode$string,
-			A4(
-				$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
+			A3(
+				$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 				'type',
-				$elm$json$Json$Decode$string,
-				'Unknown',
+				A2($elm$json$Json$Decode$map, $author$project$Media$strMediaType, $elm$json$Json$Decode$string),
 				A3(
 					$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 					'source_duration',
@@ -11142,6 +11163,22 @@ var $elm$html$Html$Attributes$href = function (url) {
 		_VirtualDom_noJavaScriptUri(url));
 };
 var $elm$html$Html$li = _VirtualDom_node('li');
+var $author$project$Media$mediaTypeStr = function (t) {
+	switch (t) {
+		case 0:
+			return 'Burst';
+		case 1:
+			return 'Photo';
+		case 2:
+			return 'TimeLapse';
+		case 3:
+			return 'TimeLapseVideo';
+		case 4:
+			return 'Video';
+		default:
+			return 'Unknown';
+	}
+};
 var $elm$json$Json$Encode$bool = _Json_wrap;
 var $elm$html$Html$Attributes$boolProperty = F2(
 	function (key, bool) {
@@ -11189,7 +11226,7 @@ var $author$project$Main$renderIcon = F2(
 			$elm$core$List$member,
 			m.bZ,
 			_List_fromArray(
-				['Photo', 'Burst', 'TimeLapse']));
+				[1, 0, 2]));
 		if (still) {
 			return thumb;
 		} else {
@@ -11340,7 +11377,8 @@ var $author$project$Main$renderOverlay = F2(
 										_List_Nil,
 										_List_fromArray(
 											[
-												$elm$html$Html$text(m.bZ)
+												$elm$html$Html$text(
+												$author$project$Media$mediaTypeStr(m.bZ))
 											]))
 									]),
 								function () {

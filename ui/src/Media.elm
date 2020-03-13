@@ -1,9 +1,27 @@
-module Media exposing (..)
+module Media exposing (MediaType(..), Medium, mediaTypeStr, mediaDecoder, mediaListDecoder)
 
 import Iso8601
 import Time
 import Json.Decode as Decode exposing (Decoder, int, string, nullable, float)
 import Json.Decode.Pipeline exposing (required, optional)
+
+type MediaType = Burst | Photo | TimeLapse | TimeLapseVideo | Video | Unknown
+
+mediaTypeStr t = case t of
+                     Burst -> "Burst"
+                     Photo -> "Photo"
+                     TimeLapse -> "TimeLapse"
+                     TimeLapseVideo -> "TimeLapseVideo"
+                     Video -> "Video"
+                     Unknown -> "Unknown"
+
+strMediaType s = case s of
+                     "Burst" -> Burst
+                     "Photo" -> Photo
+                     "TimeLapse" -> TimeLapse
+                     "TimeLapseVideo" -> TimeLapseVideo
+                     "Video" -> Video
+                     _ -> Unknown
 
 type alias Medium =
     { id : String
@@ -15,7 +33,7 @@ type alias Medium =
     , ready_to_view : String
     , resolution : String
     , source_duration : Maybe Int
-    , media_type : String
+    , media_type : MediaType
     , token : String
     , width : Int
     , height : Int
@@ -36,7 +54,7 @@ mediaDecoder =
         |> required "ready_to_view" string
         |> optional "resolution" string ""
         |> required "source_duration" stringInt
-        |> optional "type" string "Unknown"
+        |> required "type" (Decode.map strMediaType string)
         |> required "token" string
         |> required "width" int
         |> required "height" int

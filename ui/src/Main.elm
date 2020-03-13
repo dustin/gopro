@@ -155,7 +155,7 @@ dts s = dt [] [text s]
 renderIcon : Medium -> Maybe DLOpts -> Html Msg
 renderIcon m mdls =
     let thumb = img [ H.src ("/thumb/" ++ m.id) ] []
-        still = List.member m.media_type ["Photo", "Burst", "TimeLapse"] in
+        still = List.member m.media_type [Photo, Burst, TimeLapse] in
     if still
     then thumb
     else case mdls of
@@ -183,7 +183,7 @@ renderOverlay z (mm, mdls) =
                         , dts "Size"
                         , dd [ H.title (F.comma m.file_size) ] [text <| Filesize.format m.file_size ]
                         , dts "Type"
-                        , dd [] [ text m.media_type ]
+                        , dd [] [ text (mediaTypeStr m.media_type) ]
                         ] ++ case m.source_duration of
                                  Nothing -> []
                                  Just x -> [ dts "Duration"
