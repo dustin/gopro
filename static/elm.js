@@ -2704,7 +2704,7 @@ var _VirtualDom_mapEventTuple = F2(function(func, tuple)
 var _VirtualDom_mapEventRecord = F2(function(func, record)
 {
 	return {
-		M: func(record.M),
+		L: func(record.L),
 		bm: record.bm,
 		bi: record.bi
 	}
@@ -2974,7 +2974,7 @@ function _VirtualDom_makeCallback(eventNode, initialHandler)
 		// 3 = Custom
 
 		var value = result.a;
-		var message = !tag ? value : tag < 3 ? value.a : value.M;
+		var message = !tag ? value : tag < 3 ? value.a : value.L;
 		var stopPropagation = tag == 1 ? value.b : tag == 3 && value.bm;
 		var currentEventNode = (
 			stopPropagation && event.stopPropagation(),
@@ -5640,7 +5640,7 @@ var $author$project$Main$ZoneHere = function (a) {
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $author$project$Main$Model = F7(
 	function (httpError, media, zone, overlay, current, yearsChecked, yearsMap) {
-		return {H: current, ba: httpError, bc: media, ao: overlay, aw: yearsChecked, a2: yearsMap, a3: zone};
+		return {ae: current, ba: httpError, bc: media, ao: overlay, aw: yearsChecked, a2: yearsMap, a3: zone};
 	});
 var $elm$core$Dict$RBEmpty_elm_builtin = {$: -2};
 var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
@@ -6473,7 +6473,7 @@ var $author$project$Media$Medium = function (id) {
 										return function (token) {
 											return function (width) {
 												return function (height) {
-													return {cB: camera_model, R: captured_at, cF: created_at, a7: file_size, a9: height, aU: id, bZ: media_type, cV: moments_count, c0: ready_to_view, c2: resolution, bk: source_duration, dd: token, bo: width};
+													return {cB: camera_model, Q: captured_at, cF: created_at, a7: file_size, a9: height, aU: id, bZ: media_type, cV: moments_count, c0: ready_to_view, c2: resolution, bk: source_duration, dd: token, bo: width};
 												};
 											};
 										};
@@ -7438,6 +7438,9 @@ var $author$project$Main$init = function (_v0) {
 };
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
+var $author$project$Main$SomeDLOpts = function (a) {
+	return {$: 1, a: a};
+};
 var $author$project$Main$DLOpt = F5(
 	function (url, name, desc, width, height) {
 		return {bE: desc, a9: height, be: name, aM: url, bo: width};
@@ -7446,9 +7449,6 @@ var $author$project$Main$DLOpts = F2(
 	function (_default, list) {
 		return {aR: _default, bY: list};
 	});
-var $author$project$Main$SomeDLOpts = function (a) {
-	return {$: 1, a: a};
-};
 var $elm$json$Json$Decode$map5 = _Json_map5;
 var $author$project$Main$dloptDecoder = $elm$json$Json$Decode$list(
 	A6(
@@ -7511,23 +7511,6 @@ var $author$project$Main$dloptsDecoder = A2(
 var $author$project$ScreenOverlay$hide = function (_v0) {
 	var styles = _v0.b;
 	return A2($author$project$ScreenOverlay$ScreenOverlay, 1, styles);
-};
-var $author$project$Formats$httpErr = function (e) {
-	switch (e.$) {
-		case 0:
-			var u = e.a;
-			return 'bad url: ' + u;
-		case 1:
-			return 'timeout';
-		case 2:
-			return 'network error';
-		case 3:
-			var i = e.a;
-			return 'bad status: ' + $elm$core$String$fromInt(i);
-		default:
-			var b = e.a;
-			return 'bad body: ' + b;
-	}
 };
 var $elm$core$Set$insert = F2(
 	function (key, _v0) {
@@ -7662,7 +7645,7 @@ var $author$project$Main$update = F2(
 							function (x, o) {
 								return A3(
 									$elm$core$Dict$update,
-									A2($elm$time$Time$toYear, z, x.R),
+									A2($elm$time$Time$toYear, z, x.Q),
 									function (e) {
 										return $elm$core$Maybe$Just(
 											function () {
@@ -7709,45 +7692,17 @@ var $author$project$Main$update = F2(
 				}
 			case 1:
 				var result = msg.a;
-				if (!result.$) {
-					var dls = result.a;
-					var _v5 = model.H;
-					var m = _v5.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								H: _Utils_Tuple2(
-									m,
-									$elm$core$Maybe$Just(dls))
-							}),
-						$elm$core$Platform$Cmd$none);
-				} else {
-					var x = result.a;
-					var fakedl = A5(
-						$author$project$Main$DLOpt,
-						'',
-						'error fetching downloads: ' + $author$project$Formats$httpErr(x),
-						'',
-						0,
-						0);
-					var _v6 = model.H;
-					var m = _v6.a;
-					return _Utils_Tuple2(
-						_Utils_update(
-							model,
-							{
-								H: _Utils_Tuple2(
-									m,
-									$elm$core$Maybe$Just(
-										A2(
-											$author$project$Main$DLOpts,
-											fakedl,
-											_List_fromArray(
-												[fakedl]))))
-							}),
-						$elm$core$Platform$Cmd$none);
-				}
+				var _v4 = model.ae;
+				var m = _v4.a;
+				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{
+							ae: _Utils_Tuple2(
+								m,
+								$elm$core$Maybe$Just(result))
+						}),
+					$elm$core$Platform$Cmd$none);
 			case 2:
 				var z = msg.a;
 				return _Utils_Tuple2(
@@ -7761,7 +7716,7 @@ var $author$project$Main$update = F2(
 					_Utils_update(
 						model,
 						{
-							H: _Utils_Tuple2(
+							ae: _Utils_Tuple2(
 								$elm$core$Maybe$Just(m),
 								$elm$core$Maybe$Nothing),
 							ao: $author$project$ScreenOverlay$show(model.ao)
@@ -7781,7 +7736,7 @@ var $author$project$Main$update = F2(
 					_Utils_update(
 						model,
 						{
-							H: _Utils_Tuple2($elm$core$Maybe$Nothing, $elm$core$Maybe$Nothing),
+							ae: _Utils_Tuple2($elm$core$Maybe$Nothing, $elm$core$Maybe$Nothing),
 							ao: $author$project$ScreenOverlay$hide(model.ao)
 						}),
 					$author$project$Main$unlockScroll($elm$core$Maybe$Nothing));
@@ -7800,6 +7755,23 @@ var $author$project$Main$update = F2(
 					$elm$core$Platform$Cmd$none);
 		}
 	});
+var $author$project$Formats$httpErr = function (e) {
+	switch (e.$) {
+		case 0:
+			var u = e.a;
+			return 'bad url: ' + u;
+		case 1:
+			return 'timeout';
+		case 2:
+			return 'network error';
+		case 3:
+			var i = e.a;
+			return 'bad status: ' + $elm$core$String$fromInt(i);
+		default:
+			var b = e.a;
+			return 'bad body: ' + b;
+	}
+};
 var $elm$core$List$isEmpty = function (xs) {
 	if (!xs.b) {
 		return true;
@@ -8614,7 +8586,7 @@ var $author$project$Main$mediaHTML = F2(
 		var oneDay = function (_v0) {
 			var first = _v0.a;
 			var rest = _v0.b;
-			var theDay = first.R;
+			var theDay = first.Q;
 			return A2(
 				$elm$html$Html$div,
 				_List_fromArray(
@@ -8696,13 +8668,13 @@ var $rtfeldman$elm_css$Css$Internal$lengthConverter = F3(
 			r: 0,
 			aD: 0,
 			ak: 0,
-			L: 0,
+			K: 0,
 			al: 0,
 			am: 0,
+			T: 0,
 			U: 0,
-			V: 0,
 			C: 0,
-			N: numericValue,
+			M: numericValue,
 			as: 0,
 			au: unitLabel,
 			aL: units,
@@ -8717,7 +8689,7 @@ var $rtfeldman$elm_css$Css$relative = {aF: 0, E: 'relative'};
 var $rtfeldman$elm_css$Css$RemUnits = 0;
 var $rtfeldman$elm_css$Css$rem = A2($rtfeldman$elm_css$Css$Internal$lengthConverter, 0, 'rem');
 var $rtfeldman$elm_css$Css$UnitlessInteger = 0;
-var $rtfeldman$elm_css$Css$zero = {aD: 0, ak: 0, L: 0, al: 0, am: 0, U: 0, V: 0, cX: 0, N: 0, aZ: 0, au: '', aL: 0, E: '0'};
+var $rtfeldman$elm_css$Css$zero = {aD: 0, ak: 0, K: 0, al: 0, am: 0, T: 0, U: 0, cX: 0, M: 0, aZ: 0, au: '', aL: 0, E: '0'};
 var $author$project$ScreenOverlay$contentStyle = function (onScreen) {
 	return $rtfeldman$elm_css$Css$batch(
 		_List_fromArray(
@@ -9534,7 +9506,7 @@ var $rtfeldman$elm_css$Css$Structure$concatMapLastStyleBlock = F2(
 	});
 var $Skinney$murmur3$Murmur3$HashData = F4(
 	function (shift, seed, hash, charsProcessed) {
-		return {ad: charsProcessed, aj: hash, Y: seed, ap: shift};
+		return {ac: charsProcessed, aj: hash, X: seed, ap: shift};
 	});
 var $Skinney$murmur3$Murmur3$c1 = 3432918353;
 var $Skinney$murmur3$Murmur3$c2 = 461845907;
@@ -9551,14 +9523,14 @@ var $Skinney$murmur3$Murmur3$rotlBy = F2(
 	});
 var $elm$core$Bitwise$xor = _Bitwise_xor;
 var $Skinney$murmur3$Murmur3$finalize = function (data) {
-	var acc = (!(!data.aj)) ? (data.Y ^ A2(
+	var acc = (!(!data.aj)) ? (data.X ^ A2(
 		$Skinney$murmur3$Murmur3$multiplyBy,
 		$Skinney$murmur3$Murmur3$c2,
 		A2(
 			$Skinney$murmur3$Murmur3$rotlBy,
 			15,
-			A2($Skinney$murmur3$Murmur3$multiplyBy, $Skinney$murmur3$Murmur3$c1, data.aj)))) : data.Y;
-	var h0 = acc ^ data.ad;
+			A2($Skinney$murmur3$Murmur3$multiplyBy, $Skinney$murmur3$Murmur3$c1, data.aj)))) : data.X;
+	var h0 = acc ^ data.ac;
 	var h1 = A2($Skinney$murmur3$Murmur3$multiplyBy, 2246822507, h0 ^ (h0 >>> 16));
 	var h2 = A2($Skinney$murmur3$Murmur3$multiplyBy, 3266489909, h1 ^ (h1 >>> 13));
 	return (h2 ^ (h2 >>> 16)) >>> 0;
@@ -9586,13 +9558,13 @@ var $Skinney$murmur3$Murmur3$hashFold = F2(
 		var _v0 = data.ap;
 		if (_v0 === 24) {
 			return {
-				ad: data.ad + 1,
+				ac: data.ac + 1,
 				aj: 0,
-				Y: A2($Skinney$murmur3$Murmur3$mix, data.Y, res),
+				X: A2($Skinney$murmur3$Murmur3$mix, data.X, res),
 				ap: 0
 			};
 		} else {
-			return {ad: data.ad + 1, aj: res, Y: data.Y, ap: data.ap + 8};
+			return {ac: data.ac + 1, aj: res, X: data.X, ap: data.ap + 8};
 		}
 	});
 var $Skinney$murmur3$Murmur3$hashString = F2(
@@ -10329,13 +10301,13 @@ var $rtfeldman$elm_css$Css$focus = $rtfeldman$elm_css$Css$pseudoClass('focus');
 var $rtfeldman$elm_css$Css$hover = $rtfeldman$elm_css$Css$pseudoClass('hover');
 var $rtfeldman$elm_css$Css$int = function (val) {
 	return {
-		K: 0,
+		J: 0,
 		aV: 0,
-		V: 0,
+		U: 0,
 		C: 0,
 		cX: 0,
 		aX: 0,
-		N: val,
+		M: val,
 		au: '',
 		aL: 0,
 		E: $elm$core$String$fromInt(val)
@@ -10572,7 +10544,7 @@ var $author$project$ScreenOverlay$extractOverrideStyles = function (override) {
 		return styles;
 	}
 };
-var $rtfeldman$elm_css$Css$auto = {cw: 0, c: 0, ag: 0, aV: 0, cR: 0, ak: 0, L: 0, C: 0, an: 0, z: 0, a0: 0, at: 0, w: 0, E: 'auto'};
+var $rtfeldman$elm_css$Css$auto = {cw: 0, c: 0, ag: 0, aV: 0, cR: 0, ak: 0, K: 0, C: 0, an: 0, z: 0, a0: 0, at: 0, w: 0, E: 'auto'};
 var $rtfeldman$elm_css$Css$height = $rtfeldman$elm_css$Css$prop1('height');
 var $rtfeldman$elm_css$Css$overflowX = $rtfeldman$elm_css$Css$prop1('overflow-x');
 var $rtfeldman$elm_css$Css$padding4 = $rtfeldman$elm_css$Css$prop4('padding');
@@ -11198,6 +11170,20 @@ var $author$project$Media$mediaTypeStr = function (t) {
 			return 'Unknown';
 	}
 };
+var $author$project$Media$readyTypeStr = function (r) {
+	switch (r) {
+		case 0:
+			return 'Ready';
+		case 1:
+			return 'Transcoding';
+		case 2:
+			return 'Uploading';
+		case 3:
+			return 'Failure';
+		default:
+			return 'Unknown ready type';
+	}
+};
 var $elm$json$Json$Encode$bool = _Json_wrap;
 var $elm$html$Html$Attributes$boolProperty = F2(
 	function (key, bool) {
@@ -11223,6 +11209,7 @@ var $elm$core$List$member = F2(
 			},
 			xs);
 	});
+var $elm$html$Html$Attributes$poster = $elm$html$Html$Attributes$stringProperty('poster');
 var $elm$html$Html$source = _VirtualDom_node('source');
 var $elm$html$Html$Attributes$type_ = $elm$html$Html$Attributes$stringProperty('type');
 var $elm$html$Html$video = _VirtualDom_node('video');
@@ -11234,11 +11221,12 @@ var $elm$html$Html$Attributes$width = function (n) {
 };
 var $author$project$Main$renderIcon = F2(
 	function (m, mdls) {
+		var thumbUrl = '/thumb/' + m.aU;
 		var thumb = A2(
 			$elm$html$Html$img,
 			_List_fromArray(
 				[
-					$elm$html$Html$Attributes$src('/thumb/' + m.aU)
+					$elm$html$Html$Attributes$src(thumbUrl)
 				]),
 			_List_Nil);
 		var still = A2(
@@ -11249,16 +11237,15 @@ var $author$project$Main$renderIcon = F2(
 		if (still) {
 			return thumb;
 		} else {
-			if (mdls.$ === 1) {
-				return thumb;
-			} else {
-				var dls = mdls.a;
+			if ((!mdls.$) && (!mdls.a.$)) {
+				var dls = mdls.a.a;
 				return A2(
 					$elm$html$Html$video,
 					_List_fromArray(
 						[
 							$elm$html$Html$Attributes$controls(true),
 							$elm$html$Html$Attributes$autoplay(true),
+							$elm$html$Html$Attributes$poster(thumbUrl),
 							$elm$html$Html$Attributes$width(dls.aR.bo),
 							$elm$html$Html$Attributes$height(dls.aR.a9)
 						]),
@@ -11273,6 +11260,8 @@ var $author$project$Main$renderIcon = F2(
 								]),
 							_List_Nil)
 						]));
+			} else {
+				return thumb;
 			}
 		}
 	});
@@ -11353,12 +11342,12 @@ var $author$project$Main$renderOverlay = F2(
 											[
 												$elm$html$Html$Attributes$title(
 												$elm$core$String$fromInt(
-													$elm$time$Time$posixToMillis(m.R)))
+													$elm$time$Time$posixToMillis(m.Q)))
 											]),
 										_List_fromArray(
 											[
 												$elm$html$Html$text(
-												A2($author$project$Formats$day, z, m.R) + (' ' + A2($author$project$Formats$time, z, m.R)))
+												A2($author$project$Formats$day, z, m.Q) + (' ' + A2($author$project$Formats$time, z, m.Q)))
 											])),
 										$author$project$Main$dts('Camera Model'),
 										A2(
@@ -11398,6 +11387,15 @@ var $author$project$Main$renderOverlay = F2(
 											[
 												$elm$html$Html$text(
 												$author$project$Media$mediaTypeStr(m.bZ))
+											])),
+										$author$project$Main$dts('Ready State'),
+										A2(
+										$elm$html$Html$dd,
+										_List_Nil,
+										_List_fromArray(
+											[
+												$elm$html$Html$text(
+												$author$project$Media$readyTypeStr(m.c0))
 											]))
 									]),
 								function () {
@@ -11426,47 +11424,79 @@ var $author$project$Main$renderOverlay = F2(
 						if (mdls.$ === 1) {
 							return _List_Nil;
 						} else {
-							var dls = mdls.a;
-							return _List_fromArray(
-								[
-									A2(
-									$elm$html$Html$ul,
-									_List_fromArray(
-										[
-											$elm$html$Html$Attributes$class('dls')
-										]),
-									A2(
-										$elm$core$List$cons,
+							if (mdls.a.$ === 1) {
+								var err = mdls.a.a;
+								return _List_fromArray(
+									[
 										A2(
-											$elm$html$Html$h2,
-											_List_Nil,
-											_List_fromArray(
-												[
-													$elm$html$Html$text('Downloads')
-												])),
+										$elm$html$Html$div,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$class('dls')
+											]),
+										_List_fromArray(
+											[
+												A2(
+												$elm$html$Html$h2,
+												_List_Nil,
+												_List_fromArray(
+													[
+														$elm$html$Html$text('Error')
+													])),
+												A2(
+												$elm$html$Html$div,
+												_List_Nil,
+												_List_fromArray(
+													[
+														$elm$html$Html$text('Error fetching downloads: '),
+														$elm$html$Html$text(
+														$author$project$Formats$httpErr(err))
+													]))
+											]))
+									]);
+							} else {
+								var dls = mdls.a.a;
+								return _List_fromArray(
+									[
 										A2(
-											$elm$core$List$map,
-											function (d) {
-												return A2(
-													$elm$html$Html$li,
-													_List_Nil,
-													_List_fromArray(
-														[
-															A2(
-															$elm$html$Html$a,
-															_List_fromArray(
-																[
-																	$elm$html$Html$Attributes$href(d.aM),
-																	$elm$html$Html$Attributes$title(d.bE)
-																]),
-															_List_fromArray(
-																[
-																	$elm$html$Html$text(d.be)
-																]))
-														]));
-											},
-											dls.bY)))
-								]);
+										$elm$html$Html$ul,
+										_List_fromArray(
+											[
+												$elm$html$Html$Attributes$class('dls')
+											]),
+										A2(
+											$elm$core$List$cons,
+											A2(
+												$elm$html$Html$h2,
+												_List_Nil,
+												_List_fromArray(
+													[
+														$elm$html$Html$text('Downloads')
+													])),
+											A2(
+												$elm$core$List$map,
+												function (d) {
+													return A2(
+														$elm$html$Html$li,
+														_List_Nil,
+														_List_fromArray(
+															[
+																A2(
+																$elm$html$Html$a,
+																_List_fromArray(
+																	[
+																		$elm$html$Html$Attributes$href(d.aM),
+																		$elm$html$Html$Attributes$title(d.bE)
+																	]),
+																_List_fromArray(
+																	[
+																		$elm$html$Html$text(d.be)
+																	]))
+															]));
+												},
+												dls.bY)))
+									]);
+							}
 						}
 					}()));
 		}
@@ -11572,8 +11602,8 @@ var $author$project$Main$renderMediaList = function (rs) {
 		F2(
 			function (a, b) {
 				return _Utils_eq(
-					A2($author$project$Formats$day, z, a.R),
-					A2($author$project$Formats$day, z, b.R));
+					A2($author$project$Formats$day, z, a.Q),
+					A2($author$project$Formats$day, z, b.Q));
 			}),
 		filty);
 	var totalSize = A3(
@@ -11626,7 +11656,7 @@ var $author$project$Main$renderMediaList = function (rs) {
 						$author$project$ScreenOverlay$overlayView,
 						rs.ao,
 						$author$project$Main$CloseOverlay,
-						A2($author$project$Main$renderOverlay, z, rs.H))
+						A2($author$project$Main$renderOverlay, z, rs.ae))
 					])),
 				A2(
 				$elm$html$Html$div,

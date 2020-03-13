@@ -76,7 +76,7 @@ type alias Model =
     , media : List Medium
     , zone  : Time.Zone
     , overlay : ScreenOverlay.ScreenOverlay
-    , current : (Maybe Medium, Maybe DLOpts)
+    , current : (Maybe Medium, Maybe (Result Http.Error DLOpts))
     , yearsChecked : Set.Set Int
     , yearsMap : Dict.Dict Int (List Medium)
     }
@@ -152,19 +152,20 @@ view model =
 dts : String -> Html Msg
 dts s = dt [] [text s]
 
-renderIcon : Medium -> Maybe DLOpts -> Html Msg
+renderIcon : Medium -> Maybe (Result Http.Error DLOpts) -> Html Msg
 renderIcon m mdls =
-    let thumb = img [ H.src ("/thumb/" ++ m.id) ] []
+    let thumbUrl = "/thumb/" ++ m.id
+        thumb = img [ H.src thumbUrl ] []
         still = List.member m.media_type [Photo, Burst, TimeLapse] in
     if still
     then thumb
     else case mdls of
-             Nothing -> thumb
-             Just dls -> (video [ H.controls True, H.autoplay True,
-                                      H.width dls.default.width, H.height dls.default.height ]
-                              [source [ H.src dls.default.url, H.type_ "video/mp4" ] []])
+             Just (Ok dls) -> (video [ H.controls True, H.autoplay True, H.poster thumbUrl,
+                                            H.width dls.default.width, H.height dls.default.height ]
+                                    [source [ H.src dls.default.url, H.type_ "video/mp4" ] []])
+             _ -> thumb
 
-renderOverlay : Time.Zone -> (Maybe Medium, Maybe DLOpts) -> Html Msg
+renderOverlay : Time.Zone -> (Maybe Medium, Maybe (Result Http.Error DLOpts)) -> Html Msg
 renderOverlay z (mm, mdls) =
     case mm of
         Nothing -> text "nothing to see here"
@@ -184,13 +185,19 @@ renderOverlay z (mm, mdls) =
                         , dd [ H.title (F.comma m.file_size) ] [text <| Filesize.format m.file_size ]
                         , dts "Type"
                         , dd [] [ text (mediaTypeStr m.media_type) ]
+                        , dts "Ready State"
+                        , dd [] [ text (readyTypeStr m.ready_to_view) ]
                         ] ++ case m.source_duration of
                                  Nothing -> []
                                  Just x -> [ dts "Duration"
                                            , dd [] [text (F.millis (Maybe.withDefault 0 m.source_duration))]])
                    ] ++ case mdls of
                             Nothing -> []
-                            Just dls ->
+                            Just (Err err) -> [div [ H.class "dls" ]
+                                                   [ h2 [] [ text "Error" ]
+                                                   , div [] [ text "Error fetching downloads: "
+                                                            , text (F.httpErr err) ]]]
+                            Just (Ok dls) ->
                                 [ul [ H.class "dls" ]
                                      (h2 [] [text "Downloads"]
                                      :: List.map (\d -> li []
@@ -234,16 +241,8 @@ update msg model =
                 Err x ->
                     ({model | httpError = Just  x}, Cmd.none)
 
-        SomeDLOpts result ->
-            case result of
-                Ok dls ->
-                    let (m, _) = model.current in
-                    ({model | current = (m, Just dls)}, Cmd.none)
-
-                Err x ->
-                    let fakedl = DLOpt "" ("error fetching downloads: " ++ F.httpErr x) "" 0 0
-                        (m, _) = model.current in
-                    ({model | current = (m, Just (DLOpts fakedl [fakedl]))}, Cmd.none)
+        SomeDLOpts result -> let (m, _) = model.current in
+                             ({model | current = (m, Just result)}, Cmd.none)
 
         ZoneHere z ->
             ({model | zone = z}, Cmd.none)
