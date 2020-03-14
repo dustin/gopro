@@ -7,6 +7,7 @@
     "dependencies": {
         "direct": {
             "NoRedInk/elm-json-decode-pipeline": "1.0.0",
+            "allo-media/elm-daterange-picker": "4.0.2",
             "basti1302/elm-human-readable-filesize": "1.2.0",
             "elm/browser": "1.0.2",
             "elm/core": "1.0.5",
@@ -27,8 +28,10 @@
             "elm/regex": "1.0.0",
             "elm/url": "1.0.0",
             "elm/virtual-dom": "1.0.2",
+            "justinmimbs/timezone-data": "2.1.4",
             "myrho/elm-round": "1.0.4",
-            "rtfeldman/elm-hex": "1.0.0"
+            "rtfeldman/elm-hex": "1.0.0",
+            "waratuman/time-extra": "1.1.0"
         }
     },
     "test-dependencies": {

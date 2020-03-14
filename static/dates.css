@@ -1,0 +1,208 @@
+:root {
+  --edrp-background-color: #fff;
+  --edrp-font-color: rgba(0, 0, 0, 0.8);
+  --edrp-primary-color: rgb(82, 143, 255);
+  --edrp-primary-color-alpha: rgba(82, 143, 255, 0.25);
+  --edrp-border-color: lightgrey;
+}
+
+.EDRP {
+  position: relative;
+}
+
+.EDRP * {
+  box-sizing: border-box;
+}
+
+.EDRP__body {
+  position: absolute;
+  top: 100%;
+  color: rgba(0, 0, 0, 0.8);
+  color: var(--edrp-font-color);
+  background: #fff;
+  background: var(--edrp-background-color);
+  border: 1px solid var(--edrp-border-color);
+  border-radius: 5px;
+  z-index: 1;
+}
+
+.EDRP__body--sticky {
+  position: relative;
+  width: 670px;
+}
+
+.EDRP__selectors {
+  display: flex;
+}
+
+.EDRP__button {
+  border: 0;
+  text-transform: uppercase;
+  font-weight: bold;
+  font-family: inherit;
+  padding: 5px 10px;
+  font-size: 0.8em;
+  border-radius: 3px;
+  margin-left: 5px;
+  color: rgba(0, 0, 0, 0.8);
+  color: var(--edrp-font-color);
+  background: #fff;
+  background: var(--edrp-background-color);
+  cursor: pointer;
+}
+
+.EDRP__button--primary {
+  background: #528fff;
+  background: var(--edrp-primary-color);
+  color: #fff;
+}
+
+.EDRP__button[disabled] {
+  opacity: .4;
+}
+
+.EDRPPresets {
+  display: flex;
+}
+
+.EDRPPresets__list {
+  flex: 1;
+  padding: 15px 10px;
+  list-style: none;
+  margin: 0;
+  max-height: 226px;
+  min-width: 120px;
+  overflow: auto;
+}
+
+.EDRPPresets__label {
+  cursor: pointer;
+  padding: 5px 10px;
+  border-radius: 3px;
+}
+
+.EDRPPresets__label:hover {
+  background: rgba(155, 155, 155, 0.3);
+}
+
+.EDRPPresets__label--active {
+  background: #528fff;
+  background: var(--edrp-primary-color);
+  color: #fff;
+}
+
+.EDRPPresets__label--active:hover {
+  background: #528fff;
+  background: var(--edrp-primary-color);
+}
+
+.EDRPCalendar {
+  margin: 0 10px 10px 0;
+  padding: 10px 0 0 10px;
+  text-align: center;
+}
+
+.EDRPCalendar__cell {
+  padding: 7px 9px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-weight: bold;
+  font-size: 0.9em;
+  user-select: none;
+}
+
+.EDRPCalendar__cell:hover {
+  background: rgba(155, 155, 155, 0.3);
+}
+
+.EDRPCalendar__cell--active {
+  background: #528fff;
+  background: var(--edrp-primary-color);
+  color: #fff;
+}
+
+.EDRPCalendar__cell--disabled {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.EDRPCalendar__cell--inRange {
+  background: rgba(82, 143, 255, 0.25);
+  background: var(--edrp-primary-color-alpha);
+  border-radius: 0;
+}
+
+.EDRPCalendar__cell--inRange:hover {
+  background: rgba(82, 143, 255, 0.25);
+  background: var(--edrp-primary-color-alpha);
+}
+
+.EDRPCalendar__cell--end {
+  border-bottom-right-radius: 5px;
+  border-top-right-radius: 5px;
+  background: #528fff;
+  background: var(--edrp-primary-color);
+}
+
+.EDRPCalendar__cell--end:hover {
+  background: #528fff;
+  background: var(--edrp-primary-color);
+}
+
+.EDRPCalendar__cell--off {
+  opacity: 0.5;
+  font-weight: normal;
+}
+
+.EDRPCalendar__cell--start {
+  border-bottom-left-radius: 5px;
+  border-top-left-radius: 5px;
+  background: #528fff;
+  background: var(--edrp-primary-color);
+}
+
+.EDRPCalendar__cell--start:hover {
+  background: #528fff;
+  background: var(--edrp-primary-color);
+}
+
+.EDRPCalendar__cell--today {
+  outline: 1px dashed #9b9b9b;
+}
+
+.EDRPCalendar__head {
+  height: 36px;
+}
+
+.EDRPCalendar__nav {
+  opacity: .5;
+  cursor: pointer;
+  font-size: 1.1em;
+  border-radius: 5px;
+  user-select: none;
+}
+
+.EDRPCalendar__nav:hover {
+  background: rgba(155, 155, 155, 0.3);
+}
+
+.EDRPCalendar__table {
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+.EDRPFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(155, 155, 155, 0.2);
+  padding: 10px;
+}
+
+.EDRPFoot__actions {
+  margin-left: auto;
+}
+
+.EDRP__input {
+    width: 15em;
+}

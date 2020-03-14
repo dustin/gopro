@@ -13,27 +13,13 @@ import Filesize
 import Time
 import Set
 import Dict
+import DateRangePicker as Picker
+import DateRangePicker.Range as Range exposing (beginsAt, endsAt)
 
 import ScreenOverlay
-import List.Extra exposing (groupWhile)
+import List.Extra exposing (groupWhile, minimumBy, maximumBy)
 import Media exposing (..)
 import Formats as F
-
-{-
-id: "0r1LLLDBPPLVd",
-camera_model: "HERO8 Black",
-captured_at: "2020-01-11T16:43:44Z",
-created_at: "2020-01-13T00:48:07Z",
-file_size: 8323068,
-moments_count: 0,
-ready_to_view: "ready",
-resolution: "12000000",
-source_duration: null,
-type: "Photo",
-token: "",
-width: 4000,
-height: 3000
--}
 
 port lockScroll : Maybe String -> Cmd msg
 port unlockScroll : Maybe String -> Cmd msg
@@ -73,9 +59,9 @@ dloptsDecoder = Decode.map (\opts ->
 
 type alias Media =
     { media : List Medium
-    , years : Set.Set Int
     , cameras : List String
     , types : List String
+    , timeRange : (Time.Posix, Time.Posix)
     , filty : List Medium
     }
 
@@ -84,22 +70,37 @@ type Model = Model
     , zone  : Time.Zone
     , overlay : ScreenOverlay.ScreenOverlay
     , current : (Maybe Medium, Maybe (Result Http.Error DLOpts))
-    , yearsChecked : Set.Set Int
+    , datePicker : Picker.State
     , camerasChecked : Set.Set String
     , typesChecked : Set.Set String
     , media : Maybe Media
     , filters : List (Model -> Medium -> Bool)
     }
 
+emptyState : Model
+emptyState = Model
+             { httpError = Nothing
+             , zone = Time.utc
+             , overlay = ScreenOverlay.initOverlay
+             , current = (Nothing, Nothing)
+             , datePicker = let cfg = Picker.defaultConfig in
+                            Picker.init {cfg | noRangeCaption = "All Time",
+                                               allowFuture = False} Nothing
+             , camerasChecked = Set.empty
+             , typesChecked = Set.empty
+             , media = Nothing
+             , filters = [dateFilter, camFilter, typeFilter]}
+
 type Msg
   = SomeMedia (Result Http.Error (List Medium))
   | SomeDLOpts (Result Http.Error DLOpts)
   | ZoneHere Time.Zone
+  | CurrentTime Time.Posix
   | OpenOverlay Medium
   | CloseOverlay
-  | CheckedYear Int Bool
   | CheckedCam String Bool
   | CheckedType String Bool
+  | PickerChanged Picker.State
 
 mediumHTML : Time.Zone -> Medium -> Html Msg
 mediumHTML z m = div [ H.class "medium", onClick (OpenOverlay m) ] [
@@ -126,17 +127,14 @@ aList : Set.Set comparable           -- Checked state
       -> Html Msg
 aList checked things class rep msg =
     div [ H.class class ]
-        (List.concatMap (\t ->
-                             let id = String.replace " " "_" (rep t) in
-                             [
-                              input [ H.type_ "checkbox", H.id (class ++ id),
-                                      H.name id,
-                                      H.checked (Set.member t checked),
-                                      onCheck (msg t)
-                                    ] [],
-                              label [ H.for (class ++ id) ] [
-                                   text (rep t) ]
-                             ]
+        (List.concatMap (\t -> let id = String.replace " " "_" (rep t) in
+                               [ input [ H.type_ "checkbox", H.id (class ++ id),
+                                         H.name id,
+                                         H.checked (Set.member t checked),
+                                         onCheck (msg t)
+                                       ] []
+                               , label [ H.for (class ++ id) ] [ text (rep t) ]
+                               ]
                         ) things)
 
 renderMediaList : Media -> Model -> Html Msg
@@ -144,7 +142,6 @@ renderMediaList ms (Model model) =
     let z = model.zone
         groupies = groupWhile (\a b -> F.day z a.captured_at == F.day z b.captured_at) ms.filty
         totalSize = List.foldl (\x o -> x.file_size + o) 0 ms.filty
-        years = Set.toList ms.years
     in
     div [ H.id "main" ]
         [
@@ -152,7 +149,7 @@ renderMediaList ms (Model model) =
              [ div [ ] [ text (F.comma (List.length ms.filty)),
                          text " totaling ",
                          text (Filesize.format totalSize),
-                         aList model.yearsChecked (List.reverse years) "years" String.fromInt CheckedYear,
+                         Picker.view PickerChanged model.datePicker,
                          aList model.camerasChecked ms.cameras "cameras" identity CheckedCam,
                          aList model.typesChecked ms.types "types" identity CheckedType
                        ]
@@ -237,18 +234,6 @@ init _ =
                    Task.perform ZoneHere Time.here]
   )
 
-emptyState : Model
-emptyState = Model
-             { httpError = Nothing
-             , zone = Time.utc
-             , overlay = ScreenOverlay.initOverlay
-             , current = (Nothing, Nothing)
-             , yearsChecked = Set.empty
-             , camerasChecked = Set.empty
-             , typesChecked = Set.empty
-             , media = Nothing
-             , filters = [yearFilter, camFilter, typeFilter]}
-
 filter : Model -> Model
 filter (Model model) =
     case model.media of
@@ -258,20 +243,31 @@ filter (Model model) =
                 filty = List.filter (\m -> List.all (\f -> f (Model model) m) model.filters) ms.media in
             Model { model | media = Just { ms | filty = filty }}
 
-yearFilter : Model -> Medium -> Bool
-yearFilter (Model model) m =
-    let z = model.zone in
-    Set.member (Time.toYear z m.captured_at) model.yearsChecked
-
 camFilter : Model -> Medium -> Bool
 camFilter (Model model) m = Set.member m.camera_model model.camerasChecked
-
 
 typeFilter : Model -> Medium -> Bool
 typeFilter (Model model) m = Set.member (mediaTypeStr m.media_type) model.typesChecked
 
+dateFilter : Model -> Medium -> Bool
+dateFilter (Model model) m =
+    let mr = Picker.getRange model.datePicker
+        lte a b = Time.posixToMillis a <= Time.posixToMillis b
+    in
+    case mr of
+        Nothing -> True
+        Just r -> lte (beginsAt r) m.captured_at && lte m.captured_at (endsAt r)
+
 addOrRemove : Bool -> comparable -> Set.Set comparable -> Set.Set comparable
 addOrRemove b = if b then Set.insert else Set.remove
+
+truncDay : Time.Posix -> Time.Posix
+truncDay t = let m = Time.posixToMillis t in
+             Time.millisToPosix (m - modBy 86400000 m)
+
+addDays : Int -> Time.Posix -> Time.Posix
+addDays n t = let m = Time.posixToMillis t in
+           Time.millisToPosix (m + (n * 86400000))
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg (Model model) =
@@ -280,18 +276,19 @@ update msg (Model model) =
             case result of
                 Ok meds ->
                     let z = model.zone
-                        years = Set.fromList (List.map (\m -> Time.toYear z m.captured_at) meds)
                         cameras = Set.fromList (List.map .camera_model meds)
                         types = Set.fromList (List.map (\m -> mediaTypeStr m.media_type) meds)
-                        maxYear = case List.maximum (Set.toList years) of
-                                      Nothing -> Set.empty
-                                      Just x -> Set.singleton x
-
+                        times = List.map .captured_at meds
+                        tzero = Time.millisToPosix 0
+                        oldest = Maybe.withDefault tzero <| minimumBy Time.posixToMillis times
+                        newest = Maybe.withDefault tzero <| maximumBy Time.posixToMillis times
                     in
-                    (filter (Model {model | media = Just (Media meds years (Set.toList cameras) (Set.toList types) []),
-                                            yearsChecked = maxYear,
+                    (filter (Model {model | media = Just (Media meds (Set.toList cameras) (Set.toList types)
+                                                              (truncDay oldest,
+                                                               addDays 1 (truncDay newest)) []),
                                             camerasChecked = cameras,
-                                            typesChecked = types}), Cmd.none)
+                                            typesChecked = types
+                                   }), Cmd.none)
 
                 Err x ->
                     (Model {model | httpError = Just  x}, Cmd.none)
@@ -299,8 +296,16 @@ update msg (Model model) =
         SomeDLOpts result -> let (m, _) = model.current in
                              (Model {model | current = (m, Just result)}, Cmd.none)
 
+        CurrentTime t ->
+            (Model model,
+                 let earlier = addDays -7 t
+                     rangedPicker = Picker.setRange (Just (Range.create model.zone earlier t)) model.datePicker
+                 in
+                 Picker.now PickerChanged rangedPicker)
+
+
         ZoneHere z ->
-            (Model {model | zone = z}, Cmd.none)
+            (Model {model | zone = z}, Task.perform CurrentTime Time.now)
 
         OpenOverlay m ->
             (Model { model | overlay = ScreenOverlay.show model.overlay, current = (Just m, Nothing) },
@@ -314,9 +319,8 @@ update msg (Model model) =
             (Model { model | overlay = ScreenOverlay.hide model.overlay,
                              current = (Nothing, Nothing) }, unlockScroll Nothing )
 
-        CheckedYear y checked ->
-            (filter (Model { model | yearsChecked = addOrRemove checked y model.yearsChecked }),
-             Cmd.none)
+        PickerChanged state ->
+            ( filter (Model { model | datePicker = state } ), Cmd.none )
 
         CheckedCam c checked ->
             (filter (Model { model | camerasChecked = addOrRemove checked c model.camerasChecked }),
@@ -326,10 +330,14 @@ update msg (Model model) =
             (filter (Model { model | typesChecked = addOrRemove checked t model.typesChecked }),
              Cmd.none)
 
+subscriptions : Model -> Sub Msg
+subscriptions (Model model) =
+     Picker.subscriptions PickerChanged model.datePicker
+
 
 main = Browser.element
     { init = init
     , update = update
-    , subscriptions = always Sub.none
+    , subscriptions = subscriptions
     , view = view
     }
