@@ -71,14 +71,20 @@ dloptsDecoder = Decode.map (\opts ->
                                 DLOpts best opts
                            ) dloptDecoder
 
-type alias Model =
+type alias Media =
+    { media : List Medium
+    , years : Set.Set Int
+    , filty : List Medium
+    }
+
+type Model = Model
     { httpError : Maybe Http.Error
-    , media : List Medium
     , zone  : Time.Zone
     , overlay : ScreenOverlay.ScreenOverlay
     , current : (Maybe Medium, Maybe (Result Http.Error DLOpts))
     , yearsChecked : Set.Set Int
-    , yearsMap : Dict.Dict Int (List Medium)
+    , media : Maybe Media
+    , filters : List (Model -> Medium -> Bool)
     }
 
 type Msg
@@ -120,32 +126,31 @@ yearList checked years =
                              ]
                         ) years)
 
-renderMediaList : Model -> Html Msg
-renderMediaList rs =
-    let z = rs.zone
-        filty = List.concatMap (\y -> Maybe.withDefault [] (Dict.get y rs.yearsMap))
-                (List.reverse (Set.toList rs.yearsChecked))
-        groupies = groupWhile (\a b -> F.day z a.captured_at == F.day z b.captured_at) filty
-        totalSize = List.foldl (\x o -> x.file_size + o) 0 filty
-        years = Dict.keys rs.yearsMap
+renderMediaList : Media -> Model -> Html Msg
+renderMediaList ms (Model model) =
+    let z = model.zone
+        groupies = groupWhile (\a b -> F.day z a.captured_at == F.day z b.captured_at) ms.filty
+        totalSize = List.foldl (\x o -> x.file_size + o) 0 ms.filty
+        years = Set.toList ms.years
     in
     div [ H.id "main" ]
         [
          div [ H.class "header" ]
-             [ div [ ] [ text (F.comma (List.length filty)),
+             [ div [ ] [ text (F.comma (List.length ms.filty)),
                          text " totaling ",
                          text (Filesize.format totalSize),
-                         yearList rs.yearsChecked (List.reverse years)]],
-         div [] [ScreenOverlay.overlayView rs.overlay CloseOverlay (renderOverlay z rs.current)],
+                         yearList model.yearsChecked (List.reverse years)]],
+         div [] [ScreenOverlay.overlayView model.overlay CloseOverlay (renderOverlay z model.current)],
          div [ H.class "media" ]
              (mediaHTML z groupies)]
 
 view : Model -> Html Msg
-view model =
+view (Model model) =
     case model.httpError of
         Nothing ->
-            if List.isEmpty model.media then text "Loading..."
-            else renderMediaList model
+            case model.media of
+                Nothing -> text "Loading..."
+                Just m -> renderMediaList m (Model model)
         Just x -> pre [] [text ("I was unable to load the media: " ++ F.httpErr x)]
 
 
@@ -216,51 +221,68 @@ init _ =
   )
 
 emptyState : Model
-emptyState = Model Nothing [] Time.utc ScreenOverlay.initOverlay (Nothing, Nothing) Set.empty Dict.empty
+emptyState = Model
+             { httpError = Nothing
+             , zone = Time.utc
+             , overlay = ScreenOverlay.initOverlay
+             , current = (Nothing, Nothing)
+             , yearsChecked = Set.empty
+             , media = Nothing
+             , filters = [yearFilter]}
+
+filter : Model -> Model
+filter (Model model) =
+    case model.media of
+        Nothing -> Model model
+        Just ms ->
+            let z = model.zone
+                filty = List.filter (\m -> List.all (\f -> f (Model model) m) model.filters) ms.media in
+            Model { model | media = Just { ms | filty = filty }}
+
+yearFilter : Model -> Medium -> Bool
+yearFilter (Model model) m =
+    let z = model.zone in
+    Set.member (Time.toYear z m.captured_at) model.yearsChecked
 
 update : Msg -> Model -> (Model, Cmd Msg)
-update msg model =
+update msg (Model model) =
     case msg of
         SomeMedia result ->
             case result of
                 Ok meds ->
                     let z = model.zone
-                        ymap = List.foldl (\x o -> Dict.update (Time.toYear z x.captured_at)
-                                                   (\e -> Just <| case e of
-                                                                      Nothing -> [x]
-                                                                      Just l -> l ++ [x])
-                                                       o) Dict.empty meds
-                        maxYear = case List.maximum (Dict.keys ymap) of
+                        years = Set.fromList (List.map (\m -> Time.toYear z m.captured_at) meds)
+                        maxYear = case List.maximum (Set.toList years) of
                                       Nothing -> Set.empty
                                       Just x -> Set.singleton x
+                                                
                     in
-                    ({model | media = meds,
-                          yearsChecked = maxYear,
-                          yearsMap = ymap}, Cmd.none)
+                    (filter (Model {model | media = Just (Media meds years []),
+                                            yearsChecked = maxYear}), Cmd.none)
 
                 Err x ->
-                    ({model | httpError = Just  x}, Cmd.none)
+                    (Model {model | httpError = Just  x}, Cmd.none)
 
         SomeDLOpts result -> let (m, _) = model.current in
-                             ({model | current = (m, Just result)}, Cmd.none)
+                             (Model {model | current = (m, Just result)}, Cmd.none)
 
         ZoneHere z ->
-            ({model | zone = z}, Cmd.none)
+            (Model {model | zone = z}, Cmd.none)
 
         OpenOverlay m ->
-            ({ model | overlay = ScreenOverlay.show model.overlay, current = (Just m, Nothing) },
-                 Cmd.batch [lockScroll Nothing,
-                            Http.get
-                                { url = "/api/retrieve2/" ++ m.id
-                                , expect = Http.expectJson SomeDLOpts dloptsDecoder
-                           }])
+            (Model { model | overlay = ScreenOverlay.show model.overlay, current = (Just m, Nothing) },
+             Cmd.batch [lockScroll Nothing,
+                        Http.get
+                            { url = "/api/retrieve2/" ++ m.id
+                            , expect = Http.expectJson SomeDLOpts dloptsDecoder
+                            }])
 
         CloseOverlay ->
-            ({ model | overlay = ScreenOverlay.hide model.overlay,
-                       current = (Nothing, Nothing) }, unlockScroll Nothing )
+            (Model { model | overlay = ScreenOverlay.hide model.overlay,
+                             current = (Nothing, Nothing) }, unlockScroll Nothing )
 
         CheckedYear y checked ->
-            ({ model | yearsChecked = (if checked then Set.insert else Set.remove) y model.yearsChecked },
+            (filter (Model { model | yearsChecked = (if checked then Set.insert else Set.remove) y model.yearsChecked }),
              Cmd.none)
 
 
