@@ -75,6 +75,7 @@ type alias Media =
     { media : List Medium
     , years : Set.Set Int
     , cameras : List String
+    , types : List String
     , filty : List Medium
     }
 
@@ -85,6 +86,7 @@ type Model = Model
     , current : (Maybe Medium, Maybe (Result Http.Error DLOpts))
     , yearsChecked : Set.Set Int
     , camerasChecked : Set.Set String
+    , typesChecked : Set.Set String
     , media : Maybe Media
     , filters : List (Model -> Medium -> Bool)
     }
@@ -97,6 +99,7 @@ type Msg
   | CloseOverlay
   | CheckedYear Int Bool
   | CheckedCam String Bool
+  | CheckedType String Bool
 
 mediumHTML : Time.Zone -> Medium -> Html Msg
 mediumHTML z m = div [ H.class "medium", onClick (OpenOverlay m) ] [
@@ -145,6 +148,22 @@ camList checked cams =
                              ]
                         ) cams)
 
+typeList : Set.Set String -> List String -> Html Msg
+typeList checked types =
+    div [ H.class "types" ]
+        (List.concatMap (\t ->
+                             let tid = String.replace " " "_" t in
+                             [
+                              input [ H.type_ "checkbox", H.id ("type" ++ tid),
+                                      H.name tid,
+                                      H.checked (Set.member t checked),
+                                      onCheck (CheckedType t)
+                                    ] [],
+                              label [ H.for ("type" ++ tid) ] [
+                                   text t ]
+                             ]
+                        ) types)
+
 renderMediaList : Media -> Model -> Html Msg
 renderMediaList ms (Model model) =
     let z = model.zone
@@ -159,7 +178,9 @@ renderMediaList ms (Model model) =
                          text " totaling ",
                          text (Filesize.format totalSize),
                          yearList model.yearsChecked (List.reverse years),
-                         camList model.camerasChecked ms.cameras]
+                         camList model.camerasChecked ms.cameras,
+                         typeList model.typesChecked ms.types
+                       ]
              ],
          div [] [ScreenOverlay.overlayView model.overlay CloseOverlay (renderOverlay z model.current)],
          div [ H.class "media" ]
@@ -249,8 +270,9 @@ emptyState = Model
              , current = (Nothing, Nothing)
              , yearsChecked = Set.empty
              , camerasChecked = Set.empty
+             , typesChecked = Set.empty
              , media = Nothing
-             , filters = [yearFilter, camFilter]}
+             , filters = [yearFilter, camFilter, typeFilter]}
 
 filter : Model -> Model
 filter (Model model) =
@@ -267,9 +289,14 @@ yearFilter (Model model) m =
     Set.member (Time.toYear z m.captured_at) model.yearsChecked
 
 camFilter : Model -> Medium -> Bool
-camFilter (Model model) m =
-    let z = model.zone in
-    Set.member m.camera_model model.camerasChecked
+camFilter (Model model) m = Set.member m.camera_model model.camerasChecked
+
+
+typeFilter : Model -> Medium -> Bool
+typeFilter (Model model) m = Set.member (mediaTypeStr m.media_type) model.typesChecked
+
+addOrRemove : Bool -> comparable -> Set.Set comparable -> Set.Set comparable
+addOrRemove b = if b then Set.insert else Set.remove
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg (Model model) =
@@ -280,14 +307,16 @@ update msg (Model model) =
                     let z = model.zone
                         years = Set.fromList (List.map (\m -> Time.toYear z m.captured_at) meds)
                         cameras = Set.fromList (List.map .camera_model meds)
+                        types = Set.fromList (List.map (\m -> mediaTypeStr m.media_type) meds)
                         maxYear = case List.maximum (Set.toList years) of
                                       Nothing -> Set.empty
                                       Just x -> Set.singleton x
                                                 
                     in
-                    (filter (Model {model | media = Just (Media meds years (Set.toList cameras) []),
+                    (filter (Model {model | media = Just (Media meds years (Set.toList cameras) (Set.toList types) []),
                                             yearsChecked = maxYear,
-                                            camerasChecked = cameras}), Cmd.none)
+                                            camerasChecked = cameras,
+                                            typesChecked = types}), Cmd.none)
 
                 Err x ->
                     (Model {model | httpError = Just  x}, Cmd.none)
@@ -311,11 +340,15 @@ update msg (Model model) =
                              current = (Nothing, Nothing) }, unlockScroll Nothing )
 
         CheckedYear y checked ->
-            (filter (Model { model | yearsChecked = (if checked then Set.insert else Set.remove) y model.yearsChecked }),
+            (filter (Model { model | yearsChecked = addOrRemove checked y model.yearsChecked }),
              Cmd.none)
 
-        CheckedCam cam checked ->
-            (filter (Model { model | camerasChecked = (if checked then Set.insert else Set.remove) cam model.camerasChecked }),
+        CheckedCam c checked ->
+            (filter (Model { model | camerasChecked = addOrRemove checked c model.camerasChecked }),
+             Cmd.none)
+
+        CheckedType t checked ->
+            (filter (Model { model | typesChecked = addOrRemove checked t model.typesChecked }),
              Cmd.none)
 
 
