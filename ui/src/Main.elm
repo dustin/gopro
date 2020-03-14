@@ -62,6 +62,7 @@ type alias Media =
     , cameras : List String
     , types : List String
     , timeRange : (Time.Posix, Time.Posix)
+    , years : Set.Set Int
     , filty : List Medium
     }
 
@@ -101,6 +102,7 @@ type Msg
   | CheckedCam String Bool
   | CheckedType String Bool
   | PickerChanged Picker.State
+  | YearClicked Int
 
 mediumHTML : Time.Zone -> Medium -> Html Msg
 mediumHTML z m = div [ H.class "medium", onClick (OpenOverlay m) ] [
@@ -142,6 +144,9 @@ renderMediaList ms (Model model) =
     let z = model.zone
         groupies = groupWhile (\a b -> F.day z a.captured_at == F.day z b.captured_at) ms.filty
         totalSize = List.foldl (\x o -> x.file_size + o) 0 ms.filty
+        aYear y = div [ H.class "year" ] [
+                   a [ onClick (YearClicked y) ] [ text (String.fromInt y) ]
+                  ]
     in
     div [ H.id "main" ]
         [
@@ -149,7 +154,10 @@ renderMediaList ms (Model model) =
              [ div [ ] [ text (F.comma (List.length ms.filty)),
                          text " totaling ",
                          text (Filesize.format totalSize),
-                         Picker.view PickerChanged model.datePicker,
+                         div [ H.class "datepick" ]
+                             ([ Picker.view PickerChanged model.datePicker,
+                                    div [ H.class "year" ] [ text "Quick year picker:" ] ]
+                             ++ (List.map aYear (List.reverse (Set.toList ms.years)))),
                          aList model.camerasChecked ms.cameras "cameras" identity CheckedCam,
                          aList model.typesChecked ms.types "types" identity CheckedType
                        ]
@@ -279,13 +287,15 @@ update msg (Model model) =
                         cameras = Set.fromList (List.map .camera_model meds)
                         types = Set.fromList (List.map (\m -> mediaTypeStr m.media_type) meds)
                         times = List.map .captured_at meds
+                        years = Set.fromList <| List.map (Time.toYear z) times
                         tzero = Time.millisToPosix 0
                         oldest = Maybe.withDefault tzero <| minimumBy Time.posixToMillis times
                         newest = Maybe.withDefault tzero <| maximumBy Time.posixToMillis times
                     in
                     (filter (Model {model | media = Just (Media meds (Set.toList cameras) (Set.toList types)
                                                               (truncDay oldest,
-                                                               addDays 1 (truncDay newest)) []),
+                                                               addDays 1 (truncDay newest))
+                                                              years []),
                                             camerasChecked = cameras,
                                             typesChecked = types
                                    }), Cmd.none)
@@ -329,6 +339,17 @@ update msg (Model model) =
         CheckedType t checked ->
             (filter (Model { model | typesChecked = addOrRemove checked t model.typesChecked }),
              Cmd.none)
+
+        YearClicked y -> let b = String.fromInt y ++ "-01-01T00:00:00Z"
+                             e = String.fromInt y ++ "-12-31T23:59:59Z"
+                             eb = Iso8601.toTime b
+                             et = Iso8601.toTime e
+                             nst = case (eb, et) of
+                                       (Ok l, Ok h) ->
+                                           Picker.setRange (Just (Range.create model.zone l h)) model.datePicker
+                                       _ -> model.datePicker
+                         in
+                             (filter (Model {model | datePicker = nst}), Cmd.none)
 
 subscriptions : Model -> Sub Msg
 subscriptions (Model model) =
