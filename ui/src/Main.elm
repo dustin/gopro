@@ -74,6 +74,7 @@ dloptsDecoder = Decode.map (\opts ->
 type alias Media =
     { media : List Medium
     , years : Set.Set Int
+    , cameras : List String
     , filty : List Medium
     }
 
@@ -83,6 +84,7 @@ type Model = Model
     , overlay : ScreenOverlay.ScreenOverlay
     , current : (Maybe Medium, Maybe (Result Http.Error DLOpts))
     , yearsChecked : Set.Set Int
+    , camerasChecked : Set.Set String
     , media : Maybe Media
     , filters : List (Model -> Medium -> Bool)
     }
@@ -94,6 +96,7 @@ type Msg
   | OpenOverlay Medium
   | CloseOverlay
   | CheckedYear Int Bool
+  | CheckedCam String Bool
 
 mediumHTML : Time.Zone -> Medium -> Html Msg
 mediumHTML z m = div [ H.class "medium", onClick (OpenOverlay m) ] [
@@ -126,6 +129,22 @@ yearList checked years =
                              ]
                         ) years)
 
+camList : Set.Set String -> List String -> Html Msg
+camList checked cams =
+    div [ H.class "cameras" ]
+        (List.concatMap (\c ->
+                             let cid = String.replace " " "_" c in
+                             [
+                              input [ H.type_ "checkbox", H.id ("cam" ++ cid),
+                                      H.name cid,
+                                      H.checked (Set.member c checked),
+                                      onCheck (CheckedCam c)
+                                    ] [],
+                              label [ H.for ("cam" ++ cid) ] [
+                                   text c ]
+                             ]
+                        ) cams)
+
 renderMediaList : Media -> Model -> Html Msg
 renderMediaList ms (Model model) =
     let z = model.zone
@@ -139,7 +158,9 @@ renderMediaList ms (Model model) =
              [ div [ ] [ text (F.comma (List.length ms.filty)),
                          text " totaling ",
                          text (Filesize.format totalSize),
-                         yearList model.yearsChecked (List.reverse years)]],
+                         yearList model.yearsChecked (List.reverse years),
+                         camList model.camerasChecked ms.cameras]
+             ],
          div [] [ScreenOverlay.overlayView model.overlay CloseOverlay (renderOverlay z model.current)],
          div [ H.class "media" ]
              (mediaHTML z groupies)]
@@ -227,8 +248,9 @@ emptyState = Model
              , overlay = ScreenOverlay.initOverlay
              , current = (Nothing, Nothing)
              , yearsChecked = Set.empty
+             , camerasChecked = Set.empty
              , media = Nothing
-             , filters = [yearFilter]}
+             , filters = [yearFilter, camFilter]}
 
 filter : Model -> Model
 filter (Model model) =
@@ -244,6 +266,11 @@ yearFilter (Model model) m =
     let z = model.zone in
     Set.member (Time.toYear z m.captured_at) model.yearsChecked
 
+camFilter : Model -> Medium -> Bool
+camFilter (Model model) m =
+    let z = model.zone in
+    Set.member m.camera_model model.camerasChecked
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg (Model model) =
     case msg of
@@ -252,13 +279,15 @@ update msg (Model model) =
                 Ok meds ->
                     let z = model.zone
                         years = Set.fromList (List.map (\m -> Time.toYear z m.captured_at) meds)
+                        cameras = Set.fromList (List.map .camera_model meds)
                         maxYear = case List.maximum (Set.toList years) of
                                       Nothing -> Set.empty
                                       Just x -> Set.singleton x
                                                 
                     in
-                    (filter (Model {model | media = Just (Media meds years []),
-                                            yearsChecked = maxYear}), Cmd.none)
+                    (filter (Model {model | media = Just (Media meds years (Set.toList cameras) []),
+                                            yearsChecked = maxYear,
+                                            camerasChecked = cameras}), Cmd.none)
 
                 Err x ->
                     (Model {model | httpError = Just  x}, Cmd.none)
@@ -283,6 +312,10 @@ update msg (Model model) =
 
         CheckedYear y checked ->
             (filter (Model { model | yearsChecked = (if checked then Set.insert else Set.remove) y model.yearsChecked }),
+             Cmd.none)
+
+        CheckedCam cam checked ->
+            (filter (Model { model | camerasChecked = (if checked then Set.insert else Set.remove) cam model.camerasChecked }),
              Cmd.none)
 
 
