@@ -8018,18 +8018,22 @@ var $elm$core$String$replace = F3(
 var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
 var $elm$html$Html$text = $elm$virtual_dom$VirtualDom$text;
 var $elm$html$Html$Attributes$type_ = $elm$html$Html$Attributes$stringProperty('type');
-var $author$project$Main$camList = F2(
-	function (checked, cams) {
+var $author$project$Main$aList = F5(
+	function (checked, things, _class, rep, msg) {
 		return A2(
 			$elm$html$Html$div,
 			_List_fromArray(
 				[
-					$elm$html$Html$Attributes$class('cameras')
+					$elm$html$Html$Attributes$class(_class)
 				]),
 			A2(
 				$elm$core$List$concatMap,
-				function (c) {
-					var cid = A3($elm$core$String$replace, ' ', '_', c);
+				function (t) {
+					var id = A3(
+						$elm$core$String$replace,
+						' ',
+						'_',
+						rep(t));
 					return _List_fromArray(
 						[
 							A2(
@@ -8037,27 +8041,34 @@ var $author$project$Main$camList = F2(
 							_List_fromArray(
 								[
 									$elm$html$Html$Attributes$type_('checkbox'),
-									$elm$html$Html$Attributes$id('cam' + cid),
-									$elm$html$Html$Attributes$name(cid),
+									$elm$html$Html$Attributes$id(
+									_Utils_ap(_class, id)),
+									$elm$html$Html$Attributes$name(id),
 									$elm$html$Html$Attributes$checked(
-									A2($elm$core$Set$member, c, checked)),
+									A2($elm$core$Set$member, t, checked)),
 									$elm$html$Html$Events$onCheck(
-									$author$project$Main$CheckedCam(c))
+									msg(t))
 								]),
 							_List_Nil),
 							A2(
 							$elm$html$Html$label,
 							_List_fromArray(
 								[
-									$elm$html$Html$Attributes$for('cam' + cid)
+									$elm$html$Html$Attributes$for(
+									_Utils_ap(_class, id))
 								]),
 							_List_fromArray(
 								[
-									$elm$html$Html$text(c)
+									$elm$html$Html$text(
+									rep(t))
 								]))
 						]);
 				},
-				cams));
+				things));
+	});
+var $author$project$Main$camList = F2(
+	function (checked, cams) {
+		return A5($author$project$Main$aList, checked, cams, 'cameras', $elm$core$Basics$identity, $author$project$Main$CheckedCam);
 	});
 var $elm$core$String$cons = _String_cons;
 var $elm$core$String$fromChar = function (_char) {
@@ -11684,44 +11695,7 @@ var $author$project$Main$CheckedType = F2(
 	});
 var $author$project$Main$typeList = F2(
 	function (checked, types) {
-		return A2(
-			$elm$html$Html$div,
-			_List_fromArray(
-				[
-					$elm$html$Html$Attributes$class('types')
-				]),
-			A2(
-				$elm$core$List$concatMap,
-				function (t) {
-					var tid = A3($elm$core$String$replace, ' ', '_', t);
-					return _List_fromArray(
-						[
-							A2(
-							$elm$html$Html$input,
-							_List_fromArray(
-								[
-									$elm$html$Html$Attributes$type_('checkbox'),
-									$elm$html$Html$Attributes$id('type' + tid),
-									$elm$html$Html$Attributes$name(tid),
-									$elm$html$Html$Attributes$checked(
-									A2($elm$core$Set$member, t, checked)),
-									$elm$html$Html$Events$onCheck(
-									$author$project$Main$CheckedType(t))
-								]),
-							_List_Nil),
-							A2(
-							$elm$html$Html$label,
-							_List_fromArray(
-								[
-									$elm$html$Html$Attributes$for('type' + tid)
-								]),
-							_List_fromArray(
-								[
-									$elm$html$Html$text(t)
-								]))
-						]);
-				},
-				types));
+		return A5($author$project$Main$aList, checked, types, 'types', $elm$core$Basics$identity, $author$project$Main$CheckedType);
 	});
 var $author$project$Main$CheckedYear = F2(
 	function (a, b) {
@@ -11729,47 +11703,7 @@ var $author$project$Main$CheckedYear = F2(
 	});
 var $author$project$Main$yearList = F2(
 	function (checked, years) {
-		return A2(
-			$elm$html$Html$div,
-			_List_fromArray(
-				[
-					$elm$html$Html$Attributes$class('years')
-				]),
-			A2(
-				$elm$core$List$concatMap,
-				function (y) {
-					return _List_fromArray(
-						[
-							A2(
-							$elm$html$Html$input,
-							_List_fromArray(
-								[
-									$elm$html$Html$Attributes$type_('checkbox'),
-									$elm$html$Html$Attributes$id(
-									'yr' + $elm$core$String$fromInt(y)),
-									$elm$html$Html$Attributes$name(
-									$elm$core$String$fromInt(y)),
-									$elm$html$Html$Attributes$checked(
-									A2($elm$core$Set$member, y, checked)),
-									$elm$html$Html$Events$onCheck(
-									$author$project$Main$CheckedYear(y))
-								]),
-							_List_Nil),
-							A2(
-							$elm$html$Html$label,
-							_List_fromArray(
-								[
-									$elm$html$Html$Attributes$for(
-									'yr' + $elm$core$String$fromInt(y))
-								]),
-							_List_fromArray(
-								[
-									$elm$html$Html$text(
-									$elm$core$String$fromInt(y))
-								]))
-						]);
-				},
-				years));
+		return A5($author$project$Main$aList, checked, years, 'years', $elm$core$String$fromInt, $author$project$Main$CheckedYear);
 	});
 var $author$project$Main$renderMediaList = F2(
 	function (ms, _v0) {

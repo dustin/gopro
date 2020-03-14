@@ -116,53 +116,28 @@ mediaHTML z ls = let oneDay (first, rest) =
                              (h2 [ ] [text (F.day z theDay)]
                              :: List.map (mediumHTML z) (first::rest))
                  in List.map (lazy oneDay) ls
-             
-yearList : Set.Set Int -> List Int -> Html Msg
-yearList checked years =
-    div [ H.class "years" ]
-        (List.concatMap (\y ->
-                             [
-                              input [ H.type_ "checkbox", H.id ("yr" ++ String.fromInt y),
-                                      H.name (String.fromInt y),
-                                      H.checked (Set.member y checked),
-                                      onCheck (CheckedYear y)
-                                    ] [],
-                              label [ H.for ("yr" ++ String.fromInt y) ] [
-                                   text (String.fromInt y) ]
-                             ]
-                        ) years)
 
-camList : Set.Set String -> List String -> Html Msg
-camList checked cams =
-    div [ H.class "cameras" ]
-        (List.concatMap (\c ->
-                             let cid = String.replace " " "_" c in
-                             [
-                              input [ H.type_ "checkbox", H.id ("cam" ++ cid),
-                                      H.name cid,
-                                      H.checked (Set.member c checked),
-                                      onCheck (CheckedCam c)
-                                    ] [],
-                              label [ H.for ("cam" ++ cid) ] [
-                                   text c ]
-                             ]
-                        ) cams)
-
-typeList : Set.Set String -> List String -> Html Msg
-typeList checked types =
-    div [ H.class "types" ]
+-- Render a list of checkboxes and the model manipulation bits.
+aList : Set.Set comparable           -- Checked state
+      -> List comparable             -- All options
+      -> String                      -- CSS class of the container
+      -> (comparable -> String)      -- Representation function
+      -> (comparable -> Bool -> Msg) -- Callback message
+      -> Html Msg
+aList checked things class rep msg =
+    div [ H.class class ]
         (List.concatMap (\t ->
-                             let tid = String.replace " " "_" t in
+                             let id = String.replace " " "_" (rep t) in
                              [
-                              input [ H.type_ "checkbox", H.id ("type" ++ tid),
-                                      H.name tid,
+                              input [ H.type_ "checkbox", H.id (class ++ id),
+                                      H.name id,
                                       H.checked (Set.member t checked),
-                                      onCheck (CheckedType t)
+                                      onCheck (msg t)
                                     ] [],
-                              label [ H.for ("type" ++ tid) ] [
-                                   text t ]
+                              label [ H.for (class ++ id) ] [
+                                   text (rep t) ]
                              ]
-                        ) types)
+                        ) things)
 
 renderMediaList : Media -> Model -> Html Msg
 renderMediaList ms (Model model) =
@@ -177,9 +152,9 @@ renderMediaList ms (Model model) =
              [ div [ ] [ text (F.comma (List.length ms.filty)),
                          text " totaling ",
                          text (Filesize.format totalSize),
-                         yearList model.yearsChecked (List.reverse years),
-                         camList model.camerasChecked ms.cameras,
-                         typeList model.typesChecked ms.types
+                         aList model.yearsChecked (List.reverse years) "years" String.fromInt CheckedYear,
+                         aList model.camerasChecked ms.cameras "cameras" identity CheckedCam,
+                         aList model.typesChecked ms.types "types" identity CheckedType
                        ]
              ],
          div [] [ScreenOverlay.overlayView model.overlay CloseOverlay (renderOverlay z model.current)],
@@ -311,7 +286,7 @@ update msg (Model model) =
                         maxYear = case List.maximum (Set.toList years) of
                                       Nothing -> Set.empty
                                       Just x -> Set.singleton x
-                                                
+
                     in
                     (filter (Model {model | media = Just (Media meds years (Set.toList cameras) (Set.toList types) []),
                                             yearsChecked = maxYear,
