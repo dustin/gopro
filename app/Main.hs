@@ -170,8 +170,8 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
     application :: ScottyT LT.Text EnvM ()
     application = do
       let staticPath = "static"
-      middleware $ staticPolicy (noDots >-> addBase staticPath)
       middleware $ GZ.gzip GZ.def {GZ.gzipFiles = GZ.GzipCompress}
+      middleware $ staticPolicy (noDots >-> addBase staticPath)
 
       get "/" $ do
         setHeader "Content-Type" "text/html"
