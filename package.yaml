@@ -44,6 +44,7 @@ dependencies:
 - scotty
 - wai
 - wai-middleware-static
+- wai-extra
 - unordered-containers
 
 library:

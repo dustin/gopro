@@ -32,6 +32,7 @@ import           Database.SQLite.Simple        (Connection, withConnection)
 import           GoPro.AuthDB
 import           GoPro.DB
 import           GoPro.Plus
+import qualified Network.Wai.Middleware.Gzip   as GZ
 import           Network.Wai.Middleware.Static (addBase, noDots, staticPolicy,
                                                 (>->))
 import           Options.Applicative           (Parser, argument, execParser,
@@ -170,6 +171,7 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
     application = do
       let staticPath = "static"
       middleware $ staticPolicy (noDots >-> addBase staticPath)
+      middleware $ GZ.gzip GZ.def {GZ.gzipFiles = GZ.GzipCompress}
 
       get "/" $ do
         setHeader "Content-Type" "text/html"
