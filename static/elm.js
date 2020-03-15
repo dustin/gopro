@@ -1858,7 +1858,7 @@ var _Platform_worker = F4(function(impl, flagDecoder, debugMetadata, args)
 		flagDecoder,
 		args,
 		impl.dl,
-		impl.dU,
+		impl.dT,
 		impl.dP,
 		function() { return function() {} }
 	);
@@ -3929,10 +3929,10 @@ var _Browser_element = _Debugger_element || F4(function(impl, flagDecoder, debug
 		flagDecoder,
 		args,
 		impl.dl,
-		impl.dU,
+		impl.dT,
 		impl.dP,
 		function(sendToApp, initialModel) {
-			var view = impl.dW;
+			var view = impl.dV;
 			/**/
 			var domNode = args['node'];
 			//*/
@@ -3965,11 +3965,11 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 		flagDecoder,
 		args,
 		impl.dl,
-		impl.dU,
+		impl.dT,
 		impl.dP,
 		function(sendToApp, initialModel) {
 			var divertHrefToApp = impl.bJ && impl.bJ(sendToApp)
-			var view = impl.dW;
+			var view = impl.dV;
 			var title = _VirtualDom_doc.title;
 			var bodyNode = _VirtualDom_doc.body;
 			var currNode = _VirtualDom_virtualize(bodyNode);
@@ -3982,7 +3982,7 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 				bodyNode = _VirtualDom_applyPatches(bodyNode, currNode, patches, sendToApp);
 				currNode = nextNode;
 				_VirtualDom_divertHrefToApp = 0;
-				(title !== doc.dS) && (_VirtualDom_doc.title = title = doc.dS);
+				(title !== doc.dR) && (_VirtualDom_doc.title = title = doc.dR);
 			});
 		}
 	);
@@ -4073,8 +4073,8 @@ function _Browser_application(impl)
 		{
 			return A3(impl.dl, flags, _Browser_getUrl(), key);
 		},
-		dW: impl.dW,
-		dU: impl.dU,
+		dV: impl.dV,
+		dT: impl.dT,
 		dP: impl.dP
 	});
 }
@@ -4398,7 +4398,7 @@ function _Http_configureRequest(xhr, request)
 	{
 		xhr.setRequestHeader(headers.a.a, headers.a.b);
 	}
-	xhr.timeout = request.dR.a || 0;
+	xhr.timeout = request.dQ.a || 0;
 	xhr.responseType = request.b7.d;
 	xhr.withCredentials = request.c2;
 }
@@ -7093,7 +7093,7 @@ var $elm$http$Http$cmdMap = F2(
 					b7: A2(_Http_mapExpect, func, r.b7),
 					ce: r.ce,
 					dq: r.dq,
-					dR: r.dR,
+					dQ: r.dQ,
 					cT: r.cT,
 					a0: r.a0
 				});
@@ -7118,11 +7118,11 @@ var $elm$http$Http$subscription = _Platform_leaf('Http');
 var $elm$http$Http$request = function (r) {
 	return $elm$http$Http$command(
 		$elm$http$Http$Request(
-			{c2: false, c6: r.c6, b7: r.b7, ce: r.ce, dq: r.dq, dR: r.dR, cT: r.cT, a0: r.a0}));
+			{c2: false, c6: r.c6, b7: r.b7, ce: r.ce, dq: r.dq, dQ: r.dQ, cT: r.cT, a0: r.a0}));
 };
 var $elm$http$Http$get = function (r) {
 	return $elm$http$Http$request(
-		{c6: $elm$http$Http$emptyBody, b7: r.b7, ce: _List_Nil, dq: 'GET', dR: $elm$core$Maybe$Nothing, cT: $elm$core$Maybe$Nothing, a0: r.a0});
+		{c6: $elm$http$Http$emptyBody, b7: r.b7, ce: _List_Nil, dq: 'GET', dQ: $elm$core$Maybe$Nothing, cT: $elm$core$Maybe$Nothing, a0: r.a0});
 };
 var $elm$time$Time$Name = function (a) {
 	return {$: 0, a: a};
@@ -7146,7 +7146,7 @@ var $author$project$Media$Medium = function (id) {
 										return function (token) {
 											return function (width) {
 												return function (height) {
-													return {br: camera_model, J: captured_at, da: created_at, bw: file_size, by: height, a9: id, bc: media_type, ds: moments_count, dE: ready_to_view, dG: resolution, bK: source_duration, dT: token, bO: width};
+													return {br: camera_model, J: captured_at, da: created_at, bw: file_size, by: height, a9: id, bc: media_type, ds: moments_count, dE: ready_to_view, dG: resolution, bK: source_duration, dS: token, bO: width};
 												};
 											};
 										};
@@ -8519,9 +8519,9 @@ var $author$project$Main$subscriptions = function (_v0) {
 var $author$project$Main$CurrentTime = function (a) {
 	return {$: 3, a: a};
 };
-var $author$project$Main$Media = F6(
-	function (media, cameras, types, timeRange, years, filty) {
-		return {b$: cameras, aQ: filty, ag: media, dQ: timeRange, cX: types, c0: years};
+var $author$project$Main$Media = F5(
+	function (media, cameras, types, years, filty) {
+		return {b$: cameras, aQ: filty, ag: media, cX: types, c0: years};
 	});
 var $author$project$Main$SomeDLOpts = function (a) {
 	return {$: 1, a: a};
@@ -8539,6 +8539,11 @@ var $elm$core$Set$remove = F2(
 var $author$project$Main$addOrRemove = function (b) {
 	return b ? $elm$core$Set$insert : $elm$core$Set$remove;
 };
+var $elm$core$Basics$composeL = F3(
+	function (g, f, x) {
+		return g(
+			f(x));
+	});
 var $author$project$Main$DLOpt = F5(
 	function (url, name, desc, width, height) {
 		return {b4: desc, by: height, bF: name, a0: url, bO: width};
@@ -8614,11 +8619,6 @@ var $elm$core$List$any = F2(
 				}
 			}
 		}
-	});
-var $elm$core$Basics$composeL = F3(
-	function (g, f, x) {
-		return g(
-			f(x));
 	});
 var $elm$core$List$all = F2(
 	function (isOkay, list) {
@@ -8857,64 +8857,6 @@ var $author$project$Main$lockScroll = _Platform_outgoingPort(
 	function ($) {
 		return A3($elm$core$Maybe$destruct, $elm$json$Json$Encode$null, $elm$json$Json$Encode$string, $);
 	});
-var $elm_community$list_extra$List$Extra$maximumBy = F2(
-	function (f, ls) {
-		var maxBy = F2(
-			function (x, _v1) {
-				var y = _v1.a;
-				var fy = _v1.b;
-				var fx = f(x);
-				return (_Utils_cmp(fx, fy) > 0) ? _Utils_Tuple2(x, fx) : _Utils_Tuple2(y, fy);
-			});
-		if (ls.b) {
-			if (!ls.b.b) {
-				var l_ = ls.a;
-				return $elm$core$Maybe$Just(l_);
-			} else {
-				var l_ = ls.a;
-				var ls_ = ls.b;
-				return $elm$core$Maybe$Just(
-					A3(
-						$elm$core$List$foldl,
-						maxBy,
-						_Utils_Tuple2(
-							l_,
-							f(l_)),
-						ls_).a);
-			}
-		} else {
-			return $elm$core$Maybe$Nothing;
-		}
-	});
-var $elm_community$list_extra$List$Extra$minimumBy = F2(
-	function (f, ls) {
-		var minBy = F2(
-			function (x, _v1) {
-				var y = _v1.a;
-				var fy = _v1.b;
-				var fx = f(x);
-				return (_Utils_cmp(fx, fy) < 0) ? _Utils_Tuple2(x, fx) : _Utils_Tuple2(y, fy);
-			});
-		if (ls.b) {
-			if (!ls.b.b) {
-				var l_ = ls.a;
-				return $elm$core$Maybe$Just(l_);
-			} else {
-				var l_ = ls.a;
-				var ls_ = ls.b;
-				return $elm$core$Maybe$Just(
-					A3(
-						$elm$core$List$foldl,
-						minBy,
-						_Utils_Tuple2(
-							l_,
-							f(l_)),
-						ls_).a);
-			}
-		} else {
-			return $elm$core$Maybe$Nothing;
-		}
-	});
 var $author$project$Main$startOfPreviousMonth = function (zone) {
 	return A2(
 		$elm$core$Basics$composeR,
@@ -9064,11 +9006,6 @@ var $author$project$ScreenOverlay$show = function (_v0) {
 	var styles = _v0.b;
 	return A2($author$project$ScreenOverlay$ScreenOverlay, 0, styles);
 };
-var $author$project$Main$truncDay = function (t) {
-	var m = $elm$time$Time$posixToMillis(t);
-	return $elm$time$Time$millisToPosix(
-		m - A2($elm$core$Basics$modBy, 86400000, m));
-};
 var $author$project$Main$unlockScroll = _Platform_outgoingPort(
 	'unlockScroll',
 	function ($) {
@@ -9083,7 +9020,16 @@ var $author$project$Main$update = F2(
 				if (!result.$) {
 					var meds = result.a;
 					var z = model.P;
-					var tzero = $elm$time$Time$millisToPosix(0);
+					var years = $elm$core$Set$fromList(
+						A2(
+							$elm$core$List$map,
+							A2(
+								$elm$core$Basics$composeL,
+								$elm$time$Time$toYear(z),
+								function ($) {
+									return $.J;
+								}),
+							meds));
 					var types = $elm$core$Set$fromList(
 						A2(
 							$elm$core$List$map,
@@ -9091,25 +9037,6 @@ var $author$project$Main$update = F2(
 								return $author$project$Media$mediaTypeStr(m.bc);
 							},
 							meds));
-					var times = A2(
-						$elm$core$List$map,
-						function ($) {
-							return $.J;
-						},
-						meds);
-					var years = $elm$core$Set$fromList(
-						A2(
-							$elm$core$List$map,
-							$elm$time$Time$toYear(z),
-							times));
-					var oldest = A2(
-						$elm$core$Maybe$withDefault,
-						tzero,
-						A2($elm_community$list_extra$List$Extra$minimumBy, $elm$time$Time$posixToMillis, times));
-					var newest = A2(
-						$elm$core$Maybe$withDefault,
-						tzero,
-						A2($elm_community$list_extra$List$Extra$maximumBy, $elm$time$Time$posixToMillis, times));
 					var cameras = $elm$core$Set$fromList(
 						A2(
 							$elm$core$List$map,
@@ -9124,17 +9051,11 @@ var $author$project$Main$update = F2(
 								{
 									ap: cameras,
 									ag: $elm$core$Maybe$Just(
-										A6(
+										A5(
 											$author$project$Main$Media,
 											meds,
 											$elm$core$Set$toList(cameras),
 											$elm$core$Set$toList(types),
-											_Utils_Tuple2(
-												$author$project$Main$truncDay(oldest),
-												A2(
-													$waratuman$time_extra$Time$Extra$addDays,
-													1,
-													$author$project$Main$truncDay(newest))),
 											years,
 											_List_Nil)),
 									aI: types
@@ -13919,6 +13840,6 @@ var $author$project$Main$view = function (_v0) {
 	}
 };
 var $author$project$Main$main = $elm$browser$Browser$element(
-	{dl: $author$project$Main$init, dP: $author$project$Main$subscriptions, dU: $author$project$Main$update, dW: $author$project$Main$view});
+	{dl: $author$project$Main$init, dP: $author$project$Main$subscriptions, dT: $author$project$Main$update, dV: $author$project$Main$view});
 _Platform_export({'Main':{'init':$author$project$Main$main(
 	$elm$json$Json$Decode$succeed(0))(0)}});}(this));

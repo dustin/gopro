@@ -61,7 +61,6 @@ type alias Media =
     { media : List Medium
     , cameras : List String
     , types : List String
-    , timeRange : (Time.Posix, Time.Posix)
     , years : Set.Set Int
     , filty : List Medium
     }
@@ -306,16 +305,9 @@ update msg (Model model) =
                     let z = model.zone
                         cameras = Set.fromList (List.map .camera_model meds)
                         types = Set.fromList (List.map (\m -> mediaTypeStr m.media_type) meds)
-                        times = List.map .captured_at meds
-                        years = Set.fromList <| List.map (Time.toYear z) times
-                        tzero = Time.millisToPosix 0
-                        oldest = Maybe.withDefault tzero <| minimumBy Time.posixToMillis times
-                        newest = Maybe.withDefault tzero <| maximumBy Time.posixToMillis times
+                        years = Set.fromList <| List.map (Time.toYear z << .captured_at) meds
                     in
-                    (filter (Model {model | media = Just (Media meds (Set.toList cameras) (Set.toList types)
-                                                              (truncDay oldest,
-                                                               TE.addDays 1 (truncDay newest))
-                                                              years []),
+                    (filter (Model {model | media = Just (Media meds (Set.toList cameras) (Set.toList types) years []),
                                             camerasChecked = cameras,
                                             typesChecked = types
                                    }), Cmd.none)
