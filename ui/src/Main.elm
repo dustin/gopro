@@ -6,7 +6,6 @@ import Html.Attributes as H
 import Html.Events exposing (onClick, onCheck)
 import Html.Lazy exposing (lazy)
 import Http
-import Iso8601
 import Json.Decode as Decode exposing (Decoder, int, string)
 import Task
 import Filesize
@@ -15,6 +14,7 @@ import Set
 import Dict
 import DateRangePicker as Picker
 import DateRangePicker.Range as Range exposing (beginsAt, endsAt)
+import Time.Extra as TE
 
 import ScreenOverlay
 import List.Extra exposing (groupWhile, minimumBy, maximumBy)
@@ -273,9 +273,29 @@ truncDay : Time.Posix -> Time.Posix
 truncDay t = let m = Time.posixToMillis t in
              Time.millisToPosix (m - modBy 86400000 m)
 
-addDays : Int -> Time.Posix -> Time.Posix
-addDays n t = let m = Time.posixToMillis t in
-           Time.millisToPosix (m + (n * 86400000))
+startOfPreviousMonth : Time.Zone -> Time.Posix -> Time.Posix
+startOfPreviousMonth zone = TE.startOfMonth zone >> TE.addMillis -1 >> TE.startOfMonth zone
+
+startOfYear : Time.Zone -> Time.Posix -> Time.Posix
+startOfYear zone = TE.setMonth zone Time.Jan >> TE.startOfMonth zone
+
+startOfPreviousYear : Time.Zone -> Time.Posix -> Time.Posix
+startOfPreviousYear zone =
+    TE.setMonth zone Time.Jan >> TE.startOfMonth zone >> TE.addMillis -1 >> startOfYear zone
+
+myRanges : Time.Zone -> Time.Posix -> List ( String, Range.Range )
+myRanges zone today =
+    let
+        daysBefore n posix =
+            posix |> TE.addDays -n |> TE.startOfDay zone
+    in
+    [ ( "Last 7 days", Range.create zone (today |> daysBefore 7) (today |> TE.startOfDay zone |> TE.addMillis -1))
+    , ( "Last 30 days", Range.create zone (today |> daysBefore 30) (today |> TE.startOfDay zone |> TE.addMillis -1))
+    , ( "This month", Range.create zone (today |> TE.startOfMonth zone) today)
+    , ( "Last month", Range.create zone (today |> startOfPreviousMonth zone) (today |> TE.startOfMonth zone |> TE.addMillis -1))
+    , ( "This year", Range.create zone (today |> startOfYear zone) today)
+    , ( "Last year", Range.create zone (today |> startOfPreviousYear zone) (today |> startOfYear zone))
+    ]
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg (Model model) =
@@ -294,7 +314,7 @@ update msg (Model model) =
                     in
                     (filter (Model {model | media = Just (Media meds (Set.toList cameras) (Set.toList types)
                                                               (truncDay oldest,
-                                                               addDays 1 (truncDay newest))
+                                                               TE.addDays 1 (truncDay newest))
                                                               years []),
                                             camerasChecked = cameras,
                                             typesChecked = types
@@ -305,11 +325,13 @@ update msg (Model model) =
 
         SomeDLOpts result -> let (m, _) = model.current in
                              (Model {model | current = (m, Just result)}, Cmd.none)
+-- state |> reconfigure (\current -> { current | weeksStartOn = Time.Sun })
 
         CurrentTime t ->
             (Model model,
-                 let earlier = addDays -7 t
-                     rangedPicker = Picker.setRange (Just (Range.create model.zone earlier t)) model.datePicker
+                 let sevenDays = TE.addDays -7 t
+                     recond = Picker.reconfigure (\c -> { c | predefinedRanges = myRanges }) model.datePicker
+                     rangedPicker = Picker.setRange (Just (Range.create model.zone sevenDays t)) recond
                  in
                  Picker.now PickerChanged rangedPicker)
 
@@ -342,10 +364,10 @@ update msg (Model model) =
 
         YearClicked y -> let b = String.fromInt y ++ "-01-01T00:00:00Z"
                              e = String.fromInt y ++ "-12-31T23:59:59Z"
-                             eb = Iso8601.toTime b
-                             et = Iso8601.toTime e
+                             eb = TE.fromIso8601Date model.zone b
+                             et = TE.fromIso8601Date model.zone e
                              nst = case (eb, et) of
-                                       (Ok l, Ok h) ->
+                                       (Just l, Just h) ->
                                            Picker.setRange (Just (Range.create model.zone l h)) model.datePicker
                                        _ -> model.datePicker
                          in
