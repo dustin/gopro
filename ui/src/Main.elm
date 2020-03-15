@@ -317,7 +317,6 @@ update msg (Model model) =
 
         SomeDLOpts result -> let (m, _) = model.current in
                              (Model {model | current = (m, Just result)}, Cmd.none)
--- state |> reconfigure (\current -> { current | weeksStartOn = Time.Sun })
 
         CurrentTime t ->
             (Model model,
