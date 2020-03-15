@@ -353,8 +353,8 @@ update msg (Model model) =
             (filter (Model { model | typesChecked = addOrRemove checked t model.typesChecked }),
              Cmd.none)
 
-        YearClicked y -> let b = String.fromInt y ++ "-01-01T00:00:00Z"
-                             e = String.fromInt y ++ "-12-31T23:59:59Z"
+        YearClicked y -> let b = String.fromInt y ++ "-01-01T00:00:00"
+                             e = String.fromInt y ++ "-12-31T23:59:59"
                              eb = TE.fromIso8601Date model.zone b
                              et = TE.fromIso8601Date model.zone e
                              nst = case (eb, et) of

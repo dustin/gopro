@@ -9174,9 +9174,9 @@ var $author$project$Main$update = F2(
 					$elm$core$Platform$Cmd$none);
 			default:
 				var y = msg.a;
-				var e = $elm$core$String$fromInt(y) + '-12-31T23:59:59Z';
+				var e = $elm$core$String$fromInt(y) + '-12-31T23:59:59';
 				var et = A2($waratuman$time_extra$Time$Extra$fromIso8601Date, model.P, e);
-				var b = $elm$core$String$fromInt(y) + '-01-01T00:00:00Z';
+				var b = $elm$core$String$fromInt(y) + '-01-01T00:00:00';
 				var eb = A2($waratuman$time_extra$Time$Extra$fromIso8601Date, model.P, b);
 				var nst = function () {
 					var _v4 = _Utils_Tuple2(eb, et);
