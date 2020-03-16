@@ -46,6 +46,7 @@ dependencies:
 - wai-middleware-static
 - wai-extra
 - unordered-containers
+- process
 
 library:
   source-dirs: src
