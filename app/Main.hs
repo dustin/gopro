@@ -1,16 +1,18 @@
 {-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE TupleSections              #-}
 
 module Main where
 
 import           Conduit
-import           Control.Applicative           ((<|>))
+import           Control.Applicative           (Alternative (..), (<|>))
 import           Control.Concurrent.Async      (mapConcurrently)
 import           Control.Concurrent.QSem       (newQSem, signalQSem, waitQSem)
 import           Control.Exception             (bracket_)
 import           Control.Lens                  hiding (argument)
-import           Control.Monad                 (when)
+import           Control.Monad                 (MonadPlus (..), mzero, when)
 import           Control.Monad.IO.Class        (MonadIO (..))
 import           Control.Monad.Logger          (Loc (..), LogLevel (..),
                                                 LogSource, LogStr, LoggingT,
@@ -24,6 +26,7 @@ import           Control.Monad.Reader          (MonadReader, ReaderT (..), ask,
                                                 asks, lift, runReaderT)
 import qualified Data.Aeson                    as J
 import qualified Data.ByteString               as BS
+import           Data.Foldable                 (asum)
 import qualified Data.HashMap.Strict           as HM
 import           Data.List.Extra               (chunksOf)
 import           Data.Maybe                    (isJust)
@@ -80,6 +83,13 @@ instance MonadLogger EnvM where
     liftIO $ l loc src lvl (toLogStr msg)
 
 type GoPro = ReaderT Env (LoggingT IO)
+
+instance MonadPlus (LoggingT IO) where
+  mzero = lift mzero
+
+instance Alternative (LoggingT IO) where
+  empty = mzero
+  x <|> _ = x
 
 options :: Parser Options
 options = Options
@@ -139,39 +149,52 @@ runGetGPMF = do
   logDbg $ tshow needs
   mapM_ (process db) needs
     where
+      process :: Connection -> String -> GoPro ()
       process db mid = do
-        let dest = ".cache" </> mid <> "-low.mp4"
-        dled <- liftIO $ doesFileExist dest
-        when (not dled) $ download mid dest
-        ms <- extractGPMD mid dest
+        tok <- getToken
+        fi <- retrieve tok mid
+        let fv :: String -> FilePath -> GoPro (Maybe BS.ByteString)
+            fv s p = Just <$> fetchVariant fi mid s p
+            fn v = ".cache" </> mid <> "-" <> v <> ".mp4"
+        ms <- asum [
+          fv "mp4_low" (fn "low"),
+          fv "high_res_proxy_mp4" (fn "high"),
+          fv "source" (fn "src"),
+          pure Nothing]
         case ms of
           Nothing -> insertGPMF db mid Nothing
           Just s -> do
             logInfo $ "GPMD stream for " <> tshow mid <> " is " <> tshow (BS.length s) <> " bytes"
             insertGPMF db mid (Just s)
-        pure ()
 
-      download :: String -> FilePath -> GoPro ()
-      download mid dest = do
-        tok <- getToken
+      fetchVariant :: FileInfo -> String -> String -> FilePath -> GoPro BS.ByteString
+      fetchVariant fi mid var fn = do
+        let mu = fi ^? fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url
+        case mu of
+          Nothing -> mzero
+          Just u  -> extractGPMD mid =<< dlIf mid var u fn
+
+      dlIf :: String -> String -> String -> FilePath -> GoPro FilePath
+      dlIf mid var u dest = (liftIO $ doesFileExist dest) >>=
+        \case
+          True -> pure dest
+          _ -> download mid var u dest
+
+      download :: String -> String -> String -> FilePath -> GoPro FilePath
+      download mid var u dest = do
         liftIO $ createDirectoryIfMissing True ".cache"
-        fi <- retrieve tok mid
-        case aurl "mp4_low" fi <|> aurl "high_res_proxy_mp4" fi of
-          Nothing -> logError $ "Can't find URL for " <> tshow mid
-          Just u  -> do
-            logInfo $ "Fetching " <> tshow mid
-            logDbg $ "From " <> tshow u
-            req <- parseRequest u
-            liftIO $ runConduitRes $ httpSource req getResponseBody .| sinkFile dest
+        logInfo $ "Fetching " <> tshow mid <> " variant " <> tshow var
+        logDbg $ "From " <> tshow u
+        req <- parseRequest u
+        liftIO $ runConduitRes $ httpSource req getResponseBody .| sinkFile dest
+        pure dest
 
-          where aurl lbl = preview (fileStuff . variations . folded . filtered (has (var_label . only lbl)) . var_url)
-
-      extractGPMD :: String -> FilePath -> GoPro (Maybe BS.ByteString)
+      extractGPMD :: String -> FilePath -> GoPro BS.ByteString
       extractGPMD mid f = do
         ms <- liftIO $ findGPMDStream f
         case ms of
-          Nothing -> logError ("Can't find GPMD stream for " <> tshow mid) >> pure Nothing
-          Just s -> Just <$> (liftIO $ extractGPMDStream f s)
+          Nothing -> logError ("Can't find GPMD stream for " <> tshow mid) >> mzero
+          Just s -> (liftIO $ extractGPMDStream f s)
 
 runCleanup :: GoPro ()
 runCleanup = do
