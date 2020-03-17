@@ -50,7 +50,7 @@ import           Options.Applicative           (Parser, argument, execParser,
                                                 strOption, switch, value,
                                                 (<**>))
 import           System.Directory              (createDirectoryIfMissing,
-                                                doesFileExist)
+                                                doesFileExist, removeFile)
 import           System.FilePath.Posix         ((</>))
 import           System.IO                     (hFlush, hGetEcho, hSetEcho,
                                                 stdin, stdout)
@@ -169,6 +169,8 @@ runGetGPMF = do
           Just s -> do
             logInfo $ "GPMD stream for " <> tshow mid <> " is " <> tshow (BS.length s) <> " bytes"
             insertGPMF db mid (Just s)
+            -- Clean up in the success case.
+            mapM_ (\f -> asum [liftIO (removeFile f), pure ()]) $ map fn ["low", "high", "src"]
 
       fetchVariant :: FileInfo -> String -> String -> FilePath -> GoPro BS.ByteString
       fetchVariant fi mid var fn = do
