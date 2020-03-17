@@ -1,7 +1,9 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TupleSections              #-}
 
 module Main where
@@ -13,6 +15,7 @@ import           Control.Concurrent.QSem       (newQSem, signalQSem, waitQSem)
 import           Control.Exception             (bracket_)
 import           Control.Lens                  hiding (argument)
 import           Control.Monad                 (MonadPlus (..), mzero, when)
+import           Control.Monad.Catch           (SomeException (..), catch)
 import           Control.Monad.IO.Class        (MonadIO (..))
 import           Control.Monad.Logger          (Loc (..), LogLevel (..),
                                                 LogSource, LogStr, LoggingT,
@@ -88,8 +91,8 @@ instance MonadPlus (LoggingT IO) where
   mzero = lift mzero
 
 instance Alternative (LoggingT IO) where
-  empty = mzero
-  x <|> _ = x
+  empty = lift empty
+  a <|> b = a `catch` \(SomeException _) -> b
 
 options :: Parser Options
 options = Options
@@ -171,7 +174,7 @@ runGetGPMF = do
       fetchVariant fi mid var fn = do
         let mu = fi ^? fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url
         case mu of
-          Nothing -> mzero
+          Nothing -> empty
           Just u  -> extractGPMD mid =<< dlIf mid var u fn
 
       dlIf :: String -> String -> String -> FilePath -> GoPro FilePath
@@ -193,7 +196,7 @@ runGetGPMF = do
       extractGPMD mid f = do
         ms <- liftIO $ findGPMDStream f
         case ms of
-          Nothing -> logError ("Can't find GPMD stream for " <> tshow mid) >> mzero
+          Nothing -> logError ("Can't find GPMD stream for " <> tshow mid) >> empty
           Just s -> (liftIO $ extractGPMDStream f s)
 
 runCleanup :: GoPro ()

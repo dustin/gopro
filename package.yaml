@@ -51,6 +51,7 @@ dependencies:
 - directory
 - http-conduit
 - conduit
+- exceptions
 
 library:
   source-dirs: src
