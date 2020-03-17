@@ -4,10 +4,12 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
-                 MediaRow(..), row_media, row_thumbnail) where
+                 MediaRow(..), row_media, row_thumbnail,
+                 selectGPMFCandidates, insertGPMF) where
 
 import           Control.Lens
 import           Control.Monad.IO.Class         (MonadIO (..))
+import qualified Data.ByteString                as BS
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Coerce                    (coerce)
 import           Database.SQLite.Simple         hiding (bind, close)
@@ -20,6 +22,9 @@ createMediaStatement = "create table if not exists media (media_id primary key, 
 
 insertMediaStatement :: Query
 insertMediaStatement = "insert into media (media_id, camera_model, captured_at, created_at, file_size, moments_count, resolution, source_duration, media_type, width, height, ready_to_view, thumbnail) values(?,?,?,?,?,?,?,?,?,?,?,?,?)"
+
+createGPMFStatement :: Query
+createGPMFStatement = "create table if not exists gpmf (media_id primary key, stream)"
 
 data MediaRow = MediaRow {
   _row_media     :: Media,
@@ -89,3 +94,14 @@ loadThumbnail db imgid = liftIO sel
     sel = do
       [Only r] <- query db "select thumbnail from media where media_id = ?" (Only imgid) :: IO [Only BL.ByteString]
       pure r
+
+selectGPMFCandidates :: MonadIO m => Connection -> m [String]
+selectGPMFCandidates db = coerce <$> liftIO sel
+  where
+    sel :: IO [Only String]
+    sel = execute_ db createGPMFStatement >>
+      query_ db "select media_id from media where media_id not in (select media_id from gpmf) and media_type in ('Video', 'TimeLapseVideo') order by created_at desc"
+
+insertGPMF :: MonadIO m => Connection -> String -> Maybe BS.ByteString -> m ()
+insertGPMF db mid gpmf = liftIO ins
+  where ins = execute db "insert into gpmf (media_id, stream) values (?, ?)" (mid, gpmf)

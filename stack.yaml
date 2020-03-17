@@ -42,6 +42,9 @@ packages:
 # extra-deps: []
 extra-deps:
 - qsem-0.1.0.0@sha256:c9aa930c3f90936f88addace65d4d114d0730a1e72a7307d9146a355e0564673,720
+- git: https://github.com/dustin/gpmf.git
+  commit: 47ce0596c8dcfeef4def0847a7a650d8ab9e9cac
+
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

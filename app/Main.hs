@@ -15,12 +15,14 @@ import           Control.Monad.Logger          (Loc (..), LogLevel (..),
                                                 MonadLogger (..),
                                                 MonadLoggerIO (..),
                                                 ToLogStr (..), filterLogger,
-                                                logDebugN, logInfoN,
+                                                logDebugN, logErrorN, logInfoN,
                                                 monadLoggerLog,
                                                 runStderrLoggingT)
 import           Control.Monad.Reader          (MonadReader, ReaderT (..), ask,
                                                 asks, lift, runReaderT)
 import qualified Data.Aeson                    as J
+import qualified Data.ByteString               as BS
+import qualified Data.ByteString.Lazy          as BL
 import qualified Data.HashMap.Strict           as HM
 import           Data.List.Extra               (chunksOf)
 import           Data.Maybe                    (isJust)
@@ -29,24 +31,29 @@ import qualified Data.Text                     as T
 import qualified Data.Text.Lazy                as LT
 import qualified Data.Vector                   as V
 import           Database.SQLite.Simple        (Connection, withConnection)
-import           GoPro.AuthDB
-import           GoPro.DB
-import           GoPro.Plus
 import qualified Network.Wai.Middleware.Gzip   as GZ
 import           Network.Wai.Middleware.Static (addBase, noDots, staticPolicy,
                                                 (>->))
+import qualified Network.Wreq                  as W
 import           Options.Applicative           (Parser, argument, execParser,
                                                 fullDesc, help, helper, info,
                                                 long, metavar, progDesc, short,
                                                 showDefault, some, str,
                                                 strOption, switch, value,
                                                 (<**>))
+import           System.Directory              (createDirectoryIfMissing,
+                                                doesFileExist)
 import           System.FilePath.Posix         ((</>))
 import           System.IO                     (hFlush, hGetEcho, hSetEcho,
                                                 stdin, stdout)
 import           Web.Scotty.Trans              (ScottyT, file, get, json,
                                                 middleware, param, raw, scottyT,
                                                 setHeader)
+
+import           FFMPeg
+import           GoPro.AuthDB
+import           GoPro.DB
+import           GoPro.Plus
 
 data Options = Options {
   optDBPath     :: String,
@@ -78,6 +85,9 @@ options = Options
   <*> strOption (long "static" <> showDefault <> value "static" <> help "static asset path")
   <*> switch (short 'v' <> long "verbose" <> help "enable debug logging")
   <*> some (argument str (metavar "cmd args..."))
+
+logError :: MonadLogger m => T.Text -> m ()
+logError = logErrorN
 
 logInfo :: MonadLogger m => T.Text -> m ()
 logInfo = logInfoN
@@ -117,6 +127,45 @@ runSync stype = do
             logInfo $ "Storing batch of " <> tshow (length l)
             storeMedia db =<< fetch tok l
           fetch tok = liftIO . mapConcurrentlyLimited 11 (resolve tok)
+
+
+runGetGPMF :: GoPro ()
+runGetGPMF = do
+  db <- asks dbConn
+  needs <- selectGPMFCandidates db
+  logInfo $ tshow needs
+  mapM_ (process db) needs
+    where
+      process db mid = do
+        let dest = ".cache" </> mid <> "-low.mp4"
+        dled <- liftIO $ doesFileExist dest
+        when (not dled) $ download mid dest
+        ms <- extractGPMD mid dest
+        case ms of
+          Nothing -> insertGPMF db mid Nothing
+          Just s -> do
+            logInfo $ "GPMD stream for " <> tshow mid <> " is " <> tshow (BS.length s) <> " bytes"
+            insertGPMF db mid (Just s)
+        pure ()
+
+      download :: String -> FilePath -> GoPro ()
+      download mid dest = do
+        tok <- getToken
+        liftIO $ createDirectoryIfMissing True ".cache"
+        fi <- retrieve tok mid
+        case fi ^? fileStuff . variations . folded . filtered (has (var_label . only "mp4_low")) . var_url of
+          Nothing -> logError $ "Can't find URL for " <> tshow mid
+          Just u  -> do
+            logInfo $ "Fetching " <> tshow mid
+            logDbg $ "From " <> tshow u
+            liftIO (BL.writeFile dest <$> view W.responseBody =<< W.get u)
+
+      extractGPMD :: String -> FilePath -> GoPro (Maybe BS.ByteString)
+      extractGPMD mid f = do
+        ms <- liftIO $ findGPMDStream f
+        case ms of
+          Nothing -> logError ("Can't find GPMD stream for " <> tshow mid) >> pure Nothing
+          Just s -> Just <$> (liftIO $ extractGPMDStream f s)
 
 runCleanup :: GoPro ()
 runCleanup = do
@@ -223,6 +272,7 @@ run "sync"     = runSync Incremental
 run "fullsync" = runSync Full
 run "cleanup"  = runCleanup
 run "serve"    = runServer
+run "getgpmf"  = runGetGPMF
 run x          = fail ("unknown command: " <> x)
 
 main :: IO ()

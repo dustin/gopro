@@ -47,6 +47,8 @@ dependencies:
 - wai-extra
 - unordered-containers
 - process
+- gpmf
+- directory
 
 library:
   source-dirs: src
