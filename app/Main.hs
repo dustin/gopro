@@ -4,6 +4,7 @@
 
 module Main where
 
+import           Control.Applicative           ((<|>))
 import           Control.Concurrent.Async      (mapConcurrently)
 import           Control.Concurrent.QSem       (newQSem, signalQSem, waitQSem)
 import           Control.Exception             (bracket_)
@@ -153,12 +154,14 @@ runGetGPMF = do
         tok <- getToken
         liftIO $ createDirectoryIfMissing True ".cache"
         fi <- retrieve tok mid
-        case fi ^? fileStuff . variations . folded . filtered (has (var_label . only "mp4_low")) . var_url of
+        case aurl "mp4_low" fi <|> aurl "high_res_proxy_mp4" fi of
           Nothing -> logError $ "Can't find URL for " <> tshow mid
           Just u  -> do
             logInfo $ "Fetching " <> tshow mid
             logDbg $ "From " <> tshow u
             liftIO (BL.writeFile dest <$> view W.responseBody =<< W.get u)
+
+          where aurl lbl = preview (fileStuff . variations . folded . filtered (has (var_label . only lbl)) . var_url)
 
       extractGPMD :: String -> FilePath -> GoPro (Maybe BS.ByteString)
       extractGPMD mid f = do
