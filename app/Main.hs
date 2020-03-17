@@ -4,6 +4,7 @@
 
 module Main where
 
+import           Conduit
 import           Control.Applicative           ((<|>))
 import           Control.Concurrent.Async      (mapConcurrently)
 import           Control.Concurrent.QSem       (newQSem, signalQSem, waitQSem)
@@ -23,7 +24,6 @@ import           Control.Monad.Reader          (MonadReader, ReaderT (..), ask,
                                                 asks, lift, runReaderT)
 import qualified Data.Aeson                    as J
 import qualified Data.ByteString               as BS
-import qualified Data.ByteString.Lazy          as BL
 import qualified Data.HashMap.Strict           as HM
 import           Data.List.Extra               (chunksOf)
 import           Data.Maybe                    (isJust)
@@ -32,10 +32,11 @@ import qualified Data.Text                     as T
 import qualified Data.Text.Lazy                as LT
 import qualified Data.Vector                   as V
 import           Database.SQLite.Simple        (Connection, withConnection)
+import           Network.HTTP.Simple           (getResponseBody, httpSource,
+                                                parseRequest)
 import qualified Network.Wai.Middleware.Gzip   as GZ
 import           Network.Wai.Middleware.Static (addBase, noDots, staticPolicy,
                                                 (>->))
-import qualified Network.Wreq                  as W
 import           Options.Applicative           (Parser, argument, execParser,
                                                 fullDesc, help, helper, info,
                                                 long, metavar, progDesc, short,
@@ -134,7 +135,8 @@ runGetGPMF :: GoPro ()
 runGetGPMF = do
   db <- asks dbConn
   needs <- selectGPMFCandidates db
-  logInfo $ tshow needs
+  logInfo $ "Fetching " <> tshow (length needs)
+  logDbg $ tshow needs
   mapM_ (process db) needs
     where
       process db mid = do
@@ -159,7 +161,8 @@ runGetGPMF = do
           Just u  -> do
             logInfo $ "Fetching " <> tshow mid
             logDbg $ "From " <> tshow u
-            liftIO (BL.writeFile dest <$> view W.responseBody =<< W.get u)
+            req <- parseRequest u
+            liftIO $ runConduitRes $ httpSource req getResponseBody .| sinkFile dest
 
           where aurl lbl = preview (fileStuff . variations . folded . filtered (has (var_label . only lbl)) . var_url)
 

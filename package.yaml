@@ -49,6 +49,8 @@ dependencies:
 - process
 - gpmf
 - directory
+- http-conduit
+- conduit
 
 library:
   source-dirs: src
