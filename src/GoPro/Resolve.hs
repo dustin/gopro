@@ -32,7 +32,7 @@ summarize devc = MDSummary {
   lon = gps ^? folded . gps_readings . ix 0 . gpsr_lon,
   maxSpeed2d = maximumOf (folded . gps_readings . folded .  gpsr_speed2d) gps,
   maxSpeed3d = maximumOf (folded . gps_readings . folded .  gpsr_speed2d) gps,
-  maxFaces = maximum1Of (folded . dev_telems . folded . tele_values . _TVFaces . to length) devc,
+  maxFaces = max 0 $ maximum1Of (folded . dev_telems . folded . tele_values . _TVFaces . to length) devc,
   mainScene = mainScene
   }
 
