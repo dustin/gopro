@@ -41,6 +41,50 @@ strReadyType s = case s of
                      "uploading" -> Uploading
                      "failure" -> Failure
                      _ -> UnknownReadyType
+type Location = Snow | Urban | Indoor | Water | Vegetation | Beach | UnknownLocation
+
+locationStr l = case l of
+                    Snow -> "Snow"
+                    Urban -> "Urban"
+                    Indoor -> "Indoor"
+                    Water -> "Water"
+                    Vegetation -> "Vegetation"
+                    Beach -> "Beach"
+                    UnknownLocation -> "Unknown"
+
+strLocation l = case l of
+                    "Snow" -> Snow
+                    "Urban" -> Urban
+                    "Indoor" -> Indoor
+                    "Water" -> Water
+                    "Vegetation" -> Vegetation
+                    "Beach" -> Beach
+                    _ -> UnknownLocation
+
+type alias GPMF =
+    { cam : String
+    , ts : Maybe Time.Posix
+    , lat : Maybe Float
+    , lon : Maybe Float
+    , maxSpeed2d : Maybe Float
+    , maxSpeed3d : Maybe Float
+    , maxFaces : Int
+    , scene : Maybe Location
+    , sceneProb : Maybe Float
+    }
+
+gpmfDecoder : Decoder GPMF
+gpmfDecoder =
+    Decode.succeed GPMF
+        |> required "camera" string
+        |> required "ts" (nullable Iso8601.decoder)
+        |> required "lat" (nullable float)
+        |> required "lon" (nullable float)
+        |> required "maxSpeed2d" (nullable float)
+        |> required "maxSpeed3d" (nullable float)
+        |> required "maxFaces" int
+        |> required "scene" (nullable (Decode.map strLocation string))
+        |> required "sceneProb" (nullable float)
 
 type alias Medium =
     { id : String
@@ -55,6 +99,7 @@ type alias Medium =
     , token : String
     , width : Int
     , height : Int
+    , gpmfData : Maybe GPMF
     }
 
 stringInt : Decoder (Maybe Int)
@@ -75,6 +120,7 @@ mediaDecoder =
         |> required "token" string
         |> required "width" int
         |> required "height" int
+        |> required "gpmf_data" (nullable gpmfDecoder)
 
 mediaListDecoder : Decoder (List Medium)
 mediaListDecoder = Decode.list mediaDecoder

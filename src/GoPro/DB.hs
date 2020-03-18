@@ -6,13 +6,17 @@
 
 module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  MediaRow(..), row_media, row_thumbnail,
-                 selectGPMFCandidates, insertGPMF, gpmfTODO, updateGPMF) where
+                 selectGPMFCandidates, insertGPMF, gpmfTODO,
+                 updateGPMF, selectGPMF) where
 
+import           Control.Applicative            (liftA2)
 import           Control.Lens
 import           Control.Monad.IO.Class         (MonadIO (..))
 import qualified Data.ByteString                as BS
 import qualified Data.ByteString.Lazy           as BL
 import           Data.Coerce                    (coerce)
+import           Data.Map.Strict                (Map)
+import qualified Data.Map.Strict                as Map
 import           Database.SQLite.Simple         hiding (bind, close)
 import           Database.SQLite.Simple.ToField
 import           Text.RawString.QQ              (r)
@@ -105,6 +109,7 @@ instance FromRow Media where
     <*> pure "" -- _media_token
     <*> field -- _media_width
     <*> field -- _media_height
+    <*> pure Nothing
 
 loadMedia :: MonadIO m => Connection -> m [Media]
 loadMedia db = liftIO $ query_ db selectMediaStatement
@@ -144,13 +149,40 @@ updateGPMF db mid MDSummary{..} = liftIO up
                                         max_speed_2d = :speed2, max_speed_3d = :speed3, max_faces = :maxface,
                                         main_scene = :scene, main_scene_prob = :scene_prob
                                    where media_id = :mid|]
-      [":cam" := cameraModel,
-       ":ts" := capturedTime,
-       ":lat" := lat,
-       ":lon" := lon,
-       ":speed2" := maxSpeed2d,
-       ":speed3" := maxSpeed3d,
-       ":maxface" := maxFaces,
-       ":scene" := (show . fst <$> mainScene),
-       ":scene_prob" := (snd <$> mainScene),
+      [":cam" := _cameraModel,
+       ":ts" := _capturedTime,
+       ":lat" := _lat,
+       ":lon" := _lon,
+       ":speed2" := _maxSpeed2d,
+       ":speed3" := _maxSpeed3d,
+       ":maxface" := _maxFaces,
+       ":scene" := (show . fst <$> _mainScene),
+       ":scene_prob" := (snd <$> _mainScene),
        ":mid" := mid]
+
+newtype NamedSummary = NamedSummary (String, MDSummary)
+
+instance FromRow NamedSummary where
+  fromRow = do
+    mid <- field
+    _cameraModel <- field
+    _capturedTime <- field
+    _lat <- field
+    _lon <- field
+    _maxSpeed2d <- field
+    _maxSpeed3d <- field
+    _maxFaces <- field
+    loc <- fmap read <$> field
+    prob <- field
+    let _mainScene = liftA2 (,) loc prob
+    pure $ NamedSummary (mid, MDSummary{..})
+
+selectGPMF :: MonadIO m => Connection -> m (Map String MDSummary)
+selectGPMF db = Map.fromList . coerce <$> liftIO sel
+  where
+    sel :: IO [NamedSummary]
+    sel = query_ db [r|select media_id, camera_model, captured_at, lat, lon,
+                              max_speed_2d, max_speed_3d,
+                              max_faces, main_scene, main_scene_prob
+                          from gpmf
+                          where camera_model is not null |]

@@ -24,6 +24,8 @@ import           Network.Wreq           (FormParam (..), Options, asJSON,
                                          postWith, responseBody)
 import           System.Random          (getStdRandom, randomR)
 
+import           GoPro.Resolve
+
 userAgent :: BC.ByteString
 userAgent = "github.com/dustin/gopro 0.1"
 
@@ -109,7 +111,8 @@ data Media = Media {
   _media_type            :: String,
   _media_token           :: String,
   _media_width           :: Maybe Int,
-  _media_height          :: Maybe Int
+  _media_height          :: Maybe Int,
+  _media_gpmf_data       :: Maybe MDSummary
   } deriving (Generic, Show)
 
 makeLenses ''Media

@@ -32,6 +32,7 @@ import qualified Data.ByteString               as BS
 import           Data.Foldable                 (asum)
 import qualified Data.HashMap.Strict           as HM
 import           Data.List.Extra               (chunksOf)
+import qualified Data.Map.Strict               as Map
 import           Data.Maybe                    (isJust)
 import qualified Data.Set                      as Set
 import qualified Data.Text                     as T
@@ -273,7 +274,14 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
 
       get "/api/media" $ do
         db <- lift $ asks dbConn
-        json =<< loadMedia db
+        ms <- loadMedia db
+        gs <- selectGPMF db
+        json $ map (\m@Media{..} ->
+                      case Map.lookup _media_id gs of
+                        Nothing -> m
+                        Just g -> let cam = maybe (Just $ _cameraModel g) Just _media_camera_model in
+                                    m & media_camera_model .~ cam & media_gpmf_data .~ Just g
+                   ) ms
 
       get "/api/retrieve/:id" $ do
         imgid <- param "id"
