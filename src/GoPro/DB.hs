@@ -31,7 +31,7 @@ insertMediaStatement :: Query
 insertMediaStatement = [r|insert into media (media_id, camera_model, captured_at, created_at,
                                              file_size, moments_count, source_duration, media_type,
                                              width, height, ready_to_view, thumbnail)
-                                      values(?,?,?,?,?,?,?,?,?,?,?,?,?)|]
+                                      values(?,?,?,?,?,?,?,?,?,?,?,?)|]
 
 createGPMFStatement :: Query
 createGPMFStatement = [r|create table if not exists
