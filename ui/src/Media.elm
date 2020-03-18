@@ -50,7 +50,6 @@ type alias Medium =
     , file_size : Int
     , moments_count : Int
     , ready_to_view : ReadyType
-    , resolution : String
     , source_duration : Maybe Int
     , media_type : MediaType
     , token : String
@@ -71,7 +70,6 @@ mediaDecoder =
         |> required "file_size" int
         |> required "moments_count" int
         |> required "ready_to_view" (Decode.map strReadyType string)
-        |> optional "resolution" string ""
         |> required "source_duration" stringInt
         |> required "type" (Decode.map strMediaType string)
         |> required "token" string

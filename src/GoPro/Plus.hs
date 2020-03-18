@@ -105,7 +105,6 @@ data Media = Media {
   _media_file_size       :: Maybe Int,
   _media_moments_count   :: Int,
   _media_ready_to_view   :: String,
-  _media_resolution      :: Maybe String,
   _media_source_duration :: Maybe String,
   _media_type            :: String,
   _media_token           :: String,
@@ -165,7 +164,7 @@ jget tok u = view responseBody <$> liftIO (getWith (authOpts tok) u >>= asJSON)
 -- | List a page worth of media.
 list :: MonadIO m => String -> Int -> Int -> m ([Media], PageInfo)
 list tok psize page = do
-  r <- jget tok ("https://api.gopro.com/media/search?fields=captured_at,created_at,file_size,id,moments_count,ready_to_view,source_duration,type,resolution,token,width,height,camera_model&order_by=created_at&per_page=" <> show psize <> "&page=" <> show page)
+  r <- jget tok ("https://api.gopro.com/media/search?fields=captured_at,created_at,file_size,id,moments_count,ready_to_view,source_duration,type,token,width,height,camera_model&order_by=created_at&per_page=" <> show psize <> "&page=" <> show page)
   pure $ (r ^.. media . folded,
           r ^. pages)
 
