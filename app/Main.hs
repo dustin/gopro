@@ -62,6 +62,7 @@ import           FFMPeg
 import           GoPro.AuthDB
 import           GoPro.DB
 import           GoPro.Plus
+import           GoPro.Resolve
 
 data Options = Options {
   optDBPath     :: String,
@@ -143,6 +144,16 @@ runSync stype = do
             storeMedia db =<< fetch tok l
           fetch tok = liftIO . mapConcurrentlyLimited 11 (resolve tok)
 
+runGrokTel :: GoPro ()
+runGrokTel = do
+  db <- asks dbConn
+  mapM_ (ud db) =<< gpmfTODO db
+    where
+      ud db (mid, bs) = do
+        logInfo $ "Updating " <> tshow mid
+        case summarize <$> parseDEVC bs of
+          Left x -> logError $ "Error parsing stuff for " <> tshow mid <> " show " <> tshow x
+          Right x -> updateGPMF db mid x
 
 runGetGPMF :: GoPro ()
 runGetGPMF = do
@@ -307,6 +318,7 @@ run "fullsync" = runSync Full
 run "cleanup"  = runCleanup
 run "serve"    = runServer
 run "getgpmf"  = runGetGPMF
+run "groktel"  = runGrokTel
 run x          = fail ("unknown command: " <> x)
 
 main :: IO ()

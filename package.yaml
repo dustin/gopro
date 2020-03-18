@@ -52,6 +52,7 @@ dependencies:
 - http-conduit
 - conduit
 - exceptions
+- raw-strings-qq
 
 library:
   source-dirs: src
