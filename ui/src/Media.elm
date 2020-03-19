@@ -1,6 +1,8 @@
-module Media exposing (MediaType(..), ReadyType(..),
+module Media exposing (MediaType(..), ReadyType(..), GPMF, Location(..),
                            Medium, mediaTypeStr, readyTypeStr,
-                           mediaDecoder, mediaListDecoder)
+                           mediaDecoder, mediaListDecoder,
+                           locationStr
+                      )
 
 import Iso8601
 import Time

@@ -12677,6 +12677,90 @@ var $author$project$Media$readyTypeStr = function (r) {
 			return 'Unknown ready type';
 	}
 };
+var $author$project$Media$locationStr = function (l) {
+	switch (l) {
+		case 0:
+			return 'Snow';
+		case 1:
+			return 'Urban';
+		case 2:
+			return 'Indoor';
+		case 3:
+			return 'Water';
+		case 4:
+			return 'Vegetation';
+		case 5:
+			return 'Beach';
+		default:
+			return 'Unknown';
+	}
+};
+var $author$project$Main$renderGPMF = function (g) {
+	return _Utils_ap(
+		function () {
+			var _v0 = _Utils_Tuple2(g.dq, g.dr);
+			if ((!_v0.a.$) && (!_v0.b.$)) {
+				var lat = _v0.a.a;
+				var lon = _v0.b.a;
+				return _List_fromArray(
+					[
+						$author$project$Main$dts('Location'),
+						A2(
+						$elm$html$Html$dd,
+						_List_Nil,
+						_List_fromArray(
+							[
+								A2(
+								$elm$html$Html$a,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$href(
+										'https://www.google.com/maps/search/?api=1&query=' + ($elm$core$String$fromFloat(lat) + (',' + $elm$core$String$fromFloat(lon))))
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text(
+										$elm$core$String$fromFloat(lat) + (',' + $elm$core$String$fromFloat(lon)))
+									]))
+							]))
+					]);
+			} else {
+				return _List_Nil;
+			}
+		}(),
+		function () {
+			var _v1 = g.dO;
+			if (_v1.$ === 1) {
+				return _List_Nil;
+			} else {
+				var c = _v1.a;
+				return _List_fromArray(
+					[
+						$author$project$Main$dts('Scene'),
+						A2(
+						$elm$html$Html$dd,
+						_List_Nil,
+						_List_fromArray(
+							[
+								A2(
+								$elm$html$Html$span,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('scene')
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text(
+										$author$project$Media$locationStr(c))
+									])),
+								$elm$html$Html$text(
+								' with probability ' + $elm$core$String$fromFloat(
+									A2($elm$core$Maybe$withDefault, 0, g.dP)))
+							]))
+					]);
+			}
+		}());
+};
 var $elm$html$Html$Attributes$autoplay = $elm$html$Html$Attributes$boolProperty('autoplay');
 var $elm$html$Html$Attributes$controls = $elm$html$Html$Attributes$boolProperty('controls');
 var $elm$html$Html$Attributes$height = function (n) {
@@ -12865,27 +12949,37 @@ var $author$project$Main$renderOverlay = F2(
 												$author$project$Media$readyTypeStr(m.dL))
 											]))
 									]),
-								function () {
-									var _v2 = m.bL;
-									if (_v2.$ === 1) {
-										return _List_Nil;
-									} else {
-										var x = _v2.a;
-										return _List_fromArray(
-											[
-												$author$project$Main$dts('Duration'),
-												A2(
-												$elm$html$Html$dd,
-												_List_Nil,
-												_List_fromArray(
-													[
-														$elm$html$Html$text(
-														$author$project$Formats$millis(
-															A2($elm$core$Maybe$withDefault, 0, m.bL)))
-													]))
-											]);
-									}
-								}()))
+								_Utils_ap(
+									function () {
+										var _v2 = m.bL;
+										if (_v2.$ === 1) {
+											return _List_Nil;
+										} else {
+											var x = _v2.a;
+											return _List_fromArray(
+												[
+													$author$project$Main$dts('Duration'),
+													A2(
+													$elm$html$Html$dd,
+													_List_Nil,
+													_List_fromArray(
+														[
+															$elm$html$Html$text(
+															$author$project$Formats$millis(
+																A2($elm$core$Maybe$withDefault, 0, m.bL)))
+														]))
+												]);
+										}
+									}(),
+									function () {
+										var _v3 = m.dh;
+										if (_v3.$ === 1) {
+											return _List_Nil;
+										} else {
+											var g = _v3.a;
+											return $author$project$Main$renderGPMF(g);
+										}
+									}())))
 						]),
 					function () {
 						if (mdls.$ === 1) {

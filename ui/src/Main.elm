@@ -191,6 +191,24 @@ renderIcon m mdls =
                                     [source [ H.src dls.default.url, H.type_ "video/mp4" ] []])
              _ -> thumb
 
+renderGPMF : GPMF -> List (Html Msg)
+renderGPMF g = (case (g.lat, g.lon) of
+                    (Just lat, Just lon) -> [dts "Location",
+                                             dd []
+                                             [a [ H.href ("https://www.google.com/maps/search/?api=1&query=" ++
+                                                          String.fromFloat lat ++ "," ++
+                                                          String.fromFloat lon)]
+                                                  [ text (String.fromFloat lat ++ "," ++
+                                                          String.fromFloat lon) ]]]
+                    _ -> [])
+               ++ (case g.scene of
+                      Nothing -> []
+                      Just c -> [ dts "Scene",
+                                  dd [ ]
+                                  [ span [ H.class "scene" ] [text (locationStr c)],
+                                    text (" with probability " ++
+                                          String.fromFloat (Maybe.withDefault 0 g.sceneProb)) ]])
+
 renderOverlay : Time.Zone -> (Maybe Medium, Maybe (Result Http.Error DLOpts)) -> Html Msg
 renderOverlay z (mm, mdls) =
     case mm of
@@ -213,10 +231,13 @@ renderOverlay z (mm, mdls) =
                         , dd [] [ text (mediaTypeStr m.media_type) ]
                         , dts "Ready State"
                         , dd [] [ text (readyTypeStr m.ready_to_view) ]
-                        ] ++ case m.source_duration of
-                                 Nothing -> []
-                                 Just x -> [ dts "Duration"
-                                           , dd [] [text (F.millis (Maybe.withDefault 0 m.source_duration))]])
+                        ] ++ (case m.source_duration of
+                                  Nothing -> []
+                                  Just x -> [ dts "Duration"
+                                            , dd [] [text (F.millis (Maybe.withDefault 0 m.source_duration))]])
+                          ++ (case m.gpmfData of
+                                  Nothing -> []
+                                  Just g -> renderGPMF g))
                    ] ++ case mdls of
                             Nothing -> []
                             Just (Err err) -> [div [ H.class "dls" ]
