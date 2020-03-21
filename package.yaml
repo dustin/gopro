@@ -53,6 +53,7 @@ dependencies:
 - conduit
 - exceptions
 - raw-strings-qq
+- hsexif
 
 library:
   source-dirs: src
