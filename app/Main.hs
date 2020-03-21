@@ -349,7 +349,8 @@ main = do
     runConn o@Options{..} db = do
       runStderrLoggingT . logfilt $ do
         l <- askLoggerIO
-        runReaderT (run (head optArgv)) (Env o db l)
+        let o' = o{optArgv = tail optArgv}
+        runReaderT (run (head optArgv)) (Env o' db l)
 
         where
           logfilt = filterLogger (\_ -> flip (if optVerbose then (>=) else (>)) LevelDebug)
