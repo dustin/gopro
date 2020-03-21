@@ -70,6 +70,7 @@ import           Web.Scotty.Trans              (ScottyT, file, get, json,
                                                 middleware, param, raw, scottyT,
                                                 setHeader)
 
+import           Exif
 import           FFMPeg
 import           GoPro.AuthDB
 import           GoPro.DB
@@ -167,40 +168,49 @@ runGrokTel = do
           Left x -> logError $ "Error parsing stuff for " <> tshow mid <> " show " <> tshow x
           Right x -> updateGPMF db mid x
 
-runGetGPMF :: GoPro ()
-runGetGPMF = do
+runGetMeta :: GoPro ()
+runGetMeta = do
   db <- asks dbConn
-  needs <- selectGPMFCandidates db
+  needs <- metaTODO db
   logInfo $ "Fetching " <> tshow (length needs)
   logDbg $ tshow needs
   mapM_ (process db) needs
     where
-      process :: Connection -> String -> GoPro ()
-      process db mid = do
+      process :: Connection -> (String, String) -> GoPro ()
+      process db mtyp@(mid,typ) = do
         tok <- getToken
         fi <- retrieve tok mid
-        let fv :: String -> FilePath -> GoPro (Maybe BS.ByteString)
-            fv s p = Just <$> fetchVariant fi mid s p
-            fn v = ".cache" </> mid <> "-" <> v <> ".mp4"
-        ms <- asum [
-          fv "mp4_low" (fn "low"),
-          fv "high_res_proxy_mp4" (fn "high"),
-          fv "source" (fn "src"),
-          pure Nothing]
-        case ms of
-          Nothing -> insertGPMF db mid Nothing
-          Just s -> do
-            logInfo $ "GPMD stream for " <> tshow mid <> " is " <> tshow (BS.length s) <> " bytes"
-            insertGPMF db mid (Just s)
-            -- Clean up in the success case.
-            mapM_ (\f -> asum [liftIO (removeFile f), pure ()]) $ map fn ["low", "high", "src"]
+        case typ of
+          "Video"          -> processEx fi extractGPMD ".mp4"
+          "TimeLapseVideo" -> processEx fi extractGPMD ".mp4"
+          "Photo"          -> processEx fi extractEXIF ".jpg"
+          x                -> logError $ "Unhandled type: " <> tshow x
 
-      fetchVariant :: FileInfo -> String -> String -> FilePath -> GoPro BS.ByteString
-      fetchVariant fi mid var fn = do
+          where
+            processEx fi ex fx = do
+              let fv :: String -> FilePath -> GoPro (Maybe BS.ByteString)
+                  fv s p = Just <$> fetchX ex fi mid s p
+                  fn v = ".cache" </> mid <> "-" <> v <> fx
+              ms <- asum [
+                fv "mp4_low" (fn "low"),
+                fv "high_res_proxy_mp4" (fn "high"),
+                fv "source" (fn "src"),
+                pure Nothing]
+              case ms of
+                Nothing -> insertMetaBlob db mid Nothing
+                Just s -> do
+                  logInfo $ "MetaData stream for " <> tshow mtyp <> " is " <> tshow (BS.length s) <> " bytes"
+                  insertMetaBlob db mid (Just s)
+                  -- Clean up in the success case.
+                  mapM_ (\f -> asum [liftIO (removeFile f), pure ()]) $ map fn ["low", "high", "src"]
+
+      fetchX :: (String -> FilePath -> GoPro BS.ByteString)
+             -> FileInfo -> String -> String -> FilePath -> GoPro BS.ByteString
+      fetchX ex fi mid var fn = do
         let mu = fi ^? fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url
         case mu of
           Nothing -> empty
-          Just u  -> extractGPMD mid =<< dlIf mid var u fn
+          Just u  -> ex mid =<< dlIf mid var u fn
 
       dlIf :: String -> String -> String -> FilePath -> GoPro FilePath
       dlIf mid var u dest = (liftIO $ doesFileExist dest) >>=
@@ -216,6 +226,13 @@ runGetGPMF = do
         req <- parseRequest u
         liftIO $ runConduitRes $ httpSource req getResponseBody .| sinkFile dest
         pure dest
+
+      extractEXIF :: String -> FilePath -> GoPro BS.ByteString
+      extractEXIF mid f = do
+        bs <- liftIO $ BL.readFile f
+        case minimalEXIF bs of
+          Left s -> logError ("Can't find EXIF for " <> tshow mid <> tshow s) >> empty
+          Right e -> pure (BL.toStrict e)
 
       extractGPMD :: String -> FilePath -> GoPro BS.ByteString
       extractGPMD mid f = do
@@ -380,7 +397,7 @@ run c = case lookup c cmds of
             ("cleanup", runCleanup),
             ("fixup", runFixup),
             ("serve", runServer),
-            ("getgpmf", runGetGPMF),
+            ("getmeta", runGetMeta),
             ("groktel", runGrokTel)]
     unknown = do
       putStrLn $ "Unknown command: " <> c

@@ -6,7 +6,7 @@
 
 module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  MediaRow(..), row_media, row_thumbnail,
-                 selectGPMFCandidates, insertGPMF, gpmfTODO,
+                 metaTODO, insertMetaBlob, gpmfTODO,
                  updateGPMF, selectGPMF) where
 
 import           Control.Applicative            (liftA2)
@@ -122,20 +122,19 @@ loadThumbnail db imgid = liftIO sel
       [Only t] <- query db "select thumbnail from media where media_id = ?" (Only imgid)
       pure t
 
-selectGPMFCandidates :: MonadIO m => Connection -> m [String]
-selectGPMFCandidates db = coerce <$> liftIO sel
+metaTODO :: MonadIO m => Connection -> m [(String, String)]
+metaTODO db = liftIO sel
   where
-    sel :: IO [Only String]
+    sel :: IO [(String, String)]
     sel = execute_ db createGPMFStatement >>
-      query_ db [r|select media_id
+      query_ db [r|select media_id, media_type
                          from media
-                         where media_id not in (select media_id from gpmf)
-                             and media_type in ('Video', 'TimeLapseVideo')
+                         where media_id not in (select media_id from metablob)
                          order by created_at desc|]
 
-insertGPMF :: MonadIO m => Connection -> String -> Maybe BS.ByteString -> m ()
-insertGPMF db mid gpmf = liftIO ins
-  where ins = execute db "insert into gpmf (media_id, stream) values (?, ?)" (mid, gpmf)
+insertMetaBlob :: MonadIO m => Connection -> String -> Maybe BS.ByteString -> m ()
+insertMetaBlob db mid blob = liftIO ins
+  where ins = execute db "insert into metablob (media_id, meta) values (?, ?)" (mid, blob)
 
 gpmfTODO :: MonadIO m => Connection -> m [(String, BS.ByteString)]
 gpmfTODO db = liftIO sel
