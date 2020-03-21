@@ -14,8 +14,10 @@ import           Control.Concurrent.Async      (mapConcurrently)
 import           Control.Concurrent.QSem       (newQSem, signalQSem, waitQSem)
 import           Control.Exception             (bracket_)
 import           Control.Lens                  hiding (argument)
-import           Control.Monad                 (MonadPlus (..), mzero, when)
+import           Control.Monad                 (MonadPlus (..), mzero, void,
+                                                when)
 import           Control.Monad.Catch           (SomeException (..), catch)
+import           Control.Monad.Fail            (MonadFail (..))
 import           Control.Monad.IO.Class        (MonadIO (..))
 import           Control.Monad.Logger          (Loc (..), LogLevel (..),
                                                 LogSource, LogStr, LoggingT,
@@ -29,17 +31,24 @@ import           Control.Monad.Reader          (MonadReader, ReaderT (..), ask,
                                                 asks, lift, runReaderT)
 import qualified Data.Aeson                    as J
 import qualified Data.ByteString               as BS
+import qualified Data.ByteString.Lazy          as BL
 import           Data.Foldable                 (asum)
 import qualified Data.HashMap.Strict           as HM
 import           Data.List                     (intercalate)
 import           Data.List.Extra               (chunksOf)
 import qualified Data.Map.Strict               as Map
 import           Data.Maybe                    (isJust)
+import           Data.Scientific               (fromFloatDigits)
 import qualified Data.Set                      as Set
+import           Data.String                   (fromString)
 import qualified Data.Text                     as T
+import qualified Data.Text.Encoding            as TE
 import qualified Data.Text.Lazy                as LT
 import qualified Data.Vector                   as V
-import           Database.SQLite.Simple        (Connection, withConnection)
+import           Database.SQLite.Simple        (Connection, SQLData (..),
+                                                Statement, columnCount,
+                                                columnName, nextRow,
+                                                withConnection, withStatement)
 import           Network.HTTP.Simple           (getResponseBody, httpSource,
                                                 parseRequest)
 import qualified Network.Wai.Middleware.Gzip   as GZ
@@ -51,6 +60,7 @@ import           Options.Applicative           (Parser, argument, execParser,
                                                 showDefault, some, str,
                                                 strOption, switch, value,
                                                 (<**>))
+import           Prelude                       hiding (fail)
 import           System.Directory              (createDirectoryIfMissing,
                                                 doesFileExist, removeFile)
 import           System.FilePath.Posix         ((</>))
@@ -81,7 +91,7 @@ data Env = Env {
 
 newtype EnvM a = EnvM
   { runEnvM :: ReaderT Env IO a
-  } deriving (Applicative, Functor, Monad, MonadIO, MonadReader Env)
+  } deriving (Applicative, Functor, Monad, MonadIO, MonadReader Env, MonadFail)
 
 instance MonadLogger EnvM where
   monadLoggerLog loc src lvl msg = do
@@ -252,6 +262,48 @@ runReauth = do
   res <- refreshAuth a
   updateAuth db res
 
+runIO :: Env -> EnvM a -> IO a
+runIO e m = runReaderT (runEnvM m) e
+
+runFixup :: GoPro ()
+runFixup = do
+  db <- asks dbConn
+  env <- ask
+  tok <- getToken
+  args <- asks (optArgv . gpOptions)
+  when (length args /= 1) $ fail "I need a query to run"
+  let [query] = fromString <$> args
+  logDbg $ "Query: " <> tshow query
+  liftIO $ withStatement db query (\st -> runIO env (needful tok st))
+
+    where
+      needful :: String -> Statement -> EnvM ()
+      needful tok st = do
+        cnum <- liftIO $ columnCount st
+        cols <- mapM (liftIO . columnName st) [0 .. pred cnum]
+        process cols
+          where
+            process :: [T.Text] -> EnvM ()
+            process cols = do
+              r <- liftIO (nextRow st :: IO (Maybe [SQLData]))
+              logDbg $ tshow r
+              maybe (pure ()) (\rs -> store (zip cols rs) >> process cols) r
+            store :: [(T.Text, SQLData)] -> EnvM ()
+            store stuff = do
+              mid <- case lookup "media_id" stuff of
+                       (Just (SQLText m)) -> pure m
+                       _ -> fail ("no media_id found in result set")
+              logInfo $ "Fixing " <> tshow mid
+              (J.Object rawm) <- rawMedium tok (T.unpack mid)
+              let v = foldr up rawm (filter (\(k,_) -> k /= "media_id") stuff)
+              logDbg $ TE.decodeUtf8 . BL.toStrict . J.encode $ v
+              void $ putRawMedium tok (T.unpack mid) (J.Object v)
+            up (name, (SQLInteger i)) = HM.insert name (J.Number (fromIntegral i))
+            up (name, (SQLFloat i))   = HM.insert name  (J.Number (fromFloatDigits i))
+            up (name, (SQLText i))    = HM.insert name (J.String i)
+            up (name, SQLNull)        = HM.insert name J.Null
+            up (_,    (SQLBlob _))    = error "can't do blobs"
+
 getToken :: (MonadLogger m, MonadIO m, MonadReader Env m) => m String
 getToken = do
   logDbg "Loading token"
@@ -260,9 +312,6 @@ getToken = do
 runServer :: GoPro ()
 runServer = ask >>= \x -> scottyT 8008 (runIO x) application
   where
-    runIO :: Env -> EnvM a -> IO a
-    runIO e m = runReaderT (runEnvM m) e
-
     application :: ScottyT LT.Text EnvM ()
     application = do
       let staticPath = "static"
@@ -329,6 +378,7 @@ run c = case lookup c cmds of
             ("sync", runSync Incremental),
             ("fullsync", runSync Full),
             ("cleanup", runCleanup),
+            ("fixup", runFixup),
             ("serve", runServer),
             ("getgpmf", runGetGPMF),
             ("groktel", runGrokTel)]

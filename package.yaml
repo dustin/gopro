@@ -53,6 +53,7 @@ dependencies:
 - conduit
 - exceptions
 - raw-strings-qq
+- scientific
 - hsexif
 
 library:
