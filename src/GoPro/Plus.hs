@@ -21,7 +21,7 @@ import qualified Data.Vector            as V
 import           Generics.Deriving.Base (Generic)
 import           Network.Wreq           (FormParam (..), Options, asJSON,
                                          defaults, deleteWith, getWith, header,
-                                         postWith, responseBody)
+                                         postWith, putWith, responseBody)
 import           System.Random          (getStdRandom, randomR)
 
 import           GoPro.Resolve
@@ -309,3 +309,12 @@ delete tok k = do
   let u = "https://api.gopro.com/media?ids=" <> k
   Errors r <- view responseBody <$> liftIO (deleteWith (authOpts tok) u >>= asJSON)
   pure r
+
+mediumURL :: String -> String
+mediumURL = ("https://api.gopro.com/media/" <>)
+
+rawMedium :: MonadIO m => String -> String -> m Value
+rawMedium tok mid = jget tok (mediumURL mid)
+
+putRawMedium :: MonadIO m => String -> String -> Value -> m Value
+putRawMedium tok mid v = view responseBody <$> liftIO (putWith (authOpts tok) (mediumURL mid) v >>= asJSON)
