@@ -31,6 +31,7 @@ import qualified Data.Aeson                    as J
 import qualified Data.ByteString               as BS
 import           Data.Foldable                 (asum)
 import qualified Data.HashMap.Strict           as HM
+import           Data.List                     (intercalate)
 import           Data.List.Extra               (chunksOf)
 import qualified Data.Map.Strict               as Map
 import           Data.Maybe                    (isJust)
@@ -319,15 +320,22 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
               )
 
 run :: String -> GoPro ()
-run "auth"     = runAuth
-run "reauth"   = runReauth
-run "sync"     = runSync Incremental
-run "fullsync" = runSync Full
-run "cleanup"  = runCleanup
-run "serve"    = runServer
-run "getgpmf"  = runGetGPMF
-run "groktel"  = runGrokTel
-run x          = fail ("unknown command: " <> x)
+run c = case lookup c cmds of
+          Nothing -> liftIO unknown
+          Just a  -> a
+  where
+    cmds = [("auth", runAuth),
+            ("reauth", runReauth),
+            ("sync", runSync Incremental),
+            ("fullsync", runSync Full),
+            ("cleanup", runCleanup),
+            ("serve", runServer),
+            ("getgpmf", runGetGPMF),
+            ("groktel", runGrokTel)]
+    unknown = do
+      putStrLn $ "Unknown command: " <> c
+      putStrLn "Try one of these:"
+      putStrLn $ "    " <> intercalate "\n    " (map fst cmds)
 
 main :: IO ()
 main = do
