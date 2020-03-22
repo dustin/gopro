@@ -1,4 +1,4 @@
-module Media exposing (MediaType(..), ReadyType(..), GPMF, Location(..),
+module Media exposing (MediaType(..), ReadyType(..), MetaData, Location(..),
                            Medium, mediaTypeStr, readyTypeStr,
                            mediaDecoder, mediaListDecoder,
                            locationStr
@@ -63,7 +63,7 @@ strLocation l = case l of
                     "Beach" -> Beach
                     _ -> UnknownLocation
 
-type alias GPMF =
+type alias MetaData =
     { cam : String
     , ts : Maybe Time.Posix
     , lat : Maybe Float
@@ -75,9 +75,9 @@ type alias GPMF =
     , sceneProb : Maybe Float
     }
 
-gpmfDecoder : Decoder GPMF
-gpmfDecoder =
-    Decode.succeed GPMF
+metaDataDecoder : Decoder MetaData
+metaDataDecoder =
+    Decode.succeed MetaData
         |> required "camera" string
         |> required "ts" (nullable Iso8601.decoder)
         |> required "lat" (nullable float)
@@ -101,7 +101,7 @@ type alias Medium =
     , token : String
     , width : Int
     , height : Int
-    , gpmfData : Maybe GPMF
+    , metaData : Maybe MetaData
     }
 
 stringInt : Decoder (Maybe Int)
@@ -122,7 +122,7 @@ mediaDecoder =
         |> required "token" string
         |> required "width" int
         |> required "height" int
-        |> required "gpmf_data" (nullable gpmfDecoder)
+        |> required "meta_data" (nullable metaDataDecoder)
 
 mediaListDecoder : Decoder (List Medium)
 mediaListDecoder = Decode.list mediaDecoder

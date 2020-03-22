@@ -191,16 +191,16 @@ renderIcon m mdls =
                                     [source [ H.src dls.default.url, H.type_ "video/mp4" ] []])
              _ -> thumb
 
-renderGPMF : GPMF -> List (Html Msg)
-renderGPMF g = (case (g.lat, g.lon) of
-                    (Just lat, Just lon) -> [dts "Location",
-                                             dd []
-                                             [a [ H.href ("https://www.google.com/maps/search/?api=1&query=" ++
-                                                          String.fromFloat lat ++ "," ++
-                                                          String.fromFloat lon)]
-                                                  [ text (String.fromFloat lat ++ "," ++
-                                                          String.fromFloat lon) ]]]
-                    _ -> [])
+renderMetaData : MetaData -> List (Html Msg)
+renderMetaData g = (case (g.lat, g.lon) of
+                        (Just lat, Just lon) -> [dts "Location",
+                                                 dd []
+                                                 [a [ H.href ("https://www.google.com/maps/search/?api=1&query=" ++
+                                                              String.fromFloat lat ++ "," ++
+                                                              String.fromFloat lon)]
+                                                      [ text (String.fromFloat lat ++ "," ++
+                                                              String.fromFloat lon) ]]]
+                        _ -> [])
                ++ (case g.scene of
                       Nothing -> []
                       Just c -> [ dts "Scene",
@@ -235,9 +235,9 @@ renderOverlay z (mm, mdls) =
                                   Nothing -> []
                                   Just x -> [ dts "Duration"
                                             , dd [] [text (F.millis (Maybe.withDefault 0 m.source_duration))]])
-                          ++ (case m.gpmfData of
+                          ++ (case m.metaData of
                                   Nothing -> []
-                                  Just g -> renderGPMF g))
+                                  Just g -> renderMetaData g))
                    ] ++ case mdls of
                             Nothing -> []
                             Just (Err err) -> [div [ H.class "dls" ]

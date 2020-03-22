@@ -112,7 +112,7 @@ data Media = Media {
   _media_token           :: String,
   _media_width           :: Maybe Int,
   _media_height          :: Maybe Int,
-  _media_gpmf_data       :: Maybe MDSummary
+  _media_meta_data       :: Maybe MDSummary
   } deriving (Generic, Show)
 
 makeLenses ''Media

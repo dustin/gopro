@@ -1857,7 +1857,7 @@ var _Platform_worker = F4(function(impl, flagDecoder, debugMetadata, args)
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.dn,
+		impl.dm,
 		impl.d0,
 		impl.dX,
 		function() { return function() {} }
@@ -2704,7 +2704,7 @@ var _VirtualDom_mapEventTuple = F2(function(func, tuple)
 var _VirtualDom_mapEventRecord = F2(function(func, record)
 {
 	return {
-		dw: func(record.dw),
+		dv: func(record.dv),
 		dV: record.dV,
 		dK: record.dK
 	}
@@ -2974,7 +2974,7 @@ function _VirtualDom_makeCallback(eventNode, initialHandler)
 		// 3 = Custom
 
 		var value = result.a;
-		var message = !tag ? value : tag < 3 ? value.a : value.dw;
+		var message = !tag ? value : tag < 3 ? value.a : value.dv;
 		var stopPropagation = tag == 1 ? value.b : tag == 3 && value.dV;
 		var currentEventNode = (
 			stopPropagation && event.stopPropagation(),
@@ -3928,7 +3928,7 @@ var _Browser_element = _Debugger_element || F4(function(impl, flagDecoder, debug
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.dn,
+		impl.dm,
 		impl.d0,
 		impl.dX,
 		function(sendToApp, initialModel) {
@@ -3964,7 +3964,7 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 	return _Platform_initialize(
 		flagDecoder,
 		args,
-		impl.dn,
+		impl.dm,
 		impl.d0,
 		impl.dX,
 		function(sendToApp, initialModel) {
@@ -4069,9 +4069,9 @@ function _Browser_application(impl)
 				}
 			});
 		},
-		dn: function(flags)
+		dm: function(flags)
 		{
-			return A3(impl.dn, flags, _Browser_getUrl(), key);
+			return A3(impl.dm, flags, _Browser_getUrl(), key);
 		},
 		d2: impl.d2,
 		d0: impl.d0,
@@ -4141,17 +4141,17 @@ var _Browser_decodeEvent = F2(function(decoder, event)
 function _Browser_visibilityInfo()
 {
 	return (typeof _VirtualDom_doc.hidden !== 'undefined')
-		? { di: 'hidden', c9: 'visibilitychange' }
+		? { dh: 'hidden', c9: 'visibilitychange' }
 		:
 	(typeof _VirtualDom_doc.mozHidden !== 'undefined')
-		? { di: 'mozHidden', c9: 'mozvisibilitychange' }
+		? { dh: 'mozHidden', c9: 'mozvisibilitychange' }
 		:
 	(typeof _VirtualDom_doc.msHidden !== 'undefined')
-		? { di: 'msHidden', c9: 'msvisibilitychange' }
+		? { dh: 'msHidden', c9: 'msvisibilitychange' }
 		:
 	(typeof _VirtualDom_doc.webkitHidden !== 'undefined')
-		? { di: 'webkitHidden', c9: 'webkitvisibilitychange' }
-		: { di: 'hidden', c9: 'visibilitychange' };
+		? { dh: 'webkitHidden', c9: 'webkitvisibilitychange' }
+		: { dh: 'hidden', c9: 'visibilitychange' };
 }
 
 
@@ -7145,8 +7145,8 @@ var $author$project$Media$Medium = function (id) {
 									return function (token) {
 										return function (width) {
 											return function (height) {
-												return function (gpmfData) {
-													return {bs: camera_model, J: captured_at, db: created_at, bx: file_size, dh: gpmfData, bz: height, a9: id, bc: media_type, dz: moments_count, dL: ready_to_view, bL: source_duration, d_: token, bP: width};
+												return function (metaData) {
+													return {bs: camera_model, J: captured_at, db: created_at, bx: file_size, bz: height, a9: id, bc: media_type, dw: metaData, dz: moments_count, dL: ready_to_view, bL: source_duration, d_: token, bP: width};
 												};
 											};
 										};
@@ -7924,12 +7924,12 @@ var $rtfeldman$elm_iso8601_date_strings$Iso8601$decoder = A2(
 		}
 	},
 	$elm$json$Json$Decode$string);
-var $author$project$Media$GPMF = F9(
+var $elm$json$Json$Decode$int = _Json_decodeInt;
+var $author$project$Media$MetaData = F9(
 	function (cam, ts, lat, lon, maxSpeed2d, maxSpeed3d, maxFaces, scene, sceneProb) {
-		return {c7: cam, dq: lat, dr: lon, dt: maxFaces, du: maxSpeed2d, dv: maxSpeed3d, dO: scene, dP: sceneProb, d$: ts};
+		return {c7: cam, dp: lat, dq: lon, ds: maxFaces, dt: maxSpeed2d, du: maxSpeed3d, dO: scene, dP: sceneProb, d$: ts};
 	});
 var $elm$json$Json$Decode$float = _Json_decodeFloat;
-var $elm$json$Json$Decode$int = _Json_decodeInt;
 var $elm$json$Json$Decode$null = _Json_decodeNull;
 var $elm$json$Json$Decode$oneOf = _Json_oneOf;
 var $elm$json$Json$Decode$nullable = function (decoder) {
@@ -7974,7 +7974,7 @@ var $author$project$Media$strLocation = function (l) {
 			return 6;
 	}
 };
-var $author$project$Media$gpmfDecoder = A3(
+var $author$project$Media$metaDataDecoder = A3(
 	$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 	'sceneProb',
 	$elm$json$Json$Decode$nullable($elm$json$Json$Decode$float),
@@ -8011,7 +8011,7 @@ var $author$project$Media$gpmfDecoder = A3(
 									$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 									'camera',
 									$elm$json$Json$Decode$string,
-									$elm$json$Json$Decode$succeed($author$project$Media$GPMF))))))))));
+									$elm$json$Json$Decode$succeed($author$project$Media$MetaData))))))))));
 var $elm$json$Json$Decode$decodeValue = _Json_run;
 var $elm$json$Json$Decode$value = _Json_decodeValue;
 var $NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optionalDecoder = F3(
@@ -8114,8 +8114,8 @@ var $author$project$Media$stringInt = $elm$json$Json$Decode$oneOf(
 		]));
 var $author$project$Media$mediaDecoder = A3(
 	$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
-	'gpmf_data',
-	$elm$json$Json$Decode$nullable($author$project$Media$gpmfDecoder),
+	'meta_data',
+	$elm$json$Json$Decode$nullable($author$project$Media$metaDataDecoder),
 	A3(
 		$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 		'height',
@@ -9567,7 +9567,7 @@ var $basti1302$elm_human_readable_filesize$Filesize$getUnitDefinitionList = func
 };
 var $elm$regex$Regex$Match = F4(
 	function (match, index, number, submatches) {
-		return {dm: index, ds: match, dD: number, dW: submatches};
+		return {dl: index, dr: match, dD: number, dW: submatches};
 	});
 var $elm$regex$Regex$fromStringWith = _Regex_fromStringWith;
 var $elm$regex$Regex$fromString = function (string) {
@@ -12050,7 +12050,7 @@ var $author$project$ScreenOverlay$extractOverrideStyles = function (override) {
 		return styles;
 	}
 };
-var $rtfeldman$elm_css$Css$auto = {c1: 0, c: 0, au: 0, ba: 0, dp: 0, ay: 0, W: 0, M: 0, aB: 0, H: 0, bl: 0, aH: 0, z: 0, O: 'auto'};
+var $rtfeldman$elm_css$Css$auto = {c1: 0, c: 0, au: 0, ba: 0, $7: 0, ay: 0, W: 0, M: 0, aB: 0, H: 0, bl: 0, aH: 0, z: 0, O: 'auto'};
 var $rtfeldman$elm_css$Css$height = $rtfeldman$elm_css$Css$prop1('height');
 var $rtfeldman$elm_css$Css$overflowX = $rtfeldman$elm_css$Css$prop1('overflow-x');
 var $rtfeldman$elm_css$Css$padding4 = $rtfeldman$elm_css$Css$prop4('padding');
@@ -12677,90 +12677,6 @@ var $author$project$Media$readyTypeStr = function (r) {
 			return 'Unknown ready type';
 	}
 };
-var $author$project$Media$locationStr = function (l) {
-	switch (l) {
-		case 0:
-			return 'Snow';
-		case 1:
-			return 'Urban';
-		case 2:
-			return 'Indoor';
-		case 3:
-			return 'Water';
-		case 4:
-			return 'Vegetation';
-		case 5:
-			return 'Beach';
-		default:
-			return 'Unknown';
-	}
-};
-var $author$project$Main$renderGPMF = function (g) {
-	return _Utils_ap(
-		function () {
-			var _v0 = _Utils_Tuple2(g.dq, g.dr);
-			if ((!_v0.a.$) && (!_v0.b.$)) {
-				var lat = _v0.a.a;
-				var lon = _v0.b.a;
-				return _List_fromArray(
-					[
-						$author$project$Main$dts('Location'),
-						A2(
-						$elm$html$Html$dd,
-						_List_Nil,
-						_List_fromArray(
-							[
-								A2(
-								$elm$html$Html$a,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$href(
-										'https://www.google.com/maps/search/?api=1&query=' + ($elm$core$String$fromFloat(lat) + (',' + $elm$core$String$fromFloat(lon))))
-									]),
-								_List_fromArray(
-									[
-										$elm$html$Html$text(
-										$elm$core$String$fromFloat(lat) + (',' + $elm$core$String$fromFloat(lon)))
-									]))
-							]))
-					]);
-			} else {
-				return _List_Nil;
-			}
-		}(),
-		function () {
-			var _v1 = g.dO;
-			if (_v1.$ === 1) {
-				return _List_Nil;
-			} else {
-				var c = _v1.a;
-				return _List_fromArray(
-					[
-						$author$project$Main$dts('Scene'),
-						A2(
-						$elm$html$Html$dd,
-						_List_Nil,
-						_List_fromArray(
-							[
-								A2(
-								$elm$html$Html$span,
-								_List_fromArray(
-									[
-										$elm$html$Html$Attributes$class('scene')
-									]),
-								_List_fromArray(
-									[
-										$elm$html$Html$text(
-										$author$project$Media$locationStr(c))
-									])),
-								$elm$html$Html$text(
-								' with probability ' + $elm$core$String$fromFloat(
-									A2($elm$core$Maybe$withDefault, 0, g.dP)))
-							]))
-					]);
-			}
-		}());
-};
 var $elm$html$Html$Attributes$autoplay = $elm$html$Html$Attributes$boolProperty('autoplay');
 var $elm$html$Html$Attributes$controls = $elm$html$Html$Attributes$boolProperty('controls');
 var $elm$html$Html$Attributes$height = function (n) {
@@ -12833,6 +12749,90 @@ var $author$project$Main$renderIcon = F2(
 			}
 		}
 	});
+var $author$project$Media$locationStr = function (l) {
+	switch (l) {
+		case 0:
+			return 'Snow';
+		case 1:
+			return 'Urban';
+		case 2:
+			return 'Indoor';
+		case 3:
+			return 'Water';
+		case 4:
+			return 'Vegetation';
+		case 5:
+			return 'Beach';
+		default:
+			return 'Unknown';
+	}
+};
+var $author$project$Main$renderMetaData = function (g) {
+	return _Utils_ap(
+		function () {
+			var _v0 = _Utils_Tuple2(g.dp, g.dq);
+			if ((!_v0.a.$) && (!_v0.b.$)) {
+				var lat = _v0.a.a;
+				var lon = _v0.b.a;
+				return _List_fromArray(
+					[
+						$author$project$Main$dts('Location'),
+						A2(
+						$elm$html$Html$dd,
+						_List_Nil,
+						_List_fromArray(
+							[
+								A2(
+								$elm$html$Html$a,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$href(
+										'https://www.google.com/maps/search/?api=1&query=' + ($elm$core$String$fromFloat(lat) + (',' + $elm$core$String$fromFloat(lon))))
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text(
+										$elm$core$String$fromFloat(lat) + (',' + $elm$core$String$fromFloat(lon)))
+									]))
+							]))
+					]);
+			} else {
+				return _List_Nil;
+			}
+		}(),
+		function () {
+			var _v1 = g.dO;
+			if (_v1.$ === 1) {
+				return _List_Nil;
+			} else {
+				var c = _v1.a;
+				return _List_fromArray(
+					[
+						$author$project$Main$dts('Scene'),
+						A2(
+						$elm$html$Html$dd,
+						_List_Nil,
+						_List_fromArray(
+							[
+								A2(
+								$elm$html$Html$span,
+								_List_fromArray(
+									[
+										$elm$html$Html$Attributes$class('scene')
+									]),
+								_List_fromArray(
+									[
+										$elm$html$Html$text(
+										$author$project$Media$locationStr(c))
+									])),
+								$elm$html$Html$text(
+								' with probability ' + $elm$core$String$fromFloat(
+									A2($elm$core$Maybe$withDefault, 0, g.dP)))
+							]))
+					]);
+			}
+		}());
+};
 var $author$project$Formats$time = F2(
 	function (z, t) {
 		return $elm$core$String$fromInt(
@@ -12972,12 +12972,12 @@ var $author$project$Main$renderOverlay = F2(
 										}
 									}(),
 									function () {
-										var _v3 = m.dh;
+										var _v3 = m.dw;
 										if (_v3.$ === 1) {
 											return _List_Nil;
 										} else {
 											var g = _v3.a;
-											return $author$project$Main$renderGPMF(g);
+											return $author$project$Main$renderMetaData(g);
 										}
 									}())))
 						]),
@@ -13250,7 +13250,7 @@ var $elm$html$Html$td = _VirtualDom_node('td');
 var $allo_media$elm_daterange_picker$DateRangePicker$Calendar$dayCell = F2(
 	function (_v0, day) {
 		var allowFuture = _v0.c3;
-		var hover = _v0.dj;
+		var hover = _v0.di;
 		var hovered = _v0.aT;
 		var noOp = _v0.dB;
 		var pick = _v0.dH;
@@ -13664,11 +13664,11 @@ var $allo_media$elm_daterange_picker$DateRangePicker$panel = F2(
 				$elm$html$Html$Events$custom,
 				'mouseup',
 				$elm$json$Json$Decode$succeed(
-					{dw: msg, dK: true, dV: true}));
+					{dv: msg, dK: true, dV: true}));
 		};
 		var baseCalendar = {
 			c3: internal.e.c3,
-			dj: function (posix) {
+			di: function (posix) {
 				return A3(
 					$allo_media$elm_daterange_picker$DateRangePicker$handleEvent,
 					toMsg,
@@ -14009,6 +14009,6 @@ var $author$project$Main$view = function (_v0) {
 	}
 };
 var $author$project$Main$main = $elm$browser$Browser$element(
-	{dn: $author$project$Main$init, dX: $author$project$Main$subscriptions, d0: $author$project$Main$update, d2: $author$project$Main$view});
+	{dm: $author$project$Main$init, dX: $author$project$Main$subscriptions, d0: $author$project$Main$update, d2: $author$project$Main$view});
 _Platform_export({'Main':{'init':$author$project$Main$main(
 	$elm$json$Json$Decode$succeed(0))(0)}});}(this));

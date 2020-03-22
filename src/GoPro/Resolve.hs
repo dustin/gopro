@@ -6,11 +6,14 @@ import           Control.Lens           hiding ((.=))
 import           Data.Aeson             (FromJSON (..), ToJSON (..), object,
                                          (.=))
 import qualified Data.ByteString        as BS
+import           Data.Map.Strict        (Map)
 import qualified Data.Map.Strict        as Map
 import           Data.Maybe             (fromMaybe)
 import           Data.Time.Clock        (UTCTime (..))
+import           Data.Time.LocalTime    (localTimeToUTC, utc)
 import           Data.Tuple             (swap)
 import           Generics.Deriving.Base (Generic)
+import qualified Graphics.HsExif        as E
 
 import           GoPro.DEVC
 import           GoPro.GPMF             (parseGPMF)
@@ -44,8 +47,8 @@ instance FromJSON MDSummary where
 parseDEVC :: BS.ByteString -> Either String [DEVC]
 parseDEVC = (fmap.fmap) (uncurry mkDEVC) . parseGPMF
 
-summarize :: [DEVC] -> MDSummary
-summarize devc = MDSummary {
+summarizeGPMF :: [DEVC] -> MDSummary
+summarizeGPMF devc = MDSummary {
   _cameraModel = fromMaybe "" $ devc ^? folded . dev_name,
   _capturedTime = gps ^? folded . gps_time,
   _lat = gps ^? folded . gps_readings . ix 0 . gpsr_lat,
@@ -63,3 +66,15 @@ summarize devc = MDSummary {
                 avgs   = Map.fromList $ zipWith (\(k,s) (_,c) -> (s/c,k)) (Map.assocs sums) (Map.assocs counts)
 
         gps = devc ^.. folded . dev_telems . folded . tele_values . _TVGPS . filtered ((< 500) . view gps_p)
+
+summarizeEXIF :: Map E.ExifTag E.ExifValue -> MDSummary
+summarizeEXIF ex = MDSummary {
+  _cameraModel = takeWhile (/= '\0') . show $ ex Map.! E.model,
+  _capturedTime = localTimeToUTC utc <$> E.getGpsDateTime ex,
+  _lat = fst <$> E.getGpsLatitudeLongitude ex,
+  _lon = snd <$> E.getGpsLatitudeLongitude ex,
+  _maxSpeed2d = Nothing,
+  _maxSpeed3d = Nothing,
+  _maxFaces = 0,
+  _mainScene = Nothing
+  }

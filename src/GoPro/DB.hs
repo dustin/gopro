@@ -6,8 +6,9 @@
 
 module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  MediaRow(..), row_media, row_thumbnail,
-                 metaTODO, insertMetaBlob, gpmfTODO,
-                 insertGPMF, selectGPMF, initTables) where
+                 metaBlobTODO, insertMetaBlob,
+                 metaTODO, insertMeta, selectMeta,
+                 initTables) where
 
 import           Control.Applicative            (liftA2)
 import           Control.Lens
@@ -32,9 +33,9 @@ initTables db = mapM_ (execute_ db)
                                                       media_type, width, height,
                                                       ready_to_view, thumbnail)|],
                  [r|create table if not exists
-                           gpmf (media_id primary key, stream, camera_model, captured_at,
+                           meta (media_id primary key, camera_model, captured_at,
                                  lat, lon, max_speed_2d, max_speed_3d, max_faces, main_scene, main_scene_prob)|],
-                  "create table if not exists metablob (media_id primary key, meta blob)"]
+                  "create table if not exists metablob (media_id primary key, meta blob, format text)"]
 
 insertMediaStatement :: Query
 insertMediaStatement = [r|insert into media (media_id, camera_model, captured_at, created_at,
@@ -118,8 +119,8 @@ loadThumbnail db imgid = liftIO sel
       [Only t] <- query db "select thumbnail from media where media_id = ?" (Only imgid)
       pure t
 
-metaTODO :: MonadIO m => Connection -> m [(String, String)]
-metaTODO db = liftIO sel
+metaBlobTODO :: MonadIO m => Connection -> m [(String, String)]
+metaBlobTODO db = liftIO sel
   where
     sel :: IO [(String, String)]
     sel = query_ db [r|select media_id, media_type
@@ -127,31 +128,30 @@ metaTODO db = liftIO sel
                        where media_id not in (select media_id from metablob)
                        order by created_at desc|]
 
-insertMetaBlob :: MonadIO m => Connection -> String -> Maybe BS.ByteString -> m ()
-insertMetaBlob db mid blob = liftIO ins
-  where ins = execute db "insert into metablob (media_id, meta) values (?, ?)" (mid, blob)
+insertMetaBlob :: MonadIO m => Connection -> String -> String -> Maybe BS.ByteString -> m ()
+insertMetaBlob db mid fmt blob = liftIO ins
+  where ins = execute db "insert into metablob (media_id, meta, format) values (?, ?, ?)" (mid, blob, fmt)
 
-gpmfTODO :: MonadIO m => Connection -> m [(String, BS.ByteString)]
-gpmfTODO db = liftIO sel
+metaTODO :: MonadIO m => Connection -> m [(String, String, BS.ByteString)]
+metaTODO db = liftIO sel
   where
     sel = query_ db [r|
-                      select b.media_id, b.meta
+                      select b.media_id, b.format, b.meta
                              from metablob b join media m on (m.media_id = b.media_id)
                       where b.meta is not null
-                            and m.media_type in ('Video', 'TimeLapseVideo')
-                            and b.media_id not in (select media_id from gpmf)
+                            and b.media_id not in (select media_id from meta)
                      |]
 
-insertGPMF :: MonadIO m => Connection -> String -> MDSummary -> m ()
-insertGPMF db mid MDSummary{..} = liftIO up
+insertMeta :: MonadIO m => Connection -> String -> MDSummary -> m ()
+insertMeta db mid MDSummary{..} = liftIO up
   where
     q = [r|
-          insert into gpmf (media_id, camera_model, captured_at, lat, lon,
+          insert into meta (media_id, camera_model, captured_at, lat, lon,
                             max_speed_2d, max_speed_3d, max_faces,
                             main_scene, main_scene_prob)
-                            values (:mid, :cam, :ts, :lat, :lon,
-                                    :speed2, :speed3, :maxface,
-                                    :scene, :scene_prob)
+                      values (:mid, :cam, :ts, :lat, :lon,
+                              :speed2, :speed3, :maxface,
+                              :scene, :scene_prob)
           |]
     up = executeNamed db q
       [":cam" := _cameraModel,
@@ -182,12 +182,12 @@ instance FromRow NamedSummary where
     let _mainScene = liftA2 (,) loc prob
     pure $ NamedSummary (mid, MDSummary{..})
 
-selectGPMF :: MonadIO m => Connection -> m (Map String MDSummary)
-selectGPMF db = Map.fromList . coerce <$> liftIO sel
+selectMeta :: MonadIO m => Connection -> m (Map String MDSummary)
+selectMeta db = Map.fromList . coerce <$> liftIO sel
   where
     sel :: IO [NamedSummary]
     sel = query_ db [r|select media_id, camera_model, captured_at, lat, lon,
                               max_speed_2d, max_speed_3d,
                               max_faces, main_scene, main_scene_prob
-                          from gpmf
+                          from meta
                           where camera_model is not null |]

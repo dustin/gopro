@@ -49,6 +49,7 @@ import           Database.SQLite.Simple        (Connection, SQLData (..),
                                                 Statement, columnCount,
                                                 columnName, nextRow,
                                                 withConnection, withStatement)
+import           Graphics.HsExif               (parseExif)
 import           Network.HTTP.Simple           (getResponseBody, httpSource,
                                                 parseRequest)
 import qualified Network.Wai.Middleware.Gzip   as GZ
@@ -160,18 +161,22 @@ runSync stype = do
 runGrokTel :: GoPro ()
 runGrokTel = do
   db <- asks dbConn
-  mapM_ (ud db) =<< gpmfTODO db
+  mapM_ (ud db) =<< metaTODO db
     where
-      ud db (mid, bs) = do
-        logInfo $ "Updating " <> tshow mid
-        case summarize <$> parseDEVC bs of
+      ud db (mid, typ, bs) = do
+        logInfo $ "Updating " <> tshow (mid, typ)
+        case summarize typ bs of
           Left x -> logError $ "Error parsing stuff for " <> tshow mid <> " show " <> tshow x
-          Right x -> insertGPMF db mid x
+          Right x -> insertMeta db mid x
+      summarize :: String -> BS.ByteString -> Either String MDSummary
+      summarize "gpmf" bs = summarizeGPMF <$> parseDEVC bs
+      summarize "exif" bs = summarizeEXIF <$> parseExif (BL.fromStrict bs)
+      summarize fmt _     = Left ("Can't summarize " <> show fmt)
 
 runGetMeta :: GoPro ()
 runGetMeta = do
   db <- asks dbConn
-  needs <- metaTODO db
+  needs <- metaBlobTODO db
   logInfo $ "Fetching " <> tshow (length needs)
   logDbg $ tshow needs
   mapM_ (process db) needs
@@ -181,13 +186,13 @@ runGetMeta = do
         tok <- getToken
         fi <- retrieve tok mid
         case typ of
-          "Video"          -> processEx fi extractGPMD ".mp4"
-          "TimeLapseVideo" -> processEx fi extractGPMD ".mp4"
-          "Photo"          -> processEx fi extractEXIF ".jpg"
+          "Video"          -> processEx fi extractGPMD "gpmf" ".mp4"
+          "TimeLapseVideo" -> processEx fi extractGPMD "gpmf" ".mp4"
+          "Photo"          -> processEx fi extractEXIF "exif" ".jpg"
           x                -> logError $ "Unhandled type: " <> tshow x
 
           where
-            processEx fi ex fx = do
+            processEx fi ex fmt fx = do
               let fv :: String -> FilePath -> GoPro (Maybe BS.ByteString)
                   fv s p = Just <$> fetchX ex fi mid s p
                   fn v = ".cache" </> mid <> "-" <> v <> fx
@@ -197,10 +202,10 @@ runGetMeta = do
                 fv "source" (fn "src"),
                 pure Nothing]
               case ms of
-                Nothing -> insertMetaBlob db mid Nothing
+                Nothing -> insertMetaBlob db mid "" Nothing
                 Just s -> do
                   logInfo $ "MetaData stream for " <> tshow mtyp <> " is " <> tshow (BS.length s) <> " bytes"
-                  insertMetaBlob db mid (Just s)
+                  insertMetaBlob db mid fmt (Just s)
                   -- Clean up in the success case.
                   mapM_ (\f -> asum [liftIO (removeFile f), pure ()]) $ map fn ["low", "high", "src"]
 
@@ -342,12 +347,12 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
       get "/api/media" $ do
         db <- lift $ asks dbConn
         ms <- loadMedia db
-        gs <- selectGPMF db
+        gs <- selectMeta db
         json $ map (\m@Media{..} ->
                       case Map.lookup _media_id gs of
                         Nothing -> m
                         Just g -> let cam = maybe (Just $ _cameraModel g) Just _media_camera_model in
-                                    m & media_camera_model .~ cam & media_gpmf_data .~ Just g
+                                    m & media_camera_model .~ cam & media_meta_data .~ Just g
                    ) ms
 
       get "/api/retrieve/:id" $ do
