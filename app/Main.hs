@@ -189,6 +189,8 @@ runGetMeta = do
           "Video"          -> processEx fi extractGPMD "gpmf" ".mp4"
           "TimeLapseVideo" -> processEx fi extractGPMD "gpmf" ".mp4"
           "Photo"          -> processEx fi extractEXIF "exif" ".jpg"
+          "TimeLapse"      -> processEx fi extractEXIF "exif" ".jpg"
+          "Burst"          -> processEx fi extractEXIF "exif" ".jpg"
           x                -> logError $ "Unhandled type: " <> tshow x
 
           where
