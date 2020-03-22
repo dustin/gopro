@@ -7,7 +7,7 @@
 module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  MediaRow(..), row_media, row_thumbnail,
                  metaTODO, insertMetaBlob, gpmfTODO,
-                 updateGPMF, selectGPMF, initTables) where
+                 insertGPMF, selectGPMF, initTables) where
 
 import           Control.Applicative            (liftA2)
 import           Control.Lens
@@ -134,15 +134,26 @@ insertMetaBlob db mid blob = liftIO ins
 gpmfTODO :: MonadIO m => Connection -> m [(String, BS.ByteString)]
 gpmfTODO db = liftIO sel
   where
-    sel = query_ db "select media_id, stream from gpmf where stream is not null and camera_model is null"
+    sel = query_ db [r|
+                      select b.media_id, b.meta
+                             from metablob b join media m on (m.media_id = b.media_id)
+                      where b.meta is not null
+                            and m.media_type in ('Video', 'TimeLapseVideo')
+                            and b.media_id not in (select media_id from gpmf)
+                     |]
 
-updateGPMF :: MonadIO m => Connection -> String -> MDSummary -> m ()
-updateGPMF db mid MDSummary{..} = liftIO up
+insertGPMF :: MonadIO m => Connection -> String -> MDSummary -> m ()
+insertGPMF db mid MDSummary{..} = liftIO up
   where
-    up = executeNamed db [r|update gpmf set camera_model = :cam, captured_at = :ts, lat = :lat, lon = :lon,
-                                        max_speed_2d = :speed2, max_speed_3d = :speed3, max_faces = :maxface,
-                                        main_scene = :scene, main_scene_prob = :scene_prob
-                                   where media_id = :mid|]
+    q = [r|
+          insert into gpmf (media_id, camera_model, captured_at, lat, lon,
+                            max_speed_2d, max_speed_3d, max_faces,
+                            main_scene, main_scene_prob)
+                            values (:mid, :cam, :ts, :lat, :lon,
+                                    :speed2, :speed3, :maxface,
+                                    :scene, :scene_prob)
+          |]
+    up = executeNamed db q
       [":cam" := _cameraModel,
        ":ts" := _capturedTime,
        ":lat" := _lat,

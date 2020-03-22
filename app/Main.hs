@@ -166,7 +166,7 @@ runGrokTel = do
         logInfo $ "Updating " <> tshow mid
         case summarize <$> parseDEVC bs of
           Left x -> logError $ "Error parsing stuff for " <> tshow mid <> " show " <> tshow x
-          Right x -> updateGPMF db mid x
+          Right x -> insertGPMF db mid x
 
 runGetMeta :: GoPro ()
 runGetMeta = do
