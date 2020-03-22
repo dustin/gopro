@@ -7,7 +7,7 @@
 module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  MediaRow(..), row_media, row_thumbnail,
                  metaTODO, insertMetaBlob, gpmfTODO,
-                 updateGPMF, selectGPMF) where
+                 updateGPMF, selectGPMF, initTables) where
 
 import           Control.Applicative            (liftA2)
 import           Control.Lens
@@ -24,23 +24,23 @@ import           Text.RawString.QQ              (r)
 import           GoPro.Plus                     (Media (..))
 import           GoPro.Resolve                  (MDSummary (..))
 
-createMediaStatement :: Query
-createMediaStatement = [r|create table if not exists media (media_id primary key, camera_model,
-                                                            captured_at, created_at, file_size,
-                                                            moments_count, source_duration,
-                                                            media_type, width, height,
-                                                            ready_to_view, thumbnail)|]
+initTables :: Connection -> IO ()
+initTables db = mapM_ (execute_ db)
+                [[r|create table if not exists media (media_id primary key, camera_model,
+                                                      captured_at, created_at, file_size,
+                                                      moments_count, source_duration,
+                                                      media_type, width, height,
+                                                      ready_to_view, thumbnail)|],
+                 [r|create table if not exists
+                           gpmf (media_id primary key, stream, camera_model, captured_at,
+                                 lat, lon, max_speed_2d, max_speed_3d, max_faces, main_scene, main_scene_prob)|],
+                  "create table if not exists metablob (media_id primary key, meta blob)"]
 
 insertMediaStatement :: Query
 insertMediaStatement = [r|insert into media (media_id, camera_model, captured_at, created_at,
                                              file_size, moments_count, source_duration, media_type,
                                              width, height, ready_to_view, thumbnail)
                                       values(?,?,?,?,?,?,?,?,?,?,?,?)|]
-
-createGPMFStatement :: Query
-createGPMFStatement = [r|create table if not exists
-                               gpmf (media_id primary key, stream, camera_model, captured_at,
-                                     lat, lon, max_speed_2d, max_speed_3d, max_faces, main_scene)|]
 
 data MediaRow = MediaRow {
   _row_media     :: Media,
@@ -67,17 +67,13 @@ instance ToRow MediaRow where
 
 storeMedia :: MonadIO m => Connection -> [MediaRow] -> m ()
 storeMedia db media = liftIO up
-  where up = do
-          execute_ db createMediaStatement
-          executeMany db insertMediaStatement media
+  where up = executeMany db insertMediaStatement media
 
 loadMediaIDs :: MonadIO m => Connection -> m [String]
 loadMediaIDs db = coerce <$> liftIO sel
   where
     sel :: IO [Only String]
-    sel = do
-      execute_ db createMediaStatement
-      query_ db "select media_id from media order by captured_at desc"
+    sel = query_ db "select media_id from media order by captured_at desc"
 
 
 selectMediaStatement :: Query
@@ -126,11 +122,10 @@ metaTODO :: MonadIO m => Connection -> m [(String, String)]
 metaTODO db = liftIO sel
   where
     sel :: IO [(String, String)]
-    sel = execute_ db createGPMFStatement >>
-      query_ db [r|select media_id, media_type
-                         from media
-                         where media_id not in (select media_id from metablob)
-                         order by created_at desc|]
+    sel = query_ db [r|select media_id, media_type
+                       from media
+                       where media_id not in (select media_id from metablob)
+                       order by created_at desc|]
 
 insertMetaBlob :: MonadIO m => Connection -> String -> Maybe BS.ByteString -> m ()
 insertMetaBlob db mid blob = liftIO ins

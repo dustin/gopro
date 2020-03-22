@@ -414,6 +414,8 @@ main = do
            ( fullDesc <> progDesc "GoPro cloud utility.")
 
     runConn o@Options{..} db = do
+      initTables db
+
       runStderrLoggingT . logfilt $ do
         l <- askLoggerIO
         let o' = o{optArgv = tail optArgv}
