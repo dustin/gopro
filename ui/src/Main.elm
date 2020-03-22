@@ -233,6 +233,7 @@ renderOverlay z (mm, mdls) =
                         , dd [] [ text (readyTypeStr m.ready_to_view) ]
                         ] ++ (case m.source_duration of
                                   Nothing -> []
+                                  Just 0 -> []
                                   Just x -> [ dts "Duration"
                                             , dd [] [text (F.millis (Maybe.withDefault 0 m.source_duration))]])
                           ++ (case m.metaData of

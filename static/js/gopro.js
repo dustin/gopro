@@ -12955,20 +12955,24 @@ var $author$project$Main$renderOverlay = F2(
 										if (_v2.$ === 1) {
 											return _List_Nil;
 										} else {
-											var x = _v2.a;
-											return _List_fromArray(
-												[
-													$author$project$Main$dts('Duration'),
-													A2(
-													$elm$html$Html$dd,
-													_List_Nil,
-													_List_fromArray(
-														[
-															$elm$html$Html$text(
-															$author$project$Formats$millis(
-																A2($elm$core$Maybe$withDefault, 0, m.bL)))
-														]))
-												]);
+											if (!_v2.a) {
+												return _List_Nil;
+											} else {
+												var x = _v2.a;
+												return _List_fromArray(
+													[
+														$author$project$Main$dts('Duration'),
+														A2(
+														$elm$html$Html$dd,
+														_List_Nil,
+														_List_fromArray(
+															[
+																$elm$html$Html$text(
+																$author$project$Formats$millis(
+																	A2($elm$core$Maybe$withDefault, 0, m.bL)))
+															]))
+													]);
+											}
 										}
 									}(),
 									function () {
