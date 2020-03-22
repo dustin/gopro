@@ -63,7 +63,8 @@ import           Options.Applicative           (Parser, argument, execParser,
                                                 (<**>))
 import           Prelude                       hiding (fail)
 import           System.Directory              (createDirectoryIfMissing,
-                                                doesFileExist, removeFile)
+                                                doesFileExist, removeFile,
+                                                renameFile)
 import           System.FilePath.Posix         ((</>))
 import           System.IO                     (hFlush, hGetEcho, hSetEcho,
                                                 stdin, stdout)
@@ -204,7 +205,9 @@ runGetMeta = do
                 fv "source" (fn "src"),
                 pure Nothing]
               case ms of
-                Nothing -> insertMetaBlob db mid "" Nothing
+                Nothing -> do
+                  logInfo $ "Found no metadata for " <> tshow mtyp
+                  insertMetaBlob db mid "" Nothing
                 Just s -> do
                   logInfo $ "MetaData stream for " <> tshow mtyp <> " is " <> tshow (BS.length s) <> " bytes"
                   insertMetaBlob db mid fmt (Just s)
@@ -231,7 +234,9 @@ runGetMeta = do
         logInfo $ "Fetching " <> tshow mid <> " variant " <> tshow var
         logDbg $ "From " <> tshow u
         req <- parseRequest u
-        liftIO $ runConduitRes $ httpSource req getResponseBody .| sinkFile dest
+        let tmpfile = dest <> ".tmp"
+        liftIO $ (runConduitRes $ httpSource req getResponseBody .| sinkFile tmpfile) >>
+                  renameFile tmpfile dest
         pure dest
 
       extractEXIF :: String -> FilePath -> GoPro BS.ByteString
