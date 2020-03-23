@@ -11923,7 +11923,7 @@ var $author$project$ScreenOverlay$exitButtonStyle = function (onScreen) {
 						$rtfeldman$elm_css$Css$px(-1),
 						$rtfeldman$elm_css$Css$px(-2),
 						$rtfeldman$elm_css$Css$px(3),
-						A4($rtfeldman$elm_css$Css$rgba, 0, 0, 0, 0.3))
+						A4($rtfeldman$elm_css$Css$rgba, 255, 255, 255, 0.3))
 					])),
 				onScreen ? $rtfeldman$elm_css$Css$batch(
 				_List_fromArray(
@@ -12079,7 +12079,7 @@ var $author$project$ScreenOverlay$overlayStyle = function (displaying) {
 				$rtfeldman$elm_css$Css$height(
 				$rtfeldman$elm_css$Css$vh(100)),
 				$rtfeldman$elm_css$Css$backgroundColor(
-				A4($rtfeldman$elm_css$Css$rgba, 255, 255, 255, 0)),
+				A4($rtfeldman$elm_css$Css$rgba, 20, 20, 20, 0)),
 				$rtfeldman$elm_css$Css$overflowX($rtfeldman$elm_css$Css$auto),
 				A2($rtfeldman$elm_css$Css$property, 'pointer-events', 'none'),
 				A2($rtfeldman$elm_css$Css$property, 'transition', 'background-color 500ms ease 250ms, z-index 0ms 750ms'),
@@ -12087,7 +12087,7 @@ var $author$project$ScreenOverlay$overlayStyle = function (displaying) {
 				_List_fromArray(
 					[
 						$rtfeldman$elm_css$Css$backgroundColor(
-						A4($rtfeldman$elm_css$Css$rgba, 255, 255, 255, 1)),
+						A4($rtfeldman$elm_css$Css$rgba, 20, 20, 20, 1)),
 						A2($rtfeldman$elm_css$Css$property, 'pointer-events', 'auto'),
 						$rtfeldman$elm_css$Css$zIndex(
 						$rtfeldman$elm_css$Css$int(4)),

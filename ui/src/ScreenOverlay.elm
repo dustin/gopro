@@ -54,13 +54,13 @@ overlayStyle displaying =
         , zIndex (int -4)
         , width (vw 100)
         , height (vh 100)
-        , backgroundColor (Css.rgba 255 255 255 0)
+        , backgroundColor (Css.rgba 20 20 20 0)
         , overflowX auto
         , property "pointer-events" "none"
         , property "transition" "background-color 500ms ease 250ms, z-index 0ms 750ms"
         , if displaying then
             batch
-                [ backgroundColor (rgba 255 255 255 1)
+                [ backgroundColor (rgba 20 20 20 1)
                 , property "pointer-events" "auto"
                 , zIndex (int 4)
                 , property "transition" "background-color 500ms ease, z-index 0ms 0ms"
@@ -82,7 +82,7 @@ exitButtonStyle onScreen =
             [ backgroundColor transparent ]
         , position fixed
         , property "transition" "right 200ms ease-in, transform 200ms ease-in"
-        , Css.hover [ textShadow4 (px -1) (px -2) (px 3) (rgba 0 0 0 0.3) ]
+        , Css.hover [ textShadow4 (px -1) (px -2) (px 3) (rgba 255 255 255 0.3) ]
         , if onScreen then
             batch
                 [ right (Css.rem 4)
