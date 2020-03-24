@@ -106,7 +106,6 @@ instance FromRow Media where
     <*> pure "" -- _media_token
     <*> field -- _media_width
     <*> field -- _media_height
-    <*> pure Nothing
 
 loadMedia :: MonadIO m => Connection -> m [Media]
 loadMedia db = liftIO $ query_ db selectMediaStatement

@@ -30,6 +30,7 @@ import           Control.Monad.Logger          (Loc (..), LogLevel (..),
 import           Control.Monad.Reader          (MonadReader, ReaderT (..), ask,
                                                 asks, lift, runReaderT)
 import qualified Data.Aeson                    as J
+import           Data.Aeson.Lens               (_Object)
 import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as BL
 import           Data.Foldable                 (asum)
@@ -356,10 +357,12 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
         ms <- loadMedia db
         gs <- selectMeta db
         json $ map (\m@Media{..} ->
-                      case Map.lookup _media_id gs of
-                        Nothing -> m
-                        Just g -> let cam = maybe (Just $ _cameraModel g) Just _media_camera_model in
-                                    m & media_camera_model .~ cam & media_meta_data .~ Just g
+                      let j = J.toJSON m in
+                        case Map.lookup _media_id gs of
+                          Nothing -> j
+                          Just g -> let cam = maybe (Just $ _cameraModel g) Just _media_camera_model in
+                                      j & _Object . at "camera_model" .~ (J.String .fromString <$> cam)
+                                        & _Object . at "meta_data" .~ Just (J.toJSON g)
                    ) ms
 
       get "/api/retrieve/:id" $ do

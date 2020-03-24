@@ -24,20 +24,19 @@ dependencies:
 - aeson
 - bytestring
 - containers
+- unordered-containers
+- vector
+- generic-deriving
 - text
 - lens
 - lens-aeson
-- generic-deriving
-- wreq
 - time
-- vector
 - sqlite-simple
 - mtl
 - transformers
 - optparse-applicative
 - async
 - qsem
-- random
 - extra
 - monad-logger
 - filepath
@@ -45,7 +44,6 @@ dependencies:
 - wai
 - wai-middleware-static
 - wai-extra
-- unordered-containers
 - process
 - gpmf
 - directory
@@ -55,6 +53,7 @@ dependencies:
 - raw-strings-qq
 - scientific
 - hsexif
+- gopro-plus
 
 library:
   source-dirs: src

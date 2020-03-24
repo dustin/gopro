@@ -8112,10 +8112,11 @@ var $author$project$Media$stringInt = $elm$json$Json$Decode$oneOf(
 			A2($elm$json$Json$Decode$map, $elm$core$String$toInt, $elm$json$Json$Decode$string),
 			$elm$json$Json$Decode$maybe($elm$json$Json$Decode$int)
 		]));
-var $author$project$Media$mediaDecoder = A3(
-	$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
+var $author$project$Media$mediaDecoder = A4(
+	$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$optional,
 	'meta_data',
 	$elm$json$Json$Decode$nullable($author$project$Media$metaDataDecoder),
+	$elm$core$Maybe$Nothing,
 	A3(
 		$NoRedInk$elm_json_decode_pipeline$Json$Decode$Pipeline$required,
 		'height',

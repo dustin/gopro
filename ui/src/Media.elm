@@ -122,7 +122,7 @@ mediaDecoder =
         |> required "token" string
         |> required "width" int
         |> required "height" int
-        |> required "meta_data" (nullable metaDataDecoder)
+        |> optional "meta_data" (nullable metaDataDecoder) Nothing
 
 mediaListDecoder : Decoder (List Medium)
 mediaListDecoder = Decode.list mediaDecoder
