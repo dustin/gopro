@@ -73,6 +73,7 @@ type Model = Model
     , datePicker : Picker.State
     , camerasChecked : Set.Set String
     , typesChecked : Set.Set String
+    , momentsChecked : Bool
     , media : Maybe Media
     , filters : List (Model -> Medium -> Bool)
     }
@@ -88,8 +89,9 @@ emptyState = Model
                                                allowFuture = False} Nothing
              , camerasChecked = Set.empty
              , typesChecked = Set.empty
+             , momentsChecked = False
              , media = Nothing
-             , filters = [dateFilter, camFilter, typeFilter]}
+             , filters = [dateFilter, camFilter, typeFilter, momentFilter]}
 
 type Msg
   = SomeMedia (Result Http.Error (List Medium))
@@ -100,6 +102,7 @@ type Msg
   | CloseOverlay
   | CheckedCam String Bool
   | CheckedType String Bool
+  | CheckedMoments Bool
   | PickerChanged Picker.State
   | YearClicked Int
 
@@ -158,7 +161,14 @@ renderMediaList ms (Model model) =
                                     div [ H.class "year" ] [ text "Quick year picker:" ] ]
                              ++ (List.map aYear (List.reverse (Set.toList ms.years)))),
                          aList model.camerasChecked ms.cameras "cameras" identity CheckedCam,
-                         aList model.typesChecked ms.types "types" identity CheckedType
+                         aList model.typesChecked ms.types "types" identity CheckedType,
+                         div [ ] [ input [ H.type_ "checkbox", H.id "momentsOnly",
+                                         H.name "momentsOnly",
+                                         H.checked model.momentsChecked,
+                                         onCheck CheckedMoments
+                                       ] []
+                               , label [ H.for "momentsOnly" ] [ text "Moments Only" ]
+                               ]
                        ]
              ],
          div [] [ScreenOverlay.overlayView model.overlay CloseOverlay (renderOverlay z model.current)],
@@ -223,6 +233,8 @@ renderOverlay z (mm, mdls) =
                              [text <| F.day z m.captured_at ++ " " ++ F.time z m.captured_at]
                         , dts "Camera Model"
                         , dd [] [text m.camera_model]
+                        , dts "Moments"
+                        , dd [] [text (String.fromInt m.moments_count)]
                         , dts "Dims"
                         , dd [] [text (String.fromInt m.width ++ "x" ++ String.fromInt m.height)]
                         , dts "Size"
@@ -286,6 +298,9 @@ dateFilter (Model model) m =
     case mr of
         Nothing -> True
         Just r -> lte (beginsAt r) m.captured_at && lte m.captured_at (endsAt r)
+
+momentFilter : Model -> Medium -> Bool
+momentFilter (Model model) m = m.moments_count > 0 || (not model.momentsChecked)
 
 addOrRemove : Bool -> comparable -> Set.Set comparable -> Set.Set comparable
 addOrRemove b = if b then Set.insert else Set.remove
@@ -374,6 +389,9 @@ update msg (Model model) =
         CheckedType t checked ->
             (filter (Model { model | typesChecked = addOrRemove checked t model.typesChecked }),
              Cmd.none)
+
+        CheckedMoments checked ->
+            (filter (Model { model | momentsChecked = checked }), Cmd.none)
 
         YearClicked y -> let b = String.fromInt y ++ "-01-01T00:00:00"
                              e = String.fromInt y ++ "-12-31T23:59:59"
