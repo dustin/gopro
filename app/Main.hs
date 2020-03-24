@@ -378,6 +378,8 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
         setHeader "Cache-Control" "max-age=86400"
         raw =<< loadThumbnail db imgid
 
+      get "/api/areas" ((lift $ asks dbConn) >>= selectAreas >>= json)
+
       get "/api/retrieve2/:id" $ do
         imgid <- param "id"
         tok <- lift getToken

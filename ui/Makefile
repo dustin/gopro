@@ -3,7 +3,7 @@ MIN=../static/js/gopro.min.js
 
 install: $(MIN)
 
-$(PLAIN): src/Main.elm src/Formats.elm src/Media.elm src/ScreenOverlay.elm
+$(PLAIN): src/Main.elm src/Geo.elm src/Formats.elm src/Media.elm src/ScreenOverlay.elm
 	elm make --optimize --output $(PLAIN) src/Main.elm
 
 $(MIN): $(PLAIN)

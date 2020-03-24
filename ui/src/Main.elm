@@ -17,6 +17,7 @@ import DateRangePicker.Range as Range exposing (beginsAt, endsAt)
 import Time.Extra as TE
 
 import ScreenOverlay
+import Geo exposing (..)
 import List.Extra exposing (groupWhile, minimumBy, maximumBy)
 import Media exposing (..)
 import Formats as F
@@ -74,7 +75,9 @@ type Model = Model
     , camerasChecked : Set.Set String
     , typesChecked : Set.Set String
     , momentsChecked : Bool
+    , areasChecked : Set.Set String
     , media : Maybe Media
+    , areas : List Area
     , filters : List (Model -> Medium -> Bool)
     }
 
@@ -90,12 +93,15 @@ emptyState = Model
              , camerasChecked = Set.empty
              , typesChecked = Set.empty
              , momentsChecked = False
+             , areasChecked = Set.empty
              , media = Nothing
-             , filters = [dateFilter, camFilter, typeFilter, momentFilter]}
+             , areas = []
+             , filters = [dateFilter, camFilter, typeFilter, momentFilter, areaFilter]}
 
 type Msg
   = SomeMedia (Result Http.Error (List Medium))
   | SomeDLOpts (Result Http.Error DLOpts)
+  | SomeAreas (Result Http.Error (List Area))
   | ZoneHere Time.Zone
   | CurrentTime Time.Posix
   | OpenOverlay Medium
@@ -103,6 +109,7 @@ type Msg
   | CheckedCam String Bool
   | CheckedType String Bool
   | CheckedMoments Bool
+  | CheckedArea String Bool
   | PickerChanged Picker.State
   | YearClicked Int
 
@@ -160,6 +167,8 @@ renderMediaList ms (Model model) =
                              ([ Picker.view PickerChanged model.datePicker,
                                     div [ H.class "year" ] [ text "Quick year picker:" ] ]
                              ++ (List.map aYear (List.reverse (Set.toList ms.years)))),
+                         aList model.areasChecked (Set.toList (Set.fromList (List.map .name model.areas)))
+                             "areas" identity CheckedArea,
                          aList model.camerasChecked ms.cameras "cameras" identity CheckedCam,
                          aList model.typesChecked ms.types "types" identity CheckedType,
                          div [ ] [ input [ H.type_ "checkbox", H.id "momentsOnly",
@@ -272,6 +281,10 @@ init _ =
                    { url = "/api/media"
                    , expect = Http.expectJson SomeMedia mediaListDecoder
                    },
+               Http.get
+                   { url = "/api/areas"
+                   , expect = Http.expectJson SomeAreas (Decode.list areaDecoder)
+                   },
                    Task.perform ZoneHere Time.here]
   )
 
@@ -301,6 +314,15 @@ dateFilter (Model model) m =
 
 momentFilter : Model -> Medium -> Bool
 momentFilter (Model model) m = m.moments_count > 0 || (not model.momentsChecked)
+
+areaFilter : Model -> Medium -> Bool
+areaFilter (Model model) m =
+    if Set.isEmpty model.areasChecked then True
+    else
+        let areas = List.filter (\a -> Set.member a.name model.areasChecked) model.areas in
+        case mediaPoint m of
+            Just p -> List.any (inArea p) areas
+            _ -> False
 
 addOrRemove : Bool -> comparable -> Set.Set comparable -> Set.Set comparable
 addOrRemove b = if b then Set.insert else Set.remove
@@ -350,7 +372,14 @@ update msg (Model model) =
                                    }), Cmd.none)
 
                 Err x ->
-                    (Model {model | httpError = Just  x}, Cmd.none)
+                    (Model {model | httpError = Just x}, Cmd.none)
+
+        SomeAreas result ->
+            case result of
+                Ok areas ->
+                    (filter (Model { model | areas = areas }), Cmd.none)
+                Err x ->
+                    (Model {model | httpError = Just x}, Cmd.none)
 
         SomeDLOpts result -> let (m, _) = model.current in
                              (Model {model | current = (m, Just result)}, Cmd.none)
@@ -388,6 +417,10 @@ update msg (Model model) =
 
         CheckedType t checked ->
             (filter (Model { model | typesChecked = addOrRemove checked t model.typesChecked }),
+             Cmd.none)
+
+        CheckedArea t checked ->
+            (filter (Model { model | areasChecked = addOrRemove checked t model.areasChecked }),
              Cmd.none)
 
         CheckedMoments checked ->

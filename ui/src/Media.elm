@@ -1,6 +1,6 @@
 module Media exposing (MediaType(..), ReadyType(..), MetaData, Location(..),
                            Medium, mediaTypeStr, readyTypeStr,
-                           mediaDecoder, mediaListDecoder,
+                           mediaDecoder, mediaListDecoder, mediaPoint,
                            locationStr
                       )
 
@@ -8,6 +8,7 @@ import Iso8601
 import Time
 import Json.Decode as Decode exposing (Decoder, int, string, nullable, float)
 import Json.Decode.Pipeline exposing (required, optional)
+import Geo exposing (..)
 
 type MediaType = Burst | Photo | TimeLapse | TimeLapseVideo | Video | Unknown
 
@@ -126,3 +127,8 @@ mediaDecoder =
 
 mediaListDecoder : Decoder (List Medium)
 mediaListDecoder = Decode.list mediaDecoder
+
+mediaPoint : Medium -> Maybe Point
+mediaPoint m = Maybe.andThen (\md -> case (md.lat, md.lon) of
+                                         (Just lat, Just lon) -> Just (Point lat lon)
+                                         _ -> Nothing) m.metaData
