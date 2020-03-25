@@ -28,7 +28,7 @@ import           Database.SQLite.Simple.ToField
 import           Generics.Deriving.Base         (Generic)
 import           Text.RawString.QQ              (r)
 
-import           GoPro.Plus                     (Media (..))
+import           GoPro.Plus.Media               (Media (..))
 import           GoPro.Resolve                  (MDSummary (..))
 
 initTables :: Connection -> IO ()

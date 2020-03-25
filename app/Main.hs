@@ -78,8 +78,8 @@ import           FFMPeg
 import           GoPro.AuthDB
 import           GoPro.DB
 import           GoPro.HTTP
-import           GoPro.Plus
 import           GoPro.Plus.Auth
+import           GoPro.Plus.Media
 import           GoPro.Resolve
 
 data Options = Options {
