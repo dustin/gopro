@@ -69,7 +69,7 @@ summarizeGPMF devc = MDSummary {
 
 summarizeEXIF :: Map E.ExifTag E.ExifValue -> MDSummary
 summarizeEXIF ex = MDSummary {
-  _cameraModel = takeWhile (/= '\0') . show $ ex Map.! E.model,
+  _cameraModel = takeWhile (/= '\0') . show $ Map.findWithDefault (E.ExifText "Unknown") E.model ex,
   _capturedTime = localTimeToUTC utc <$> E.getGpsDateTime ex,
   _lat = fst <$> E.getGpsLatitudeLongitude ex,
   _lon = snd <$> E.getGpsLatitudeLongitude ex,
