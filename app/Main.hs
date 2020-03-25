@@ -77,7 +77,9 @@ import           Exif
 import           FFMPeg
 import           GoPro.AuthDB
 import           GoPro.DB
+import           GoPro.HTTP
 import           GoPro.Plus
+import           GoPro.Plus.Auth
 import           GoPro.Resolve
 
 data Options = Options {
@@ -338,6 +340,11 @@ getToken :: (MonadLogger m, MonadIO m, MonadReader Env m) => m String
 getToken = do
   logDbg "Loading token"
   loadToken =<< asks dbConn
+
+getUID :: (MonadLogger m, MonadIO m, MonadReader Env m) => m String
+getUID = do
+  logDbg "Loading user ID"
+  fmap _resource_owner_id . loadAuth =<< asks dbConn
 
 runServer :: GoPro ()
 runServer = ask >>= \x -> scottyT 8008 (runIO x) application

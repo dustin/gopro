@@ -44,8 +44,9 @@ extra-deps:
 - qsem-0.1.0.0@sha256:c9aa930c3f90936f88addace65d4d114d0730a1e72a7307d9146a355e0564673,720
 - git: https://github.com/dustin/gpmf.git
   commit: 41d8fb4336ebcaae739de24ae70f5a92f0a8bb05
-- git: https://github.com/dustin/gopro-plus.git
-  commit: 0cf320bf9589e1d324a7b3336ef40c9f814952fc
+- /Users/dsal/prog/gopro-plus
+# - git: https://github.com/dustin/gopro-plus.git
+#   commit: 0cf320bf9589e1d324a7b3336ef40c9f814952fc
 - hsexif-0.6.1.7
 
 # Override default flag values for local packages and extra-deps
