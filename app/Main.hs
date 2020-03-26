@@ -148,8 +148,8 @@ mapConcurrentlyLimited n f l = liftIO (newQSem n) >>= \q -> mapConcurrently (b q
 
 data SyncType = Full | Incremental
 
-runSync :: SyncType -> GoPro ()
-runSync stype = do
+runFetch :: SyncType -> GoPro ()
+runFetch stype = do
   tok <- getToken
   db <- asks dbConn
   seen <- Set.fromList <$> loadMediaIDs db
@@ -473,10 +473,11 @@ run c = case lookup c cmds of
   where
     cmds = [("auth", runAuth),
             ("reauth", runReauth),
-            ("sync", runSync Incremental),
+            ("sync", runFetch Incremental >> runGetMeta >> runGrokTel),
+            ("fetch", runFetch Incremental),
             ("upload", runUploadFiles),
             ("uploadmulti", runUploadMultipart),
-            ("fullsync", runSync Full),
+            ("fetchall", runFetch Full),
             ("cleanup", runCleanup),
             ("fixup", runFixup),
             ("serve", runServer),
