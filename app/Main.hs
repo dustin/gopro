@@ -80,6 +80,7 @@ import           GoPro.DB
 import           GoPro.HTTP
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
+import           GoPro.Plus.Upload
 import           GoPro.Resolve
 
 data Options = Options {
@@ -336,6 +337,17 @@ runFixup = do
             up (name, SQLNull)        = HM.insert name J.Null
             up (_,    (SQLBlob _))    = error "can't do blobs"
 
+runUpload :: GoPro ()
+runUpload = do
+  tok <- getToken
+  uid <- getUID
+  mapM_ (upload tok uid) =<< asks (optArgv . gpOptions)
+
+  where
+    upload tok uid fn = do
+      logInfo $ "Uploading " <> tshow fn
+      uploadFile tok uid fn
+
 getToken :: (MonadLogger m, MonadIO m, MonadReader Env m) => m String
 getToken = do
   logDbg "Loading token"
@@ -417,6 +429,7 @@ run c = case lookup c cmds of
     cmds = [("auth", runAuth),
             ("reauth", runReauth),
             ("sync", runSync Incremental),
+            ("upload", runUpload),
             ("fullsync", runSync Full),
             ("cleanup", runCleanup),
             ("fixup", runFixup),
