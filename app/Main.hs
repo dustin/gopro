@@ -346,22 +346,22 @@ runFixup = do
             up (name, SQLNull)        = HM.insert name J.Null
             up (_,    (SQLBlob _))    = error "can't do blobs"
 
-runUpload :: GoPro ()
-runUpload = do
+runUploadFiles :: GoPro ()
+runUploadFiles = do
   tok <- getToken
   uid <- getUID
   mapM_ (upload tok uid) =<< asks (optArgv . gpOptions)
 
   where
-    upload tok uid fp = do
+    upload tok uid fp = runUpload tok uid [fp] $ do
       logInfo $ "Uploading " <> tshow fp
+      _ <- createMedium
+      did <- createDerivative 1
       fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
-
-      mid <- createMedium tok uid fp
-      did <- createDerivative tok uid mid fp
-      Upload{..} <- createUpload tok uid did (fromInteger fsize)
+      Upload{..} <- createUpload did 1 (fromInteger fsize)
       _ <- mapConcurrentlyLimited 3 uc _uploadParts
-      completeUpload tok uid _uploadID did fsize mid
+      completeUpload _uploadID did 1 fsize
+      markAvailable did
 
         where
           uc up@UploadPart{..} = do
@@ -449,7 +449,7 @@ run c = case lookup c cmds of
     cmds = [("auth", runAuth),
             ("reauth", runReauth),
             ("sync", runSync Incremental),
-            ("upload", runUpload),
+            ("upload", runUploadFiles),
             ("fullsync", runSync Full),
             ("cleanup", runCleanup),
             ("fixup", runFixup),
