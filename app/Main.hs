@@ -10,13 +10,14 @@ module Main where
 
 import           Conduit
 import           Control.Applicative           (Alternative (..), (<|>))
-import           Control.Concurrent.Async      (mapConcurrently)
 import           Control.Concurrent.QSem       (newQSem, signalQSem, waitQSem)
-import           Control.Exception             (bracket_)
 import           Control.Lens                  hiding (argument)
 import           Control.Monad                 (MonadPlus (..), mzero, void,
                                                 when)
-import           Control.Monad.Catch           (SomeException (..), catch)
+import           Control.Monad.Catch           (MonadCatch (..), MonadMask (..),
+                                                MonadThrow (..),
+                                                SomeException (..), bracket_,
+                                                catch)
 import           Control.Monad.Fail            (MonadFail (..))
 import           Control.Monad.IO.Class        (MonadIO (..))
 import           Control.Monad.Logger          (Loc (..), LogLevel (..),
@@ -69,6 +70,9 @@ import           System.Directory              (createDirectoryIfMissing,
 import           System.FilePath.Posix         ((</>))
 import           System.IO                     (hFlush, hGetEcho, hSetEcho,
                                                 stdin, stdout)
+import           System.Posix.Files            (fileSize, getFileStatus)
+import           UnliftIO                      (MonadUnliftIO (..),
+                                                mapConcurrently)
 import           Web.Scotty.Trans              (ScottyT, file, get, json,
                                                 middleware, param, raw, scottyT,
                                                 setHeader)
@@ -98,7 +102,8 @@ data Env = Env {
 
 newtype EnvM a = EnvM
   { runEnvM :: ReaderT Env IO a
-  } deriving (Applicative, Functor, Monad, MonadIO, MonadReader Env, MonadFail)
+  } deriving (Applicative, Functor, Monad, MonadIO, MonadUnliftIO,
+              MonadCatch, MonadThrow, MonadMask, MonadReader Env, MonadFail)
 
 instance MonadLogger EnvM where
   monadLoggerLog loc src lvl msg = do
@@ -133,9 +138,13 @@ logDbg = logDebugN
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
-mapConcurrentlyLimited :: (Traversable f, Foldable f) => Int -> (a -> IO b) -> f a -> IO (f b)
-mapConcurrentlyLimited n f l = newQSem n >>= \q -> mapConcurrently (b q) l
-  where b q x = bracket_ (waitQSem q) (signalQSem q) (f x)
+mapConcurrentlyLimited :: (MonadMask m, MonadUnliftIO m, Traversable f, Foldable f)
+                       => Int
+                       -> (a -> m b)
+                       -> f a
+                       -> m (f b)
+mapConcurrentlyLimited n f l = liftIO (newQSem n) >>= \q -> mapConcurrently (b q) l
+  where b q x = bracket_ (liftIO (waitQSem q)) (liftIO (signalQSem q)) (f x)
 
 data SyncType = Full | Incremental
 
@@ -344,9 +353,20 @@ runUpload = do
   mapM_ (upload tok uid) =<< asks (optArgv . gpOptions)
 
   where
-    upload tok uid fn = do
-      logInfo $ "Uploading " <> tshow fn
-      uploadFile tok uid fn
+    upload tok uid fp = do
+      logInfo $ "Uploading " <> tshow fp
+      fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
+
+      mid <- createMedium tok uid fp
+      did <- createDerivative tok uid mid fp
+      Upload{..} <- createUpload tok uid did (fromInteger fsize)
+      _ <- mapConcurrentlyLimited 3 uc _uploadParts
+      completeUpload tok uid _uploadID did fsize mid
+
+        where
+          uc up@UploadPart{..} = do
+            logDbg . T.pack $ "Uploading part " <> show _uploadPart <> " of " <> fp
+            uploadChunk fp up
 
 getToken :: (MonadLogger m, MonadIO m, MonadReader Env m) => m String
 getToken = do

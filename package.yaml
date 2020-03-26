@@ -54,6 +54,8 @@ dependencies:
 - scientific
 - hsexif
 - gopro-plus
+- unix
+- unliftio
 
 library:
   source-dirs: src
