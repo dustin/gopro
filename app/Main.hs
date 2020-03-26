@@ -57,9 +57,10 @@ import           Network.HTTP.Simple           (getResponseBody, httpSource,
 import qualified Network.Wai.Middleware.Gzip   as GZ
 import           Network.Wai.Middleware.Static (addBase, noDots, staticPolicy,
                                                 (>->))
-import           Options.Applicative           (Parser, argument, execParser,
-                                                fullDesc, help, helper, info,
-                                                long, metavar, progDesc, short,
+import           Options.Applicative           (Parser, argument, auto,
+                                                execParser, fullDesc, help,
+                                                helper, info, long, metavar,
+                                                option, progDesc, short,
                                                 showDefault, some, str,
                                                 strOption, switch, value,
                                                 (<**>))
@@ -88,10 +89,12 @@ import           GoPro.Plus.Upload
 import           GoPro.Resolve
 
 data Options = Options {
-  optDBPath     :: String,
-  optStaticPath :: FilePath,
-  optVerbose    :: Bool,
-  optArgv       :: [String]
+  optDBPath              :: String,
+  optStaticPath          :: FilePath,
+  optVerbose             :: Bool,
+  optUploadConcurrency   :: Int,
+  optDownloadConcurrency :: Int,
+  optArgv                :: [String]
   }
 
 data Env = Env {
@@ -124,6 +127,8 @@ options = Options
   <$> strOption (long "dbpath" <> showDefault <> value "gopro.db" <> help "db path")
   <*> strOption (long "static" <> showDefault <> value "static" <> help "static asset path")
   <*> switch (short 'v' <> long "verbose" <> help "enable debug logging")
+  <*> option auto (short 'u' <> long "upload-concurrency" <> showDefault <> value 3 <> help "Upload concurrency")
+  <*> option auto (short 'd' <> long "download-concurrency" <> showDefault <> value 11 <> help "Download concurrency")
   <*> some (argument str (metavar "cmd args..."))
 
 logError :: MonadLogger m => T.Text -> m ()
@@ -169,8 +174,9 @@ runFetch stype = do
                                  && _media_ready_to_view `elem` ["transcoding", "ready"]
           storeSome tok db l = do
             logInfo $ "Storing batch of " <> tshow (length l)
-            storeMedia db =<< fetch tok l
-          fetch tok = mapConcurrentlyLimited 11 (resolve tok)
+            c <- asks (optDownloadConcurrency . gpOptions)
+            storeMedia db =<< fetch tok c l
+          fetch tok c = mapConcurrentlyLimited c (resolve tok)
 
 runGrokTel :: GoPro ()
 runGrokTel = do
@@ -359,7 +365,8 @@ runUploadFiles = do
       fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
       Upload{..} <- createUpload did 1 (fromInteger fsize)
       logInfo $ "Uploading " <> tshow fp <> " as " <> mid <> ": did=" <> did <> ", upid=" <> _uploadID
-      _ <- mapConcurrentlyLimited 3 uc _uploadParts
+      c <- asks (optUploadConcurrency . gpOptions)
+      _ <- mapConcurrentlyLimited c uc _uploadParts
       completeUpload _uploadID did 1 fsize
       markAvailable did
 
@@ -378,7 +385,8 @@ runUploadMultipart = do
     mid <- createMedium
 
     did <- createDerivative (length fps)
-    _ <- mapConcurrentlyLimited 2 (\(fp,n) -> do
+    c <- asks (optUploadConcurrency . gpOptions)
+    _ <- mapConcurrentlyLimited c (\(fp,n) -> do
               fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
               Upload{..} <- createUpload did n (fromInteger fsize)
               logInfo $ mconcat ["Uploading ", tshow fp, " as ", mid, " part ", tshow n,
