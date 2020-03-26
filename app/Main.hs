@@ -170,7 +170,7 @@ runSync stype = do
           storeSome tok db l = do
             logInfo $ "Storing batch of " <> tshow (length l)
             storeMedia db =<< fetch tok l
-          fetch tok = liftIO . mapConcurrentlyLimited 11 (resolve tok)
+          fetch tok = mapConcurrentlyLimited 11 (resolve tok)
 
 runGrokTel :: GoPro ()
 runGrokTel = do
