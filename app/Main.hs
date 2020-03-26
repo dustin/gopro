@@ -368,6 +368,31 @@ runUploadFiles = do
             logDbg . T.pack $ "Uploading part " <> show _uploadPart <> " of " <> fp
             uploadChunk fp up
 
+runUploadMultipart :: GoPro ()
+runUploadMultipart = do
+  tok <- getToken
+  uid <- getUID
+  (typ:fps) <- asks (optArgv . gpOptions)
+  runUpload tok uid fps $ do
+    setMediumType (T.pack typ)
+    mid <- createMedium
+
+    did <- createDerivative (length fps)
+    _ <- mapConcurrentlyLimited 2 (\(fp,n) -> do
+              fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
+              Upload{..} <- createUpload did n (fromInteger fsize)
+              logInfo $ mconcat ["Uploading ", tshow fp, " as ", mid, " part ", tshow n,
+                                 ": did=", did, ", upid=", _uploadID]
+              _ <- mapConcurrentlyLimited 2 (uc fp) _uploadParts
+              completeUpload _uploadID did n fsize
+          ) $ zip fps [1..]
+    markAvailable did
+
+      where
+        uc fp up@UploadPart{..} = do
+          logDbg . T.pack $ "Uploading part " <> show _uploadPart <> " of " <> fp
+          uploadChunk fp up
+
 getToken :: (MonadLogger m, MonadIO m, MonadReader Env m) => m String
 getToken = do
   logDbg "Loading token"
@@ -450,6 +475,7 @@ run c = case lookup c cmds of
             ("reauth", runReauth),
             ("sync", runSync Incremental),
             ("upload", runUploadFiles),
+            ("uploadmulti", runUploadMultipart),
             ("fullsync", runSync Full),
             ("cleanup", runCleanup),
             ("fixup", runFixup),
