@@ -354,11 +354,11 @@ runUploadFiles = do
 
   where
     upload tok uid fp = runUpload tok uid [fp] $ do
-      logInfo $ "Uploading " <> tshow fp
-      _ <- createMedium
+      mid <- createMedium
       did <- createDerivative 1
       fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
       Upload{..} <- createUpload did 1 (fromInteger fsize)
+      logInfo $ "Uploading " <> tshow fp <> " as " <> mid <> ": did=" <> did <> ", upid=" <> _uploadID
       _ <- mapConcurrentlyLimited 3 uc _uploadParts
       completeUpload _uploadID did 1 fsize
       markAvailable did
