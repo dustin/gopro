@@ -42,20 +42,14 @@ dloptDecoder = Decode.list (Decode.map5 DLOpt
                                 (Decode.field "height" int))
 
 type alias DLOpts =
-    { default : DLOpt
+    { vidclip : Maybe DLOpt
     , list : List DLOpt
     }
 
 dloptsDecoder : Decoder DLOpts
 dloptsDecoder = Decode.map (\opts ->
-                                let ixd = Dict.fromList (List.map (\d -> (d.name, d)) opts)
-                                    best = case Dict.get "mp4_low" ixd of
-                                               Just d -> d
-                                               Nothing -> case List.head opts of
-                                                              Nothing -> DLOpt "" "" "" 0 0
-                                                              Just d -> d
-                                in
-                                DLOpts best opts
+                                let ixd = Dict.fromList (List.map (\d -> (d.name, d)) opts) in
+                                DLOpts (Dict.get "mp4_low" ixd) opts
                            ) dloptDecoder
 
 type alias Media =
@@ -200,15 +194,12 @@ dts s = dt [] [text s]
 renderIcon : Medium -> Maybe (Result Http.Error DLOpts) -> Html Msg
 renderIcon m mdls =
     let thumbUrl = "/thumb/" ++ m.id
-        thumb = img [ H.src thumbUrl ] []
-        still = List.member m.media_type [Photo, Burst, TimeLapse] in
-    if still
-    then thumb
-    else case mdls of
-             Just (Ok dls) -> (video [ H.controls True, H.autoplay True, H.poster thumbUrl,
-                                            H.width dls.default.width, H.height dls.default.height ]
-                                    [source [ H.src dls.default.url, H.type_ "video/mp4" ] []])
-             _ -> thumb
+        thumb = img [ H.src thumbUrl ] [] in
+    case mdls |> Maybe.andThen (Result.map .vidclip >> Result.toMaybe) |> Maybe.andThen identity of
+        Just v -> (video [ H.controls True, H.autoplay True, H.poster thumbUrl,
+                               H.width v.width, H.height v.height ]
+                       [source [ H.src v.url, H.type_ "video/mp4" ] []])
+        _ -> thumb
 
 renderMetaData : MetaData -> List (Html Msg)
 renderMetaData g = (case (g.lat, g.lon) of
