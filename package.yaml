@@ -56,6 +56,8 @@ dependencies:
 - gopro-plus
 - unix
 - unliftio
+- cache
+- clock
 
 library:
   source-dirs: src

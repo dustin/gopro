@@ -5,6 +5,7 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TupleSections              #-}
+{-# LANGUAGE UndecidableInstances       #-}
 
 module Main where
 
@@ -33,6 +34,8 @@ import qualified Data.Aeson                    as J
 import           Data.Aeson.Lens               (_Object)
 import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as BL
+import           Data.Cache                    (Cache (..), fetchWithCache,
+                                                newCache)
 import           Data.Foldable                 (asum)
 import qualified Data.HashMap.Strict           as HM
 import           Data.List                     (intercalate)
@@ -64,6 +67,7 @@ import           Options.Applicative           (Parser, argument, auto,
                                                 strOption, switch, value,
                                                 (<**>))
 import           Prelude                       hiding (fail)
+import           System.Clock                  (TimeSpec (..))
 import           System.Directory              (createDirectoryIfMissing,
                                                 doesFileExist, removeFile,
                                                 renameFile)
@@ -98,6 +102,7 @@ data Options = Options {
 data Env = Env {
   gpOptions :: Options,
   dbConn    :: Connection,
+  authCache :: Cache () AuthResponse,
   envLogger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
   }
 
@@ -106,8 +111,8 @@ newtype EnvM a = EnvM
   } deriving (Applicative, Functor, Monad, MonadIO, MonadUnliftIO,
               MonadCatch, MonadThrow, MonadMask, MonadReader Env, MonadFail)
 
-instance HasGoProAuth EnvM where
-  goproAuth = loadAuth =<< asks dbConn
+instance (Monad m, MonadLogger m, MonadIO m, MonadReader Env m) => HasGoProAuth m where
+  goproAuth = asks authCache >>= \c -> fetchWithCache c () (\() -> asks dbConn >>= loadAuth)
 
 instance MonadLogger EnvM where
   monadLoggerLog loc src lvl msg = do
@@ -115,9 +120,6 @@ instance MonadLogger EnvM where
     liftIO $ l loc src lvl (toLogStr msg)
 
 type GoPro = ReaderT Env (LoggingT IO)
-
-instance HasGoProAuth GoPro where
-  goproAuth = loadAuth =<< asks dbConn
 
 instance MonadPlus (LoggingT IO) where
   mzero = lift mzero
@@ -488,7 +490,8 @@ main = do
       runStderrLoggingT . logfilt $ do
         l <- askLoggerIO
         let o' = o{optArgv = tail optArgv}
-        runReaderT (run (head optArgv)) (Env o' db l)
+        cache <- liftIO $ newCache (Just (TimeSpec 60 0))
+        runReaderT (run (head optArgv)) (Env o' db cache l)
 
         where
           logfilt = filterLogger (\_ -> flip (if optVerbose then (>=) else (>)) LevelDebug)
