@@ -146,7 +146,7 @@ renderMediaList : Media -> Model -> Html Msg
 renderMediaList ms (Model model) =
     let z = model.zone
         groupies = groupWhile (\a b -> F.day z a.captured_at == F.day z b.captured_at) ms.filty
-        totalSize = List.foldl (\x o -> x.file_size + o) 0 ms.filty
+        totalSize = List.foldl (\x o -> x.file_size + o) 0
         aYear y = div [ H.class "year" ] [
                    a [ onClick (YearClicked y) ] [ text (String.fromInt y) ]
                   ]
@@ -154,9 +154,15 @@ renderMediaList ms (Model model) =
     div [ H.id "main" ]
         [
          div [ H.class "header" ]
-             [ div [ ] [ text (F.comma (List.length ms.filty)),
-                         text " totaling ",
-                         text (Filesize.format totalSize),
+             [ div [ ] [ text "Showing ",
+                         text (F.comma (List.length ms.filty)),
+                         text " (",
+                         text (Filesize.format <| totalSize ms.filty),
+                         text ") out of ",
+                         text (F.comma (List.length ms.media)),
+                         text " items (",
+                         text (Filesize.format <| totalSize ms.media),
+                         text ").",
                          div [ H.class "datepick" ]
                              ([ Picker.view PickerChanged model.datePicker,
                                     div [ H.class "year" ] [ text "Quick year picker:" ] ]
