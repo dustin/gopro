@@ -199,7 +199,7 @@ runGetMeta = do
   logDbg $ tshow needs
   mapM_ (process db) needs
     where
-      process :: Connection -> (String, String) -> GoPro ()
+      process :: Connection -> (MediumID, String) -> GoPro ()
       process db mtyp@(mid,typ) = do
         tok <- getToken
         fi <- retrieve tok mid
@@ -215,7 +215,7 @@ runGetMeta = do
             processEx fi ex fmt fx = do
               let fv :: String -> FilePath -> GoPro (Maybe BS.ByteString)
                   fv s p = Just <$> fetchX ex fi mid s p
-                  fn v = ".cache" </> mid <> "-" <> v <> fx
+                  fn v = ".cache" </> T.unpack mid <> "-" <> v <> fx
               ms <- asum [
                 fv "mp4_low" (fn "low"),
                 fv "high_res_proxy_mp4" (fn "high"),
@@ -231,21 +231,21 @@ runGetMeta = do
                   -- Clean up in the success case.
                   mapM_ (\f -> asum [liftIO (removeFile f), pure ()]) $ map fn ["low", "high", "src"]
 
-      fetchX :: (String -> FilePath -> GoPro BS.ByteString)
-             -> FileInfo -> String -> String -> FilePath -> GoPro BS.ByteString
+      fetchX :: (MediumID -> FilePath -> GoPro BS.ByteString)
+             -> FileInfo -> MediumID -> String -> FilePath -> GoPro BS.ByteString
       fetchX ex fi mid var fn = do
         let mu = fi ^? fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url
         case mu of
           Nothing -> empty
           Just u  -> ex mid =<< dlIf mid var u fn
 
-      dlIf :: String -> String -> String -> FilePath -> GoPro FilePath
+      dlIf :: MediumID -> String -> String -> FilePath -> GoPro FilePath
       dlIf mid var u dest = (liftIO $ doesFileExist dest) >>=
         \case
           True -> pure dest
           _ -> download mid var u dest
 
-      download :: String -> String -> String -> FilePath -> GoPro FilePath
+      download :: MediumID -> String -> String -> FilePath -> GoPro FilePath
       download mid var u dest = do
         liftIO $ createDirectoryIfMissing True ".cache"
         logInfo $ "Fetching " <> tshow mid <> " variant " <> tshow var
@@ -256,14 +256,14 @@ runGetMeta = do
                   renameFile tmpfile dest
         pure dest
 
-      extractEXIF :: String -> FilePath -> GoPro BS.ByteString
+      extractEXIF :: MediumID -> FilePath -> GoPro BS.ByteString
       extractEXIF mid f = do
         bs <- liftIO $ BL.readFile f
         case minimalEXIF bs of
           Left s -> logError ("Can't find EXIF for " <> tshow mid <> tshow s) >> empty
           Right e -> pure (BL.toStrict e)
 
-      extractGPMD :: String -> FilePath -> GoPro BS.ByteString
+      extractGPMD :: MediumID -> FilePath -> GoPro BS.ByteString
       extractGPMD mid f = do
         ms <- liftIO $ findGPMDStream f
         case ms of
@@ -280,7 +280,7 @@ runCleanup = do
       wanted Medium{..} = _medium_ready_to_view `elem` ["uploading", "failure"]
       rm tok Medium{..} = do
         putStrLn $ "Removing " <> T.unpack _medium_id <> " (" <> _medium_ready_to_view <> ")"
-        errs <- delete tok (T.unpack _medium_id)
+        errs <- delete tok _medium_id
         when (not $ null errs) $ putStrLn $ " error: " <> show errs
 
 runAuth :: GoPro ()
@@ -343,7 +343,7 @@ runFixup = do
               (J.Object rawm) <- medium tok mid
               let v = foldr up rawm (filter (\(k,_) -> k /= "media_id") stuff)
               logDbg $ TE.decodeUtf8 . BL.toStrict . J.encode $ v
-              void $ putRawMedium tok (T.unpack mid) (J.Object v)
+              void $ putRawMedium tok mid (J.Object v)
             up (name, (SQLInteger i)) = HM.insert name (J.Number (fromIntegral i))
             up (name, (SQLFloat i))   = HM.insert name  (J.Number (fromFloatDigits i))
             up (name, (SQLText i))    = HM.insert name (J.String i)

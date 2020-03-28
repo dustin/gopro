@@ -120,7 +120,7 @@ instance FromRow Medium where
 loadMedia :: MonadIO m => Connection -> m [Medium]
 loadMedia db = liftIO $ query_ db selectMediaStatement
 
-loadThumbnail :: MonadIO m => Connection -> String -> m BL.ByteString
+loadThumbnail :: MonadIO m => Connection -> MediumID -> m BL.ByteString
 loadThumbnail db imgid = liftIO sel
   where
     sel :: IO BL.ByteString
@@ -128,20 +128,20 @@ loadThumbnail db imgid = liftIO sel
       [Only t] <- query db "select thumbnail from media where media_id = ?" (Only imgid)
       pure t
 
-metaBlobTODO :: MonadIO m => Connection -> m [(String, String)]
+metaBlobTODO :: MonadIO m => Connection -> m [(MediumID, String)]
 metaBlobTODO db = liftIO sel
   where
-    sel :: IO [(String, String)]
+    sel :: IO [(MediumID, String)]
     sel = query_ db [r|select media_id, media_type
                        from media
                        where media_id not in (select media_id from metablob)
                        order by created_at desc|]
 
-insertMetaBlob :: MonadIO m => Connection -> String -> String -> Maybe BS.ByteString -> m ()
+insertMetaBlob :: MonadIO m => Connection -> MediumID -> String -> Maybe BS.ByteString -> m ()
 insertMetaBlob db mid fmt blob = liftIO ins
   where ins = execute db "insert into metablob (media_id, meta, format) values (?, ?, ?)" (mid, blob, fmt)
 
-metaTODO :: MonadIO m => Connection -> m [(String, String, BS.ByteString)]
+metaTODO :: MonadIO m => Connection -> m [(MediumID, String, BS.ByteString)]
 metaTODO db = liftIO sel
   where
     sel = query_ db [r|
@@ -151,7 +151,7 @@ metaTODO db = liftIO sel
                             and b.media_id not in (select media_id from meta)
                      |]
 
-insertMeta :: MonadIO m => Connection -> String -> MDSummary -> m ()
+insertMeta :: MonadIO m => Connection -> MediumID -> MDSummary -> m ()
 insertMeta db mid MDSummary{..} = liftIO up
   where
     q = [r|
