@@ -28,7 +28,7 @@ import           Database.SQLite.Simple.ToField
 import           Generics.Deriving.Base         (Generic)
 import           Text.RawString.QQ              (r)
 
-import           GoPro.Plus.Media               (Media (..))
+import           GoPro.Plus.Media               (Medium (..), MediumID)
 import           GoPro.Resolve                  (MDSummary (..))
 
 initTables :: Connection -> IO ()
@@ -54,25 +54,25 @@ insertMediaStatement = [r|insert into media (media_id, camera_model, captured_at
                                       values(?,?,?,?,?,?,?,?,?,?,?,?)|]
 
 data MediaRow = MediaRow {
-  _row_media     :: Media,
+  _row_media     :: Medium,
   _row_thumbnail :: BL.ByteString
   }
 
 makeLenses ''MediaRow
 
 instance ToRow MediaRow where
-  toRow (MediaRow Media{..} thumbnail) = [
-    toField _media_id,
-    toField _media_camera_model,
-    toField _media_captured_at,
-    toField _media_created_at,
-    toField _media_file_size,
-    toField _media_moments_count,
-    toField _media_source_duration,
-    toField _media_type,
-    toField _media_width,
-    toField _media_height,
-    toField _media_ready_to_view,
+  toRow (MediaRow Medium{..} thumbnail) = [
+    toField _medium_id,
+    toField _medium_camera_model,
+    toField _medium_captured_at,
+    toField _medium_created_at,
+    toField _medium_file_size,
+    toField _medium_moments_count,
+    toField _medium_source_duration,
+    toField _medium_type,
+    toField _medium_width,
+    toField _medium_height,
+    toField _medium_ready_to_view,
     toField thumbnail
     ]
 
@@ -80,10 +80,10 @@ storeMedia :: MonadIO m => Connection -> [MediaRow] -> m ()
 storeMedia db media = liftIO up
   where up = executeMany db insertMediaStatement media
 
-loadMediaIDs :: MonadIO m => Connection -> m [String]
+loadMediaIDs :: MonadIO m => Connection -> m [MediumID]
 loadMediaIDs db = coerce <$> liftIO sel
   where
-    sel :: IO [Only String]
+    sel :: IO [Only MediumID]
     sel = query_ db "select media_id from media order by captured_at desc"
 
 
@@ -102,22 +102,22 @@ selectMediaStatement = [r|select media_id,
                              from media
                              order by captured_at desc|]
 
-instance FromRow Media where
+instance FromRow Medium where
   fromRow =
-    Media <$> field -- media_id
-    <*> field -- _media_camera_model
-    <*> field -- _media_captured_at
-    <*> field -- _media_created_at
-    <*> field -- _media_file_size
-    <*> field -- _media_moments_count
-    <*> field -- _media_ready_to_view
-    <*> field -- _media_source_duration
-    <*> field -- _media_type
-    <*> pure "" -- _media_token
-    <*> field -- _media_width
-    <*> field -- _media_height
+    Medium <$> field -- medium_id
+    <*> field -- _medium_camera_model
+    <*> field -- _medium_captured_at
+    <*> field -- _medium_created_at
+    <*> field -- _medium_file_size
+    <*> field -- _medium_moments_count
+    <*> field -- _medium_ready_to_view
+    <*> field -- _medium_source_duration
+    <*> field -- _medium_type
+    <*> pure "" -- _medium_token
+    <*> field -- _medium_width
+    <*> field -- _medium_height
 
-loadMedia :: MonadIO m => Connection -> m [Media]
+loadMedia :: MonadIO m => Connection -> m [Medium]
 loadMedia db = liftIO $ query_ db selectMediaStatement
 
 loadThumbnail :: MonadIO m => Connection -> String -> m BL.ByteString
@@ -174,7 +174,7 @@ insertMeta db mid MDSummary{..} = liftIO up
        ":scene_prob" := (snd <$> _mainScene),
        ":mid" := mid]
 
-newtype NamedSummary = NamedSummary (String, MDSummary)
+newtype NamedSummary = NamedSummary (MediumID, MDSummary)
 
 instance FromRow NamedSummary where
   fromRow = do
@@ -191,7 +191,7 @@ instance FromRow NamedSummary where
     let _mainScene = liftA2 (,) loc prob
     pure $ NamedSummary (mid, MDSummary{..})
 
-selectMeta :: MonadIO m => Connection -> m (Map String MDSummary)
+selectMeta :: MonadIO m => Connection -> m (Map MediumID MDSummary)
 selectMeta db = Map.fromList . coerce <$> liftIO sel
   where
     sel :: IO [NamedSummary]

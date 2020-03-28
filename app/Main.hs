@@ -82,7 +82,6 @@ import           Exif
 import           FFMPeg
 import           GoPro.AuthDB
 import           GoPro.DB
-import           GoPro.HTTP
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
 import           GoPro.Plus.Upload
@@ -160,18 +159,17 @@ runFetch stype = do
   seen <- Set.fromList <$> loadMediaIDs db
   ms <- todo tok seen
   logInfo $ tshow (length ms) <> " new items"
-  when (not . null $ ms) $ logDbg $ "new items: " <> tshow (ms ^.. folded . media_id)
+  when (not . null $ ms) $ logDbg $ "new items: " <> tshow (ms ^.. folded . medium_id)
   mapM_ (storeSome tok db) $ chunksOf 100 ms
 
     where resolve tok m = MediaRow m <$> fetchThumbnail tok m
-          todo tok seen = filter (\m@Media{..} -> notSeen m && wanted m)
-                          <$> listWhile tok (listPred stype)
+          todo tok seen = filter (\m -> notSeen m && wanted m) <$> listWhile tok (listPred stype)
             where
-              notSeen = (`Set.notMember` seen) . _media_id
+              notSeen = (`Set.notMember` seen) . _medium_id
               listPred Incremental = all notSeen
               listPred Full        = const True
-              wanted Media{..} = isJust _media_file_size
-                                 && _media_ready_to_view `elem` ["transcoding", "ready"]
+              wanted Medium{..} = isJust _medium_file_size
+                                  && _medium_ready_to_view `elem` ["transcoding", "ready"]
           storeSome tok db l = do
             logInfo $ "Storing batch of " <> tshow (length l)
             c <- asks (optDownloadConcurrency . gpOptions)
@@ -279,10 +277,10 @@ runCleanup = do
   liftIO $ mapM_ (rm tok) ms
 
     where
-      wanted Media{..} = _media_ready_to_view `elem` ["uploading", "failure"]
-      rm tok Media{..} = do
-        putStrLn $ "Removing " <> _media_id <> " (" <> _media_ready_to_view <> ")"
-        errs <- delete tok _media_id
+      wanted Medium{..} = _medium_ready_to_view `elem` ["uploading", "failure"]
+      rm tok Medium{..} = do
+        putStrLn $ "Removing " <> T.unpack _medium_id <> " (" <> _medium_ready_to_view <> ")"
+        errs <- delete tok (T.unpack _medium_id)
         when (not $ null errs) $ putStrLn $ " error: " <> show errs
 
 runAuth :: GoPro ()
@@ -342,7 +340,7 @@ runFixup = do
                        (Just (SQLText m)) -> pure m
                        _ -> fail ("no media_id found in result set")
               logInfo $ "Fixing " <> tshow mid
-              (J.Object rawm) <- rawMedium tok (T.unpack mid)
+              (J.Object rawm) <- medium tok mid
               let v = foldr up rawm (filter (\(k,_) -> k /= "media_id") stuff)
               logDbg $ TE.decodeUtf8 . BL.toStrict . J.encode $ v
               void $ putRawMedium tok (T.unpack mid) (J.Object v)
@@ -360,9 +358,9 @@ runUploadFiles = do
 
   where
     upload tok uid fp = runUpload tok uid [fp] $ do
-      setLogFunction (logError . T.pack)
+      setLogAction (logError . T.pack)
       mid <- createMedium
-      did <- createDerivative 1
+      did <- createSource 1
       fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
       Upload{..} <- createUpload did 1 (fromInteger fsize)
       logInfo $ "Uploading " <> tshow fp <> " as " <> mid <> ": did=" <> did <> ", upid=" <> _uploadID
@@ -383,10 +381,10 @@ runUploadMultipart = do
   (typ:fps) <- asks (optArgv . gpOptions)
   runUpload tok uid fps $ do
     setMediumType (T.pack typ)
-    setLogFunction (logError . T.pack)
+    setLogAction (logError . T.pack)
     mid <- createMedium
 
-    did <- createDerivative (length fps)
+    did <- createSource (length fps)
     c <- asks (optUploadConcurrency . gpOptions)
     _ <- mapConcurrentlyLimited c (\(fp,n) -> do
               fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
@@ -430,20 +428,14 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
         db <- lift $ asks dbConn
         ms <- loadMedia db
         gs <- selectMeta db
-        json $ map (\m@Media{..} ->
+        json $ map (\m@Medium{..} ->
                       let j = J.toJSON m in
-                        case Map.lookup _media_id gs of
+                        case Map.lookup _medium_id gs of
                           Nothing -> j
-                          Just g -> let cam = maybe (Just $ _cameraModel g) Just _media_camera_model in
+                          Just g -> let cam = maybe (Just $ _cameraModel g) Just _medium_camera_model in
                                       j & _Object . at "camera_model" .~ (J.String .fromString <$> cam)
                                         & _Object . at "meta_data" .~ Just (J.toJSON g)
                    ) ms
-
-      get "/api/retrieve/:id" $ do
-        imgid <- param "id"
-        tok <- lift getToken
-        setHeader "Content-Type" "application/json"
-        raw =<< (lift $ proxy tok (dlURL imgid))
 
       get "/thumb/:id" $ do
         db <- lift $ asks dbConn
