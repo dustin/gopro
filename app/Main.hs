@@ -360,6 +360,7 @@ runUploadFiles = do
 
   where
     upload tok uid fp = runUpload tok uid [fp] $ do
+      setLogFunction (logError . T.pack)
       mid <- createMedium
       did <- createDerivative 1
       fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
@@ -382,6 +383,7 @@ runUploadMultipart = do
   (typ:fps) <- asks (optArgv . gpOptions)
   runUpload tok uid fps $ do
     setMediumType (T.pack typ)
+    setLogFunction (logError . T.pack)
     mid <- createMedium
 
     did <- createDerivative (length fps)
