@@ -276,10 +276,7 @@ runGetMeta = do
           Just s -> (liftIO $ extractGPMDStream f s)
 
 runCleanup :: GoPro ()
-runCleanup = do
-  ms <- filter wanted <$> listAll
-  mapM_ rm ms
-
+runCleanup = mapM_ rm =<< (filter wanted <$> listAll)
     where
       wanted Medium{..} = _medium_ready_to_view `elem` ["uploading", "failure"]
       rm Medium{..} = do
@@ -308,8 +305,7 @@ runAuth = do
 runReauth :: GoPro ()
 runReauth = do
   db <- asks dbConn
-  a <- loadAuth db
-  res <- refreshAuth a
+  res <- refreshAuth =<< loadAuth db
   updateAuth db res
 
 runIO :: Env -> EnvM a -> IO a
