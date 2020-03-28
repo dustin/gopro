@@ -5,7 +5,6 @@ module GoPro.AuthDB (updateAuth, loadAuth) where
 
 import           Control.Monad          (guard)
 import           Control.Monad.IO.Class (MonadIO (..))
-import           Control.Monad.Logger   (MonadLogger (..), logDebugN)
 import           Database.SQLite.Simple hiding (bind, close)
 
 import           GoPro.Plus.Auth        (AuthResponse (..))
@@ -30,8 +29,8 @@ updateAuth db AuthResponse{..} = liftIO up
             execute_ db deleteStatement
             execute db insertStatement (_resource_owner_id, _access_token, _refresh_token, _expires_in)
 
-loadAuth :: (MonadLogger m, MonadIO m) => Connection -> m AuthResponse
-loadAuth db = logDebugN "Reading auth token from DB" >> liftIO up
+loadAuth :: MonadIO m => Connection -> m AuthResponse
+loadAuth db = liftIO up
   where up = do
           rows <- query_ db selectStatement :: IO [(String, String, String, Int)]
           guard (length rows == 1)

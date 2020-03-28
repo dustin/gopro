@@ -112,7 +112,8 @@ newtype EnvM a = EnvM
               MonadCatch, MonadThrow, MonadMask, MonadReader Env, MonadFail)
 
 instance (Monad m, MonadLogger m, MonadIO m, MonadReader Env m) => HasGoProAuth m where
-  goproAuth = asks authCache >>= \c -> fetchWithCache c () (\() -> asks dbConn >>= loadAuth)
+  goproAuth = asks authCache >>= \c -> fetchWithCache c () (\() -> logDebugN "Reading auth token from DB" >>
+                                                                   asks dbConn >>= loadAuth)
 
 instance MonadLogger EnvM where
   monadLoggerLog loc src lvl msg = do
