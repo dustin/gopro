@@ -12,8 +12,7 @@ import           Conduit
 import           Control.Applicative           (Alternative (..), (<|>))
 import           Control.Concurrent.QSem       (newQSem, signalQSem, waitQSem)
 import           Control.Lens                  hiding (argument)
-import           Control.Monad                 (MonadPlus (..), mzero, void,
-                                                when)
+import           Control.Monad                 (MonadPlus (..), mzero, when)
 import           Control.Monad.Catch           (MonadCatch (..), MonadMask (..),
                                                 MonadThrow (..),
                                                 SomeException (..), bracket_,
@@ -39,7 +38,7 @@ import qualified Data.HashMap.Strict           as HM
 import           Data.List                     (intercalate)
 import           Data.List.Extra               (chunksOf)
 import qualified Data.Map.Strict               as Map
-import           Data.Maybe                    (isJust)
+import           Data.Maybe                    (fromMaybe, isJust)
 import           Data.Scientific               (fromFloatDigits)
 import qualified Data.Set                      as Set
 import           Data.String                   (fromString)
@@ -107,12 +106,18 @@ newtype EnvM a = EnvM
   } deriving (Applicative, Functor, Monad, MonadIO, MonadUnliftIO,
               MonadCatch, MonadThrow, MonadMask, MonadReader Env, MonadFail)
 
+instance HasGoProAuth EnvM where
+  goproAuth = loadAuth =<< asks dbConn
+
 instance MonadLogger EnvM where
   monadLoggerLog loc src lvl msg = do
     l <- asks envLogger
     liftIO $ l loc src lvl (toLogStr msg)
 
 type GoPro = ReaderT Env (LoggingT IO)
+
+instance HasGoProAuth GoPro where
+  goproAuth = loadAuth =<< asks dbConn
 
 instance MonadPlus (LoggingT IO) where
   mzero = lift mzero
@@ -154,27 +159,26 @@ data SyncType = Full | Incremental
 
 runFetch :: SyncType -> GoPro ()
 runFetch stype = do
-  tok <- getToken
   db <- asks dbConn
   seen <- Set.fromList <$> loadMediaIDs db
-  ms <- todo tok seen
+  ms <- todo seen
   logInfo $ tshow (length ms) <> " new items"
   when (not . null $ ms) $ logDbg $ "new items: " <> tshow (ms ^.. folded . medium_id)
-  mapM_ (storeSome tok db) $ chunksOf 100 ms
+  mapM_ (storeSome db) $ chunksOf 100 ms
 
-    where resolve tok m = MediaRow m <$> fetchThumbnail tok m
-          todo tok seen = filter (\m -> notSeen m && wanted m) <$> listWhile tok (listPred stype)
+    where resolve m = MediaRow m <$> fetchThumbnail m
+          todo seen = filter (\m -> notSeen m && wanted m) <$> listWhile (listPred stype)
             where
               notSeen = (`Set.notMember` seen) . _medium_id
               listPred Incremental = all notSeen
               listPred Full        = const True
               wanted Medium{..} = isJust _medium_file_size
                                   && _medium_ready_to_view `elem` ["transcoding", "ready"]
-          storeSome tok db l = do
+          storeSome db l = do
             logInfo $ "Storing batch of " <> tshow (length l)
             c <- asks (optDownloadConcurrency . gpOptions)
-            storeMedia db =<< fetch tok c l
-          fetch tok c = mapConcurrentlyLimited c (resolve tok)
+            storeMedia db =<< fetch c l
+          fetch c = mapConcurrentlyLimited c resolve
 
 runGrokTel :: GoPro ()
 runGrokTel = do
@@ -201,8 +205,7 @@ runGetMeta = do
     where
       process :: Connection -> (MediumID, String) -> GoPro ()
       process db mtyp@(mid,typ) = do
-        tok <- getToken
-        fi <- retrieve tok mid
+        fi <- retrieve mid
         case typ of
           "Video"          -> processEx fi extractGPMD "gpmf" ".mp4"
           "TimeLapseVideo" -> processEx fi extractGPMD "gpmf" ".mp4"
@@ -272,16 +275,15 @@ runGetMeta = do
 
 runCleanup :: GoPro ()
 runCleanup = do
-  tok <- getToken
-  ms <- filter wanted <$> listAll tok
-  liftIO $ mapM_ (rm tok) ms
+  ms <- filter wanted <$> listAll
+  mapM_ rm ms
 
     where
       wanted Medium{..} = _medium_ready_to_view `elem` ["uploading", "failure"]
-      rm tok Medium{..} = do
-        putStrLn $ "Removing " <> T.unpack _medium_id <> " (" <> _medium_ready_to_view <> ")"
-        errs <- delete tok _medium_id
-        when (not $ null errs) $ putStrLn $ " error: " <> show errs
+      rm Medium{..} = do
+        liftIO . putStrLn $ "Removing " <> T.unpack _medium_id <> " (" <> _medium_ready_to_view <> ")"
+        errs <- delete _medium_id
+        when (not $ null errs) . liftIO . putStrLn $ " error: " <> show errs
 
 runAuth :: GoPro ()
 runAuth = do
@@ -315,16 +317,15 @@ runFixup :: GoPro ()
 runFixup = do
   db <- asks dbConn
   env <- ask
-  tok <- getToken
   args <- asks (optArgv . gpOptions)
   when (length args /= 1) $ fail "I need a query to run"
   let [query] = fromString <$> args
   logDbg $ "Query: " <> tshow query
-  liftIO $ withStatement db query (\st -> runIO env (needful tok st))
+  liftIO $ withStatement db query (\st -> runIO env (needful st))
 
     where
-      needful :: String -> Statement -> EnvM ()
-      needful tok st = do
+      needful :: Statement -> EnvM ()
+      needful st = do
         cnum <- liftIO $ columnCount st
         cols <- mapM (liftIO . columnName st) [0 .. pred cnum]
         process cols
@@ -340,10 +341,10 @@ runFixup = do
                        (Just (SQLText m)) -> pure m
                        _ -> fail ("no media_id found in result set")
               logInfo $ "Fixing " <> tshow mid
-              (J.Object rawm) <- medium tok mid
+              (J.Object rawm) <- medium mid
               let v = foldr up rawm (filter (\(k,_) -> k /= "media_id") stuff)
               logDbg $ TE.decodeUtf8 . BL.toStrict . J.encode $ v
-              void $ putRawMedium tok mid (J.Object v)
+              putMedium mid (J.Object v)
             up (name, (SQLInteger i)) = HM.insert name (J.Number (fromIntegral i))
             up (name, (SQLFloat i))   = HM.insert name  (J.Number (fromFloatDigits i))
             up (name, (SQLText i))    = HM.insert name (J.String i)
@@ -351,13 +352,10 @@ runFixup = do
             up (_,    (SQLBlob _))    = error "can't do blobs"
 
 runUploadFiles :: GoPro ()
-runUploadFiles = do
-  tok <- getToken
-  uid <- getUID
-  mapM_ (upload tok uid) =<< asks (optArgv . gpOptions)
+runUploadFiles = mapM_ upload =<< asks (optArgv . gpOptions)
 
   where
-    upload tok uid fp = runUpload tok uid [fp] $ do
+    upload fp = runUpload [fp] $ do
       setLogAction (logError . T.pack)
       mid <- createMedium
       did <- createSource 1
@@ -376,10 +374,8 @@ runUploadFiles = do
 
 runUploadMultipart :: GoPro ()
 runUploadMultipart = do
-  tok <- getToken
-  uid <- getUID
   (typ:fps) <- asks (optArgv . gpOptions)
-  runUpload tok uid fps $ do
+  runUpload fps $ do
     setMediumType (T.pack typ)
     setLogAction (logError . T.pack)
     mid <- createMedium
@@ -400,16 +396,6 @@ runUploadMultipart = do
         uc fp up@UploadPart{..} = do
           logDbg . T.pack $ "Uploading part " <> show _uploadPart <> " of " <> fp
           uploadChunk fp up
-
-getToken :: (MonadLogger m, MonadIO m, MonadReader Env m) => m String
-getToken = do
-  logDbg "Loading token"
-  loadToken =<< asks dbConn
-
-getUID :: (MonadLogger m, MonadIO m, MonadReader Env m) => m String
-getUID = do
-  logDbg "Loading user ID"
-  fmap _resource_owner_id . loadAuth =<< asks dbConn
 
 runServer :: GoPro ()
 runServer = ask >>= \x -> scottyT 8008 (runIO x) application
@@ -448,8 +434,7 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
 
       get "/api/retrieve2/:id" $ do
         imgid <- param "id"
-        tok <- lift getToken
-        fi <- _fileStuff <$> retrieve tok imgid
+        fi <- _fileStuff <$> lift (retrieve imgid)
         json (encd fi)
           where
             wh w h = T.pack (show w <> "x" <> show h)
@@ -469,9 +454,7 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
               )
 
 run :: String -> GoPro ()
-run c = case lookup c cmds of
-          Nothing -> liftIO unknown
-          Just a  -> a
+run c = fromMaybe (liftIO unknown) $ lookup c cmds
   where
     cmds = [("auth", runAuth),
             ("reauth", runReauth),
