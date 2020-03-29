@@ -10,6 +10,7 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  metaBlobTODO, insertMetaBlob,
                  metaTODO, insertMeta, selectMeta,
                  Area(..), area_id, area_name, area_nw, area_se, selectAreas,
+                 HasGoProDB(..),
                  initTables) where
 
 import           Control.Applicative            (liftA2)
@@ -30,6 +31,9 @@ import           Text.RawString.QQ              (r)
 
 import           GoPro.Plus.Media               (Medium (..), MediumID)
 import           GoPro.Resolve                  (MDSummary (..))
+
+class Monad m => HasGoProDB m where
+  goproDB :: m Connection
 
 initTables :: Connection -> IO ()
 initTables db = mapM_ (execute_ db)
@@ -76,15 +80,15 @@ instance ToRow MediaRow where
     toField thumbnail
     ]
 
-storeMedia :: MonadIO m => Connection -> [MediaRow] -> m ()
-storeMedia db media = liftIO up
-  where up = executeMany db insertMediaStatement media
+storeMedia :: (HasGoProDB m, MonadIO m) => [MediaRow] -> m ()
+storeMedia media = liftIO . up =<< goproDB
+  where up db = executeMany db insertMediaStatement media
 
-loadMediaIDs :: MonadIO m => Connection -> m [MediumID]
-loadMediaIDs db = coerce <$> liftIO sel
+loadMediaIDs :: (HasGoProDB m, MonadIO m) => m [MediumID]
+loadMediaIDs = coerce <$> (liftIO . sel =<< goproDB)
   where
-    sel :: IO [Only MediumID]
-    sel = query_ db "select media_id from media order by captured_at desc"
+    sel :: Connection -> IO [Only MediumID]
+    sel db = query_ db "select media_id from media order by captured_at desc"
 
 
 selectMediaStatement :: Query
@@ -117,42 +121,40 @@ instance FromRow Medium where
     <*> field -- _medium_width
     <*> field -- _medium_height
 
-loadMedia :: MonadIO m => Connection -> m [Medium]
-loadMedia db = liftIO $ query_ db selectMediaStatement
+loadMedia :: (HasGoProDB m, MonadIO m) => m [Medium]
+loadMedia = goproDB >>= \db -> liftIO $ query_ db selectMediaStatement
 
-loadThumbnail :: MonadIO m => Connection -> MediumID -> m BL.ByteString
-loadThumbnail db imgid = liftIO sel
+loadThumbnail :: (HasGoProDB m, MonadIO m) => MediumID -> m BL.ByteString
+loadThumbnail imgid = goproDB >>= \db -> liftIO (sel db)
   where
-    sel :: IO BL.ByteString
-    sel = do
+    sel db = do
       [Only t] <- query db "select thumbnail from media where media_id = ?" (Only imgid)
       pure t
 
-metaBlobTODO :: MonadIO m => Connection -> m [(MediumID, String)]
-metaBlobTODO db = liftIO sel
+metaBlobTODO :: (HasGoProDB m, MonadIO m) => m [(MediumID, String)]
+metaBlobTODO = liftIO . sel =<< goproDB
   where
-    sel :: IO [(MediumID, String)]
-    sel = query_ db [r|select media_id, media_type
-                       from media
-                       where media_id not in (select media_id from metablob)
-                       order by created_at desc|]
+    sel db = query_ db [r|select media_id, media_type
+                         from media
+                         where media_id not in (select media_id from metablob)
+                         order by created_at desc|]
 
-insertMetaBlob :: MonadIO m => Connection -> MediumID -> String -> Maybe BS.ByteString -> m ()
-insertMetaBlob db mid fmt blob = liftIO ins
-  where ins = execute db "insert into metablob (media_id, meta, format) values (?, ?, ?)" (mid, blob, fmt)
+insertMetaBlob :: (HasGoProDB m, MonadIO m) => MediumID -> String -> Maybe BS.ByteString -> m ()
+insertMetaBlob mid fmt blob = liftIO . ins =<< goproDB
+  where ins db = execute db "insert into metablob (media_id, meta, format) values (?, ?, ?)" (mid, blob, fmt)
 
-metaTODO :: MonadIO m => Connection -> m [(MediumID, String, BS.ByteString)]
-metaTODO db = liftIO sel
+metaTODO :: (HasGoProDB m, MonadIO m) => m [(MediumID, String, BS.ByteString)]
+metaTODO = liftIO . sel =<< goproDB
   where
-    sel = query_ db [r|
-                      select b.media_id, b.format, b.meta
-                             from metablob b join media m on (m.media_id = b.media_id)
-                      where b.meta is not null
-                            and b.media_id not in (select media_id from meta)
-                     |]
+    sel db = query_ db [r|
+                         select b.media_id, b.format, b.meta
+                         from metablob b join media m on (m.media_id = b.media_id)
+                         where b.meta is not null
+                               and b.media_id not in (select media_id from meta)
+                         |]
 
-insertMeta :: MonadIO m => Connection -> MediumID -> MDSummary -> m ()
-insertMeta db mid MDSummary{..} = liftIO up
+insertMeta :: (HasGoProDB m, MonadIO m) => MediumID -> MDSummary -> m ()
+insertMeta mid MDSummary{..} = liftIO . up =<< goproDB
   where
     q = [r|
           insert into meta (media_id, camera_model, captured_at, lat, lon,
@@ -162,7 +164,7 @@ insertMeta db mid MDSummary{..} = liftIO up
                               :speed2, :speed3, :maxface,
                               :scene, :scene_prob)
           |]
-    up = executeNamed db q
+    up db = executeNamed db q
       [":cam" := _cameraModel,
        ":ts" := _capturedTime,
        ":lat" := _lat,
@@ -191,11 +193,11 @@ instance FromRow NamedSummary where
     let _mainScene = liftA2 (,) loc prob
     pure $ NamedSummary (mid, MDSummary{..})
 
-selectMeta :: MonadIO m => Connection -> m (Map MediumID MDSummary)
-selectMeta db = Map.fromList . coerce <$> liftIO sel
+selectMeta :: (HasGoProDB m, MonadIO m) => m (Map MediumID MDSummary)
+selectMeta = goproDB >>= \db ->  Map.fromList . coerce <$> liftIO (sel db)
   where
-    sel :: IO [NamedSummary]
-    sel = query_ db [r|select media_id, camera_model, captured_at, lat, lon,
+    sel :: Connection -> IO [NamedSummary]
+    sel db = query_ db [r|select media_id, camera_model, captured_at, lat, lon,
                               max_speed_2d, max_speed_3d,
                               max_faces, main_scene, main_scene_prob
                           from meta
@@ -221,7 +223,7 @@ instance FromRow Area where
 instance ToJSON Area where
   toEncoding = genericToEncoding defaultOptions { fieldLabelModifier = drop 6}
 
-selectAreas :: MonadIO m => Connection -> m [Area]
-selectAreas db = liftIO sel
+selectAreas :: (HasGoProDB m, MonadIO m) => m [Area]
+selectAreas = liftIO . sel =<< goproDB
   where
-    sel = query_ db "select area_id, name, lat1, lon1, lat2, lon2 from areas"
+    sel db = query_ db "select area_id, name, lat1, lon1, lat2, lon2 from areas"

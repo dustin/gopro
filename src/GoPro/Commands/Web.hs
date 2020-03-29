@@ -2,7 +2,7 @@ module GoPro.Commands.Web where
 
 import           Control.Applicative           ((<|>))
 import           Control.Lens
-import           Control.Monad.Reader          (ask, asks, lift)
+import           Control.Monad.Reader          (ask, lift)
 import qualified Data.Aeson                    as J
 import           Data.Aeson.Lens               (_Object)
 import qualified Data.HashMap.Strict           as HM
@@ -38,9 +38,8 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
         file $ staticPath </> "index.html"
 
       get "/api/media" $ do
-        db <- lift $ asks dbConn
-        ms <- loadMedia db
-        gs <- selectMeta db
+        ms <- lift loadMedia
+        gs <- lift selectMeta
         json $ map (\m@Medium{..} ->
                       let j = J.toJSON m in
                         case Map.lookup _medium_id gs of
@@ -51,13 +50,11 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
                    ) ms
 
       get "/thumb/:id" $ do
-        db <- lift $ asks dbConn
-        imgid <- param "id"
         setHeader "Content-Type" "image/jpeg"
         setHeader "Cache-Control" "max-age=86400"
-        raw =<< loadThumbnail db imgid
+        raw =<< lift . loadThumbnail =<< param "id"
 
-      get "/api/areas" (lift (asks dbConn) >>= selectAreas >>= json)
+      get "/api/areas" (lift selectAreas >>= json)
 
       get "/api/retrieve2/:id" $ do
         imgid <- param "id"

@@ -21,7 +21,6 @@ import           Data.List.Extra        (chunksOf)
 import           Data.Maybe             (isJust)
 import qualified Data.Set               as Set
 import qualified Data.Text              as T
-import           Database.SQLite.Simple (Connection)
 import           Exif
 import           FFMPeg
 import           Graphics.HsExif        (parseExif)
@@ -41,12 +40,11 @@ data SyncType = Full | Incremental
 
 runFetch :: SyncType -> GoPro ()
 runFetch stype = do
-  db <- asks dbConn
-  seen <- Set.fromList <$> loadMediaIDs db
+  seen <- Set.fromList <$> loadMediaIDs
   ms <- todo seen
   logInfo $ tshow (length ms) <> " new items"
   unless (null ms) $ logDbg $ "new items: " <> tshow (ms ^.. folded . medium_id)
-  mapM_ (storeSome db) $ chunksOf 100 ms
+  mapM_ storeSome $ chunksOf 100 ms
 
     where resolve m = MediaRow m <$> fetchThumbnail m
           todo seen = filter (\m -> notSeen m && wanted m) <$> listWhile (listPred stype)
@@ -56,22 +54,21 @@ runFetch stype = do
               listPred Full        = const True
               wanted Medium{..} = isJust _medium_file_size
                                   && _medium_ready_to_view `elem` ["transcoding", "ready"]
-          storeSome db l = do
+          storeSome l = do
             logInfo $ "Storing batch of " <> tshow (length l)
             c <- asks (optDownloadConcurrency . gpOptions)
-            storeMedia db =<< fetch c l
+            storeMedia =<< fetch c l
           fetch c = mapConcurrentlyLimited c resolve
 
 runGrokTel :: GoPro ()
 runGrokTel = do
-  db <- asks dbConn
-  mapM_ (ud db) =<< metaTODO db
+  mapM_ ud =<< metaTODO
     where
-      ud db (mid, typ, bs) = do
+      ud (mid, typ, bs) = do
         logInfo $ "Updating " <> tshow (mid, typ)
         case summarize typ bs of
           Left x -> logError $ "Error parsing stuff for " <> tshow mid <> " show " <> tshow x
-          Right x -> insertMeta db mid x
+          Right x -> insertMeta mid x
       summarize :: String -> BS.ByteString -> Either String MDSummary
       summarize "gpmf" bs = summarizeGPMF <$> parseDEVC bs
       summarize "exif" bs = summarizeEXIF <$> parseExif (BL.fromStrict bs)
@@ -79,14 +76,13 @@ runGrokTel = do
 
 runGetMeta :: GoPro ()
 runGetMeta = do
-  db <- asks dbConn
-  needs <- metaBlobTODO db
+  needs <- metaBlobTODO
   logInfo $ "Fetching " <> tshow (length needs)
   logDbg $ tshow needs
-  mapM_ (process db) needs
+  mapM_ process needs
     where
-      process :: Connection -> (MediumID, String) -> GoPro ()
-      process db mtyp@(mid,typ) = do
+      process :: (MediumID, String) -> GoPro ()
+      process mtyp@(mid,typ) = do
         fi <- retrieve mid
         case typ of
           "Video"          -> processEx fi extractGPMD "gpmf" ".mp4"
@@ -109,10 +105,10 @@ runGetMeta = do
               case ms of
                 Nothing -> do
                   logInfo $ "Found no metadata for " <> tshow mtyp
-                  insertMetaBlob db mid "" Nothing
+                  insertMetaBlob mid "" Nothing
                 Just s -> do
                   logInfo $ "MetaData stream for " <> tshow mtyp <> " is " <> tshow (BS.length s) <> " bytes"
-                  insertMetaBlob db mid fmt (Just s)
+                  insertMetaBlob mid fmt (Just s)
                   -- Clean up in the success case.
                   mapM_ ((\f -> asum [liftIO (removeFile f), pure ()]) . fn) ["low", "high", "src"]
 

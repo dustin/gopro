@@ -26,6 +26,7 @@ import           Database.SQLite.Simple  (Connection)
 import           UnliftIO                (MonadUnliftIO (..), mapConcurrently)
 
 import           GoPro.AuthDB
+import           GoPro.DB                (HasGoProDB (..))
 import           GoPro.Plus.Auth
 
 data Options = Options {
@@ -52,6 +53,9 @@ newtype EnvM a = EnvM
 instance (Monad m, MonadLogger m, MonadIO m, MonadReader Env m) => HasGoProAuth m where
   goproAuth = asks authCache >>= \c -> fetchWithCache c () (\() -> logDebugN "Reading auth token from DB" >>
                                                                    asks dbConn >>= loadAuth)
+
+instance (Monad m, MonadReader Env m) => HasGoProDB m where
+  goproDB = asks dbConn
 
 instance MonadLogger EnvM where
   monadLoggerLog loc src lvl msg = asks envLogger >>= \l -> liftIO $ l loc src lvl (toLogStr msg)
