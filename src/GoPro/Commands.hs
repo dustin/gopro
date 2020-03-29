@@ -86,3 +86,6 @@ logDbg = logDebugN
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
+
+runIO :: Env -> EnvM a -> IO a
+runIO e m = runReaderT (runEnvM m) e
