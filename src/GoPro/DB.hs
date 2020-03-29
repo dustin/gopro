@@ -125,7 +125,7 @@ loadMedia :: (HasGoProDB m, MonadIO m) => m [Medium]
 loadMedia = goproDB >>= \db -> liftIO $ query_ db selectMediaStatement
 
 loadThumbnail :: (HasGoProDB m, MonadIO m) => MediumID -> m BL.ByteString
-loadThumbnail imgid = goproDB >>= \db -> liftIO (sel db)
+loadThumbnail imgid = liftIO . sel =<< goproDB
   where
     sel db = do
       [Only t] <- query db "select thumbnail from media where media_id = ?" (Only imgid)
