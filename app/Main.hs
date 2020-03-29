@@ -285,9 +285,8 @@ runCleanup = mapM_ rm =<< (filter wanted <$> listAll)
 
 runAuth :: GoPro ()
 runAuth = do
-  liftIO (prompt "Enter email: ")
-  u <- liftIO getLine
-  p <- liftIO getPass
+  u <- liftIO (prompt "Enter email: " >> getLine)
+  p <- getPass
   db <- asks dbConn
   res <- authenticate u p
   updateAuth db res
@@ -299,7 +298,7 @@ runAuth = do
       old <- hGetEcho stdin
       bracket_ (hSetEcho stdin echo) (hSetEcho stdin old) action
 
-    getPass = withEcho False getLine
+    getPass = liftIO $ withEcho False getLine
 
 runReauth :: GoPro ()
 runReauth = do
@@ -481,11 +480,11 @@ main = do
 
     runConn o@Options{..} db = do
       initTables db
+      cache <- newCache (Just (TimeSpec 60 0))
 
       runStderrLoggingT . logfilt $ do
         l <- askLoggerIO
         let o' = o{optArgv = tail optArgv}
-        cache <- liftIO $ newCache (Just (TimeSpec 60 0))
         runReaderT (run (head optArgv)) (Env o' db cache l)
 
         where
