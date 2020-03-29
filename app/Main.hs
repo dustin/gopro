@@ -116,9 +116,7 @@ instance (Monad m, MonadLogger m, MonadIO m, MonadReader Env m) => HasGoProAuth 
                                                                    asks dbConn >>= loadAuth)
 
 instance MonadLogger EnvM where
-  monadLoggerLog loc src lvl msg = do
-    l <- asks envLogger
-    liftIO $ l loc src lvl (toLogStr msg)
+  monadLoggerLog loc src lvl msg = asks envLogger >>= \l -> liftIO $ l loc src lvl (toLogStr msg)
 
 type GoPro = ReaderT Env (LoggingT IO)
 
