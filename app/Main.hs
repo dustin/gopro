@@ -102,7 +102,7 @@ data Options = Options {
 data Env = Env {
   gpOptions :: Options,
   dbConn    :: Connection,
-  authCache :: Cache () AuthResponse,
+  authCache :: Cache () AuthInfo,
   envLogger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
   }
 
