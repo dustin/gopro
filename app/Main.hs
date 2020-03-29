@@ -38,16 +38,15 @@ import           Prelude                hiding (fail)
 import           System.Clock           (TimeSpec (..))
 import           System.IO              (hFlush, hGetEcho, hSetEcho, stdin,
                                          stdout)
-import           System.Posix.Files     (fileSize, getFileStatus)
 
 import           GoPro.AuthDB
 import           GoPro.Commands
 import           GoPro.Commands.Sync
+import           GoPro.Commands.Upload
 import           GoPro.Commands.Web
 import           GoPro.DB
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
-import           GoPro.Plus.Upload
 
 options :: Parser Options
 options = Options
@@ -127,52 +126,6 @@ runFixup = do
             up (name, (SQLText i))    = HM.insert name (J.String i)
             up (name, SQLNull)        = HM.insert name J.Null
             up (_,    (SQLBlob _))    = error "can't do blobs"
-
-runUploadFiles :: GoPro ()
-runUploadFiles = mapM_ upload =<< asks (optArgv . gpOptions)
-
-  where
-    upload fp = runUpload [fp] $ do
-      setLogAction (logError . T.pack)
-      mid <- createMedium
-      did <- createSource 1
-      fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
-      Upload{..} <- createUpload did 1 (fromInteger fsize)
-      logInfo $ "Uploading " <> tshow fp <> " as " <> mid <> ": did=" <> did <> ", upid=" <> _uploadID
-      c <- asks (optUploadConcurrency . gpOptions)
-      _ <- mapConcurrentlyLimited c uc _uploadParts
-      completeUpload _uploadID did 1 fsize
-      markAvailable did
-
-        where
-          uc up@UploadPart{..} = do
-            logDbg . T.pack $ "Uploading part " <> show _uploadPart <> " of " <> fp
-            uploadChunk fp up
-
-runUploadMultipart :: GoPro ()
-runUploadMultipart = do
-  (typ:fps) <- asks (optArgv . gpOptions)
-  runUpload fps $ do
-    setMediumType (T.pack typ)
-    setLogAction (logError . T.pack)
-    mid <- createMedium
-
-    did <- createSource (length fps)
-    c <- asks (optUploadConcurrency . gpOptions)
-    _ <- mapConcurrentlyLimited c (\(fp,n) -> do
-              fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
-              Upload{..} <- createUpload did n (fromInteger fsize)
-              logInfo $ mconcat ["Uploading ", tshow fp, " as ", mid, " part ", tshow n,
-                                 ": did=", did, ", upid=", _uploadID]
-              _ <- mapConcurrentlyLimited 2 (uc fp) _uploadParts
-              completeUpload _uploadID did n fsize
-          ) $ zip fps [1..]
-    markAvailable did
-
-      where
-        uc fp up@UploadPart{..} = do
-          logDbg . T.pack $ "Uploading part " <> show _uploadPart <> " of " <> fp
-          uploadChunk fp up
 
 run :: String -> GoPro ()
 run c = fromMaybe (liftIO unknown) $ lookup c cmds
