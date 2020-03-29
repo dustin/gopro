@@ -56,8 +56,7 @@ runFetch stype = do
           fetch c = mapConcurrentlyLimited c resolve
 
 runGrokTel :: GoPro ()
-runGrokTel = do
-  mapM_ ud =<< metaTODO
+runGrokTel = mapM_ ud =<< metaTODO
     where
       ud (mid, typ, bs) = do
         logInfo $ "Updating " <> tshow (mid, typ)
