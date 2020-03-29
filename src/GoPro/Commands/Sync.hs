@@ -4,7 +4,6 @@
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
 module GoPro.Commands.Sync where
@@ -12,7 +11,7 @@ module GoPro.Commands.Sync where
 import           Conduit
 import           Control.Applicative    (Alternative (..))
 import           Control.Lens
-import           Control.Monad          (when)
+import           Control.Monad          (unless)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Reader   (asks)
 import qualified Data.ByteString        as BS
@@ -46,7 +45,7 @@ runFetch stype = do
   seen <- Set.fromList <$> loadMediaIDs db
   ms <- todo seen
   logInfo $ tshow (length ms) <> " new items"
-  when (not . null $ ms) $ logDbg $ "new items: " <> tshow (ms ^.. folded . medium_id)
+  unless (null ms) $ logDbg $ "new items: " <> tshow (ms ^.. folded . medium_id)
   mapM_ (storeSome db) $ chunksOf 100 ms
 
     where resolve m = MediaRow m <$> fetchThumbnail m
@@ -115,7 +114,7 @@ runGetMeta = do
                   logInfo $ "MetaData stream for " <> tshow mtyp <> " is " <> tshow (BS.length s) <> " bytes"
                   insertMetaBlob db mid fmt (Just s)
                   -- Clean up in the success case.
-                  mapM_ (\f -> asum [liftIO (removeFile f), pure ()]) $ map fn ["low", "high", "src"]
+                  mapM_ ((\f -> asum [liftIO (removeFile f), pure ()]) . fn) ["low", "high", "src"]
 
       fetchX :: (MediumID -> FilePath -> GoPro BS.ByteString)
              -> FileInfo -> MediumID -> String -> FilePath -> GoPro BS.ByteString
@@ -126,7 +125,7 @@ runGetMeta = do
           Just u  -> ex mid =<< dlIf mid var u fn
 
       dlIf :: MediumID -> String -> String -> FilePath -> GoPro FilePath
-      dlIf mid var u dest = (liftIO $ doesFileExist dest) >>=
+      dlIf mid var u dest = liftIO (doesFileExist dest) >>=
         \case
           True -> pure dest
           _ -> download mid var u dest
@@ -138,7 +137,7 @@ runGetMeta = do
         logDbg $ "From " <> tshow u
         req <- parseRequest u
         let tmpfile = dest <> ".tmp"
-        liftIO $ (runConduitRes $ httpSource req getResponseBody .| sinkFile tmpfile) >>
+        liftIO $ runConduitRes (httpSource req getResponseBody .| sinkFile tmpfile) >>
                   renameFile tmpfile dest
         pure dest
 
@@ -154,4 +153,4 @@ runGetMeta = do
         ms <- liftIO $ findGPMDStream f
         case ms of
           Nothing -> logError ("Can't find GPMD stream for " <> tshow mid) >> empty
-          Just s -> (liftIO $ extractGPMDStream f s)
+          Just s -> liftIO $ extractGPMDStream f s

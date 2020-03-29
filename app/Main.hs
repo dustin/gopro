@@ -2,14 +2,12 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
 module Main where
 
-import           Control.Monad          (when)
+import           Control.Monad          (unless)
 import           Control.Monad.Catch    (bracket_)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Logger   (LogLevel (..), MonadLoggerIO (..),
@@ -55,7 +53,7 @@ runCleanup = mapM_ rm =<< (filter wanted <$> listAll)
       rm Medium{..} = do
         liftIO . putStrLn $ "Removing " <> T.unpack _medium_id <> " (" <> _medium_ready_to_view <> ")"
         errs <- delete _medium_id
-        when (not $ null errs) . liftIO . putStrLn $ " error: " <> show errs
+        unless (null errs) . liftIO . putStrLn $ " error: " <> show errs
 
 runAuth :: GoPro ()
 runAuth = do

@@ -2,16 +2,14 @@
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
-{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TupleSections              #-}
 {-# LANGUAGE UndecidableInstances       #-}
 
 module GoPro.Commands.Web where
 
+import           Control.Applicative           ((<|>))
 import           Control.Lens
-import           Control.Monad.Reader          (asks)
-import           Control.Monad.Reader          (ask, lift)
+import           Control.Monad.Reader          (ask, asks, lift)
 import qualified Data.Aeson                    as J
 import           Data.Aeson.Lens               (_Object)
 import qualified Data.HashMap.Strict           as HM
@@ -54,9 +52,9 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
                       let j = J.toJSON m in
                         case Map.lookup _medium_id gs of
                           Nothing -> j
-                          Just g -> let cam = maybe (Just $ _cameraModel g) Just _medium_camera_model in
+                          Just g -> let cam = _medium_camera_model <|> Just (_cameraModel g) in
                                       j & _Object . at "camera_model" .~ (J.String .fromString <$> cam)
-                                        & _Object . at "meta_data" .~ Just (J.toJSON g)
+                                        & _Object . at "meta_data" ?~ J.toJSON g
                    ) ms
 
       get "/thumb/:id" $ do
@@ -66,7 +64,7 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
         setHeader "Cache-Control" "max-age=86400"
         raw =<< loadThumbnail db imgid
 
-      get "/api/areas" ((lift $ asks dbConn) >>= selectAreas >>= json)
+      get "/api/areas" (lift (asks dbConn) >>= selectAreas >>= json)
 
       get "/api/retrieve2/:id" $ do
         imgid <- param "id"

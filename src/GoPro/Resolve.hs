@@ -30,16 +30,16 @@ data MDSummary = MDSummary {
   } deriving (Generic, Show)
 
 instance ToJSON MDSummary where
-  toJSON (MDSummary{..}) = object ["camera" .= _cameraModel,
-                                   "ts" .= _capturedTime,
-                                   "lat" .= _lat,
-                                   "lon" .= _lon,
-                                   "maxSpeed2d" .= _maxSpeed2d,
-                                   "maxSpeed3d" .= _maxSpeed3d,
-                                   "maxFaces" .= _maxFaces,
-                                   "scene" .= (show . fst <$> _mainScene),
-                                   "sceneProb" .= (snd <$> _mainScene)
-                                   ]
+  toJSON MDSummary{..} = object ["camera" .= _cameraModel,
+                                  "ts" .= _capturedTime,
+                                  "lat" .= _lat,
+                                  "lon" .= _lon,
+                                  "maxSpeed2d" .= _maxSpeed2d,
+                                  "maxSpeed3d" .= _maxSpeed3d,
+                                  "maxFaces" .= _maxFaces,
+                                  "scene" .= (show . fst <$> _mainScene),
+                                  "sceneProb" .= (snd <$> _mainScene)
+                                ]
 
 instance FromJSON MDSummary where
   parseJSON _ = pure MDSummary{}
