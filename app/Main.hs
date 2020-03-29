@@ -49,9 +49,9 @@ options = Options
 runCleanup :: GoPro ()
 runCleanup = mapM_ rm =<< (filter wanted <$> listAll)
     where
-      wanted Medium{..} = _medium_ready_to_view `elem` ["uploading", "failure"]
+      wanted Medium{..} = _medium_ready_to_view `elem` [ViewUploading, ViewFailure]
       rm Medium{..} = do
-        liftIO . putStrLn $ "Removing " <> T.unpack _medium_id <> " (" <> _medium_ready_to_view <> ")"
+        liftIO . putStrLn $ "Removing " <> T.unpack _medium_id <> " (" <> show _medium_ready_to_view <> ")"
         errs <- delete _medium_id
         unless (null errs) . liftIO . putStrLn $ " error: " <> show errs
 

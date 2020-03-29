@@ -13,24 +13,33 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  HasGoProDB(..),
                  initTables) where
 
-import           Control.Applicative            (liftA2)
+import           Control.Applicative              (liftA2)
 import           Control.Lens
-import           Control.Monad.IO.Class         (MonadIO (..))
-import           Data.Aeson                     (ToJSON (..), defaultOptions,
-                                                 fieldLabelModifier,
-                                                 genericToEncoding)
-import qualified Data.ByteString                as BS
-import qualified Data.ByteString.Lazy           as BL
-import           Data.Coerce                    (coerce)
-import           Data.Map.Strict                (Map)
-import qualified Data.Map.Strict                as Map
-import           Database.SQLite.Simple         hiding (bind, close)
+import           Control.Monad.IO.Class           (MonadIO (..))
+import           Data.Aeson                       (FromJSON (..), ToJSON (..),
+                                                   defaultOptions,
+                                                   fieldLabelModifier,
+                                                   genericToEncoding)
+import qualified Data.Aeson                       as J
+import qualified Data.ByteString                  as BS
+import qualified Data.ByteString.Lazy             as BL
+import           Data.Coerce                      (coerce)
+import           Data.Map.Strict                  (Map)
+import qualified Data.Map.Strict                  as Map
+import           Data.Maybe                       (fromJust)
+import qualified Data.Text.Encoding               as TE
+import           Data.Typeable                    (Typeable)
+import           Database.SQLite.Simple           hiding (bind, close)
+import           Database.SQLite.Simple.FromField
+import           Database.SQLite.Simple.Ok
 import           Database.SQLite.Simple.ToField
-import           Generics.Deriving.Base         (Generic)
-import           Text.RawString.QQ              (r)
+import           Generics.Deriving.Base           (Generic)
+import           Text.RawString.QQ                (r)
 
-import           GoPro.Plus.Media               (Medium (..), MediumID)
-import           GoPro.Resolve                  (MDSummary (..))
+import           GoPro.Plus.Media                 (Medium (..), MediumID,
+                                                   MediumType (..),
+                                                   ReadyToViewType (..))
+import           GoPro.Resolve                    (MDSummary (..))
 
 class Monad m => HasGoProDB m where
   goproDB :: m Connection
@@ -64,6 +73,29 @@ data MediaRow = MediaRow {
 
 makeLenses ''MediaRow
 
+jsonToField :: ToJSON a => a -> SQLData
+jsonToField v = case toJSON v of
+                  J.String x -> SQLText x
+                  e          -> error ("wtf is " <> show e)
+
+instance ToField ReadyToViewType where
+  toField = jsonToField
+
+instance ToField MediumType where
+  toField = jsonToField
+
+jsonFromField :: (Typeable j, FromJSON j) => String -> Field -> Ok j
+jsonFromField lbl f =
+  case fieldData f of
+    (SQLText t) -> Ok . fromJust . J.decode . BL.fromStrict . TE.encodeUtf8 $ ("\"" <> t <> "\"")
+    _ -> returnError ConversionFailed f ("invalid type for " <>  lbl)
+
+instance FromField ReadyToViewType where
+  fromField = jsonFromField "ready to view"
+
+instance FromField MediumType where
+  fromField = jsonFromField "medium type"
+
 instance ToRow MediaRow where
   toRow (MediaRow Medium{..} thumbnail) = [
     toField _medium_id,
@@ -89,7 +121,6 @@ loadMediaIDs = coerce <$> (liftIO . sel =<< goproDB)
   where
     sel :: Connection -> IO [Only MediumID]
     sel db = query_ db "select media_id from media order by captured_at desc"
-
 
 selectMediaStatement :: Query
 selectMediaStatement = [r|select media_id,
