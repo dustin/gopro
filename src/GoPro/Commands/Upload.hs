@@ -35,7 +35,7 @@ runUploadMultipart :: GoPro ()
 runUploadMultipart = do
   (typ:fps) <- asks (optArgv . gpOptions)
   runUpload fps $ do
-    setMediumType (T.pack typ)
+    setMediumType (read typ)
     setLogAction (logError . T.pack)
     mid <- createMedium
 
