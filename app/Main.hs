@@ -9,53 +9,34 @@
 
 module Main where
 
-import           Conduit
-import           Control.Applicative           (Alternative (..), (<|>))
-import           Control.Concurrent.QSem       (newQSem, signalQSem, waitQSem)
 import           Control.Lens                  hiding (argument)
-import           Control.Monad                 (MonadPlus (..), mzero, when)
-import           Control.Monad.Catch           (MonadCatch (..), MonadMask (..),
-                                                MonadThrow (..),
-                                                SomeException (..), bracket_,
-                                                catch)
+import           Control.Monad                 (when)
+import           Control.Monad.Catch           (bracket_)
 import           Control.Monad.Fail            (MonadFail (..))
 import           Control.Monad.IO.Class        (MonadIO (..))
-import           Control.Monad.Logger          (Loc (..), LogLevel (..),
-                                                LogSource, LogStr, LoggingT,
-                                                MonadLogger (..),
+import           Control.Monad.Logger          (LogLevel (..),
                                                 MonadLoggerIO (..),
-                                                ToLogStr (..), filterLogger,
-                                                logDebugN, logErrorN, logInfoN,
-                                                monadLoggerLog,
-                                                runStderrLoggingT)
-import           Control.Monad.Reader          (MonadReader, ReaderT (..), ask,
-                                                asks, lift, runReaderT)
+                                                filterLogger, runStderrLoggingT)
+import           Control.Monad.Reader          (ReaderT (..), ask, asks, lift,
+                                                runReaderT)
 import qualified Data.Aeson                    as J
 import           Data.Aeson.Lens               (_Object)
-import qualified Data.ByteString               as BS
 import qualified Data.ByteString.Lazy          as BL
-import           Data.Cache                    (Cache (..), fetchWithCache,
-                                                newCache)
-import           Data.Foldable                 (asum)
+import           Data.Cache                    (newCache)
 import qualified Data.HashMap.Strict           as HM
 import           Data.List                     (intercalate)
-import           Data.List.Extra               (chunksOf)
 import qualified Data.Map.Strict               as Map
-import           Data.Maybe                    (fromMaybe, isJust)
+import           Data.Maybe                    (fromMaybe)
 import           Data.Scientific               (fromFloatDigits)
-import qualified Data.Set                      as Set
 import           Data.String                   (fromString)
 import qualified Data.Text                     as T
 import qualified Data.Text.Encoding            as TE
 import qualified Data.Text.Lazy                as LT
 import qualified Data.Vector                   as V
-import           Database.SQLite.Simple        (Connection, SQLData (..),
-                                                Statement, columnCount,
-                                                columnName, nextRow,
-                                                withConnection, withStatement)
-import           Graphics.HsExif               (parseExif)
-import           Network.HTTP.Simple           (getResponseBody, httpSource,
-                                                parseRequest)
+import           Database.SQLite.Simple        (SQLData (..), Statement,
+                                                columnCount, columnName,
+                                                nextRow, withConnection,
+                                                withStatement)
 import qualified Network.Wai.Middleware.Gzip   as GZ
 import           Network.Wai.Middleware.Static (addBase, noDots, staticPolicy,
                                                 (>->))
@@ -68,64 +49,22 @@ import           Options.Applicative           (Parser, argument, auto,
                                                 (<**>))
 import           Prelude                       hiding (fail)
 import           System.Clock                  (TimeSpec (..))
-import           System.Directory              (createDirectoryIfMissing,
-                                                doesFileExist, removeFile,
-                                                renameFile)
 import           System.FilePath.Posix         ((</>))
 import           System.IO                     (hFlush, hGetEcho, hSetEcho,
                                                 stdin, stdout)
 import           System.Posix.Files            (fileSize, getFileStatus)
-import           UnliftIO                      (MonadUnliftIO (..),
-                                                mapConcurrently)
 import           Web.Scotty.Trans              (ScottyT, file, get, json,
                                                 middleware, param, raw, scottyT,
                                                 setHeader)
 
-import           Exif
-import           FFMPeg
 import           GoPro.AuthDB
+import           GoPro.Commands
+import           GoPro.Commands.Sync
 import           GoPro.DB
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
 import           GoPro.Plus.Upload
-import           GoPro.Resolve
-
-data Options = Options {
-  optDBPath              :: String,
-  optStaticPath          :: FilePath,
-  optVerbose             :: Bool,
-  optUploadConcurrency   :: Int,
-  optDownloadConcurrency :: Int,
-  optArgv                :: [String]
-  }
-
-data Env = Env {
-  gpOptions :: Options,
-  dbConn    :: Connection,
-  authCache :: Cache () AuthInfo,
-  envLogger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
-  }
-
-newtype EnvM a = EnvM
-  { runEnvM :: ReaderT Env IO a
-  } deriving (Applicative, Functor, Monad, MonadIO, MonadUnliftIO,
-              MonadCatch, MonadThrow, MonadMask, MonadReader Env, MonadFail)
-
-instance (Monad m, MonadLogger m, MonadIO m, MonadReader Env m) => HasGoProAuth m where
-  goproAuth = asks authCache >>= \c -> fetchWithCache c () (\() -> logDebugN "Reading auth token from DB" >>
-                                                                   asks dbConn >>= loadAuth)
-
-instance MonadLogger EnvM where
-  monadLoggerLog loc src lvl msg = asks envLogger >>= \l -> liftIO $ l loc src lvl (toLogStr msg)
-
-type GoPro = ReaderT Env (LoggingT IO)
-
-instance MonadPlus (LoggingT IO) where
-  mzero = lift mzero
-
-instance Alternative (LoggingT IO) where
-  empty = lift empty
-  a <|> b = a `catch` \(SomeException _) -> b
+import           GoPro.Resolve                 (MDSummary (..))
 
 options :: Parser Options
 options = Options
@@ -135,144 +74,6 @@ options = Options
   <*> option auto (short 'u' <> long "upload-concurrency" <> showDefault <> value 3 <> help "Upload concurrency")
   <*> option auto (short 'd' <> long "download-concurrency" <> showDefault <> value 11 <> help "Download concurrency")
   <*> some (argument str (metavar "cmd args..."))
-
-logError :: MonadLogger m => T.Text -> m ()
-logError = logErrorN
-
-logInfo :: MonadLogger m => T.Text -> m ()
-logInfo = logInfoN
-
-logDbg :: MonadLogger m => T.Text -> m ()
-logDbg = logDebugN
-
-tshow :: Show a => a -> T.Text
-tshow = T.pack . show
-
-mapConcurrentlyLimited :: (MonadMask m, MonadUnliftIO m, Traversable f, Foldable f)
-                       => Int
-                       -> (a -> m b)
-                       -> f a
-                       -> m (f b)
-mapConcurrentlyLimited n f l = liftIO (newQSem n) >>= \q -> mapConcurrently (b q) l
-  where b q x = bracket_ (liftIO (waitQSem q)) (liftIO (signalQSem q)) (f x)
-
-data SyncType = Full | Incremental
-
-runFetch :: SyncType -> GoPro ()
-runFetch stype = do
-  db <- asks dbConn
-  seen <- Set.fromList <$> loadMediaIDs db
-  ms <- todo seen
-  logInfo $ tshow (length ms) <> " new items"
-  when (not . null $ ms) $ logDbg $ "new items: " <> tshow (ms ^.. folded . medium_id)
-  mapM_ (storeSome db) $ chunksOf 100 ms
-
-    where resolve m = MediaRow m <$> fetchThumbnail m
-          todo seen = filter (\m -> notSeen m && wanted m) <$> listWhile (listPred stype)
-            where
-              notSeen = (`Set.notMember` seen) . _medium_id
-              listPred Incremental = all notSeen
-              listPred Full        = const True
-              wanted Medium{..} = isJust _medium_file_size
-                                  && _medium_ready_to_view `elem` ["transcoding", "ready"]
-          storeSome db l = do
-            logInfo $ "Storing batch of " <> tshow (length l)
-            c <- asks (optDownloadConcurrency . gpOptions)
-            storeMedia db =<< fetch c l
-          fetch c = mapConcurrentlyLimited c resolve
-
-runGrokTel :: GoPro ()
-runGrokTel = do
-  db <- asks dbConn
-  mapM_ (ud db) =<< metaTODO db
-    where
-      ud db (mid, typ, bs) = do
-        logInfo $ "Updating " <> tshow (mid, typ)
-        case summarize typ bs of
-          Left x -> logError $ "Error parsing stuff for " <> tshow mid <> " show " <> tshow x
-          Right x -> insertMeta db mid x
-      summarize :: String -> BS.ByteString -> Either String MDSummary
-      summarize "gpmf" bs = summarizeGPMF <$> parseDEVC bs
-      summarize "exif" bs = summarizeEXIF <$> parseExif (BL.fromStrict bs)
-      summarize fmt _     = Left ("Can't summarize " <> show fmt)
-
-runGetMeta :: GoPro ()
-runGetMeta = do
-  db <- asks dbConn
-  needs <- metaBlobTODO db
-  logInfo $ "Fetching " <> tshow (length needs)
-  logDbg $ tshow needs
-  mapM_ (process db) needs
-    where
-      process :: Connection -> (MediumID, String) -> GoPro ()
-      process db mtyp@(mid,typ) = do
-        fi <- retrieve mid
-        case typ of
-          "Video"          -> processEx fi extractGPMD "gpmf" ".mp4"
-          "TimeLapseVideo" -> processEx fi extractGPMD "gpmf" ".mp4"
-          "Photo"          -> processEx fi extractEXIF "exif" ".jpg"
-          "TimeLapse"      -> processEx fi extractEXIF "exif" ".jpg"
-          "Burst"          -> processEx fi extractEXIF "exif" ".jpg"
-          x                -> logError $ "Unhandled type: " <> tshow x
-
-          where
-            processEx fi ex fmt fx = do
-              let fv :: String -> FilePath -> GoPro (Maybe BS.ByteString)
-                  fv s p = Just <$> fetchX ex fi mid s p
-                  fn v = ".cache" </> T.unpack mid <> "-" <> v <> fx
-              ms <- asum [
-                fv "mp4_low" (fn "low"),
-                fv "high_res_proxy_mp4" (fn "high"),
-                fv "source" (fn "src"),
-                pure Nothing]
-              case ms of
-                Nothing -> do
-                  logInfo $ "Found no metadata for " <> tshow mtyp
-                  insertMetaBlob db mid "" Nothing
-                Just s -> do
-                  logInfo $ "MetaData stream for " <> tshow mtyp <> " is " <> tshow (BS.length s) <> " bytes"
-                  insertMetaBlob db mid fmt (Just s)
-                  -- Clean up in the success case.
-                  mapM_ (\f -> asum [liftIO (removeFile f), pure ()]) $ map fn ["low", "high", "src"]
-
-      fetchX :: (MediumID -> FilePath -> GoPro BS.ByteString)
-             -> FileInfo -> MediumID -> String -> FilePath -> GoPro BS.ByteString
-      fetchX ex fi mid var fn = do
-        let mu = fi ^? fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url
-        case mu of
-          Nothing -> empty
-          Just u  -> ex mid =<< dlIf mid var u fn
-
-      dlIf :: MediumID -> String -> String -> FilePath -> GoPro FilePath
-      dlIf mid var u dest = (liftIO $ doesFileExist dest) >>=
-        \case
-          True -> pure dest
-          _ -> download mid var u dest
-
-      download :: MediumID -> String -> String -> FilePath -> GoPro FilePath
-      download mid var u dest = do
-        liftIO $ createDirectoryIfMissing True ".cache"
-        logInfo $ "Fetching " <> tshow mid <> " variant " <> tshow var
-        logDbg $ "From " <> tshow u
-        req <- parseRequest u
-        let tmpfile = dest <> ".tmp"
-        liftIO $ (runConduitRes $ httpSource req getResponseBody .| sinkFile tmpfile) >>
-                  renameFile tmpfile dest
-        pure dest
-
-      extractEXIF :: MediumID -> FilePath -> GoPro BS.ByteString
-      extractEXIF mid f = do
-        bs <- liftIO $ BL.readFile f
-        case minimalEXIF bs of
-          Left s -> logError ("Can't find EXIF for " <> tshow mid <> tshow s) >> empty
-          Right e -> pure (BL.toStrict e)
-
-      extractGPMD :: MediumID -> FilePath -> GoPro BS.ByteString
-      extractGPMD mid f = do
-        ms <- liftIO $ findGPMDStream f
-        case ms of
-          Nothing -> logError ("Can't find GPMD stream for " <> tshow mid) >> empty
-          Just s -> (liftIO $ extractGPMDStream f s)
 
 runCleanup :: GoPro ()
 runCleanup = mapM_ rm =<< (filter wanted <$> listAll)
