@@ -55,3 +55,25 @@ runUploadMultipart = do
         uc fp up@UploadPart{..} = do
           logDbg . T.pack $ "Uploading part " <> show _uploadPart <> " of " <> fp
           uploadChunk fp up
+          logDbg . T.pack $ "Finished part " <> show _uploadPart <> " of " <> fp
+
+runResumeUpload :: GoPro ()
+runResumeUpload = do
+  (mids:upids:dids:parts:filename:todos) <- asks (optArgv . gpOptions)
+  let part = read parts
+      did = T.pack dids
+      todo = read <$> todos
+  fsize <- fromIntegral . fileSize <$> (liftIO . getFileStatus) filename
+  resumeUpload [filename] (T.pack mids) $ do
+    Upload{..} <- getUpload (T.pack upids) did part fsize
+    let chunks = filter (\UploadPart{..} -> _uploadPart `notElem` todo) _uploadParts
+    c <- asks (optUploadConcurrency . gpOptions)
+    _ <- mapConcurrentlyLimited c (uc filename) chunks
+    completeUpload _uploadID did part (fromIntegral fsize)
+    markAvailable did
+
+      where
+        uc fp up@UploadPart{..} = do
+          logDbg . T.pack $ "Uploading part " <> show _uploadPart <> " of " <> fp
+          uploadChunk fp up
+          logDbg . T.pack $ "Finished part " <> show _uploadPart <> " of " <> fp
