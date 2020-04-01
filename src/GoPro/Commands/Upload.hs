@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleContexts #-}
 
-module GoPro.Commands.Upload where
+module GoPro.Commands.Upload (
+  runUploadFiles, runUploadMultipart, runResumeUpload
+  ) where
 
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Reader   (asks)
@@ -9,6 +11,14 @@ import           System.Posix.Files     (fileSize, getFileStatus)
 
 import           GoPro.Commands
 import           GoPro.Plus.Upload
+
+
+uc :: FilePath -> UploadPart -> Uploader GoPro ()
+uc fp up@UploadPart{..} = do
+  logDbg . T.pack $ "Uploading part " <> show _uploadPart <> " of " <> fp
+  uploadChunk fp up
+  logDbg . T.pack $ "Finished part " <> show _uploadPart <> " of " <> fp
+
 
 runUploadFiles :: GoPro ()
 runUploadFiles = mapM_ upload =<< asks (optArgv . gpOptions)
@@ -22,14 +32,9 @@ runUploadFiles = mapM_ upload =<< asks (optArgv . gpOptions)
       Upload{..} <- createUpload did 1 (fromInteger fsize)
       logInfo $ "Uploading " <> tshow fp <> " as " <> mid <> ": did=" <> did <> ", upid=" <> _uploadID
       c <- asks (optUploadConcurrency . gpOptions)
-      _ <- mapConcurrentlyLimited c uc _uploadParts
+      _ <- mapConcurrentlyLimited c (uc fp) _uploadParts
       completeUpload _uploadID did 1 fsize
       markAvailable did
-
-        where
-          uc up@UploadPart{..} = do
-            logDbg . T.pack $ "Uploading part " <> show _uploadPart <> " of " <> fp
-            uploadChunk fp up
 
 runUploadMultipart :: GoPro ()
 runUploadMultipart = do
@@ -51,12 +56,6 @@ runUploadMultipart = do
           ) $ zip fps [1..]
     markAvailable did
 
-      where
-        uc fp up@UploadPart{..} = do
-          logDbg . T.pack $ "Uploading part " <> show _uploadPart <> " of " <> fp
-          uploadChunk fp up
-          logDbg . T.pack $ "Finished part " <> show _uploadPart <> " of " <> fp
-
 runResumeUpload :: GoPro ()
 runResumeUpload = do
   (mids:upids:dids:parts:filename:todos) <- asks (optArgv . gpOptions)
@@ -71,9 +70,3 @@ runResumeUpload = do
     _ <- mapConcurrentlyLimited c (uc filename) chunks
     completeUpload _uploadID did part (fromIntegral fsize)
     markAvailable did
-
-      where
-        uc fp up@UploadPart{..} = do
-          logDbg . T.pack $ "Uploading part " <> show _uploadPart <> " of " <> fp
-          uploadChunk fp up
-          logDbg . T.pack $ "Finished part " <> show _uploadPart <> " of " <> fp
