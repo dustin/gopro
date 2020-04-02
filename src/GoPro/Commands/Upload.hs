@@ -30,7 +30,7 @@ runUploadFiles = mapM_ upload =<< asks (optArgv . gpOptions)
       did <- createSource 1
       fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
       Upload{..} <- createUpload did 1 (fromInteger fsize)
-      logInfo $ "Uploading " <> tshow fp <> " as " <> mid <> ": did=" <> did <> ", upid=" <> _uploadID
+      logInfo $ "Uploading " <> tshow fp <> " (" <> tshow fsize <> " bytes) as " <> mid <> ": did=" <> did <> ", upid=" <> _uploadID
       c <- asks (optUploadConcurrency . gpOptions)
       _ <- mapConcurrentlyLimited c (uc fp) _uploadParts
       completeUpload _uploadID did 1 fsize
