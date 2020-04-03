@@ -48,7 +48,7 @@ runFetch stype = do
               listPred Incremental = all notSeen
               listPred Full        = const True
               wanted Medium{..} = isJust _medium_file_size
-                                  && _medium_ready_to_view `elem` [ViewTranscoding, ViewReady]
+                                  && _medium_ready_to_view `elem` [ViewReady]
           storeSome l = do
             logInfo $ "Storing batch of " <> tshow (length l)
             c <- asks (optDownloadConcurrency . gpOptions)
