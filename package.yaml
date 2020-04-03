@@ -58,6 +58,7 @@ dependencies:
 - unliftio
 - cache
 - clock
+- retry
 
 library:
   source-dirs: src

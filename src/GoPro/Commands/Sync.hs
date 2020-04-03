@@ -9,6 +9,8 @@ import           Control.Lens
 import           Control.Monad          (unless)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Reader   (asks)
+import           Control.Retry          (RetryStatus (..), exponentialBackoff,
+                                         limitRetries, recoverAll)
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BL
 import           Data.Foldable          (asum)
@@ -121,15 +123,18 @@ runGetMeta = do
           _ -> download mid var u dest
 
       download :: MediumID -> String -> String -> FilePath -> GoPro FilePath
-      download mid var u dest = do
+      download mid var u dest = recoverAll policy $ \r -> do
         liftIO $ createDirectoryIfMissing True ".cache"
-        logInfo $ "Fetching " <> tshow mid <> " variant " <> tshow var
+        logInfo $ "Fetching " <> tshow mid <> " variant " <> tshow var <> " attempt " <> tshow (rsIterNumber r)
         logDbg $ "From " <> tshow u
         req <- parseRequest u
         let tmpfile = dest <> ".tmp"
         liftIO $ runConduitRes (httpSource req getResponseBody .| sinkFile tmpfile) >>
                   renameFile tmpfile dest
         pure dest
+
+          where
+            policy = exponentialBackoff 2000000 <> limitRetries 9
 
       extractEXIF :: MediumID -> FilePath -> GoPro BS.ByteString
       extractEXIF mid f = do
