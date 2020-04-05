@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeApplications #-}
+
 module GoPro.Commands.Web where
 
 import           Control.Applicative           ((<|>))
@@ -55,6 +57,10 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
         raw =<< lift . loadThumbnail =<< param "id"
 
       get "/api/areas" (lift selectAreas >>= json)
+
+      get "/api/retrieve/:id" $ do
+        imgid <- param "id"
+        json @J.Value =<< lift (retrieve imgid)
 
       get "/api/retrieve2/:id" $ do
         imgid <- param "id"
