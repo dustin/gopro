@@ -59,6 +59,10 @@ dependencies:
 - cache
 - clock
 - retry
+- resourcet
+- conduit-extra
+- amazonka
+- amazonka-s3 >= 1.6.1
 
 library:
   source-dirs: src

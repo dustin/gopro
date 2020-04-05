@@ -29,6 +29,7 @@ import           System.IO              (hFlush, hGetEcho, hSetEcho, stdin,
 
 import           GoPro.AuthDB
 import           GoPro.Commands
+import           GoPro.Commands.Backup
 import           GoPro.Commands.Fixup
 import           GoPro.Commands.Sync
 import           GoPro.Commands.Upload
@@ -93,7 +94,8 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
             ("fixup", runFixup),
             ("serve", runServer),
             ("getmeta", runGetMeta),
-            ("groktel", runGrokTel)]
+            ("groktel", runGrokTel),
+            ("backup", runBackup)]
     unknown = do
       putStrLn $ "Unknown command: " <> c
       putStrLn "Try one of these:"
