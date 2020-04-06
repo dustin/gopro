@@ -63,6 +63,7 @@ dependencies:
 - conduit-extra
 - amazonka
 - amazonka-s3 >= 1.6.1
+- amazonka-sqs
 
 library:
   source-dirs: src
