@@ -13,13 +13,14 @@ import           Data.String                   (fromString)
 import qualified Data.Text                     as T
 import qualified Data.Text.Lazy                as LT
 import qualified Data.Vector                   as V
+import           Network.HTTP.Types.Status     (noContent204)
 import qualified Network.Wai.Middleware.Gzip   as GZ
 import           Network.Wai.Middleware.Static (addBase, noDots, staticPolicy,
                                                 (>->))
 import           System.FilePath.Posix         ((</>))
 import           Web.Scotty.Trans              (ScottyT, file, get, json,
-                                                middleware, param, raw, scottyT,
-                                                setHeader)
+                                                middleware, param, post, raw,
+                                                scottyT, setHeader, status)
 
 import           GoPro.Commands
 import           GoPro.DB
@@ -50,6 +51,13 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
                                       j & _Object . at "camera_model" .~ (J.String .fromString <$> cam)
                                         & _Object . at "meta_data" ?~ J.toJSON g
                    ) ms
+
+      post "/api/refresh/:id" $ do
+        imgid <- param "id"
+        lift . logInfo $ "Refreshing " <> imgid
+        m <- lift (medium imgid)
+        lift (storeMedia [MediaRow m mempty])
+        status noContent204
 
       get "/thumb/:id" $ do
         setHeader "Content-Type" "image/jpeg"

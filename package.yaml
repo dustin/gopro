@@ -41,6 +41,7 @@ dependencies:
 - monad-logger
 - filepath
 - scotty
+- http-types
 - wai
 - wai-middleware-static
 - wai-extra

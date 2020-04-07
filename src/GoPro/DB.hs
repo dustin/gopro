@@ -60,11 +60,16 @@ initTables db = mapM_ (execute_ db)
                                                       lat1 real, lon1 real,
                                                       lat2 real, lon2 real)|]]
 
-insertMediaStatement :: Query
-insertMediaStatement = [r|insert into media (media_id, camera_model, captured_at, created_at,
+upsertMediaStatement :: Query
+upsertMediaStatement = [r|insert into media (media_id, camera_model, captured_at, created_at,
                                              file_size, moments_count, source_duration, media_type,
                                              width, height, ready_to_view, thumbnail)
-                                      values(?,?,?,?,?,?,?,?,?,?,?,?)|]
+                                      values(?,?,?,?,?,?,?,?,?,?,?,?)
+                            on conflict (media_id)
+                               do update
+                                 set moments_count = excluded.moments_count,
+                                     ready_to_view = excluded.ready_to_view
+                              |]
 
 data MediaRow = MediaRow {
   _row_media     :: Medium,
@@ -114,7 +119,7 @@ instance ToRow MediaRow where
 
 storeMedia :: (HasGoProDB m, MonadIO m) => [MediaRow] -> m ()
 storeMedia media = liftIO . up =<< goproDB
-  where up db = executeMany db insertMediaStatement media
+  where up db = executeMany db upsertMediaStatement media
 
 loadMediaIDs :: (HasGoProDB m, MonadIO m) => m [MediumID]
 loadMediaIDs = coerce <$> (liftIO . sel =<< goproDB)

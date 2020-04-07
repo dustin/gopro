@@ -99,6 +99,8 @@ type Msg
   | ZoneHere Time.Zone
   | CurrentTime Time.Posix
   | OpenOverlay Medium
+  | RefreshMedium String
+  | ReloadMedia
   | CloseOverlay
   | CheckedCam String Bool
   | CheckedType String Bool
@@ -231,6 +233,7 @@ renderOverlay z (mm, mdls) =
         Nothing -> text "nothing to see here"
         Just m -> div [ H.class "details" ]
                   ([h2 [] [ text (m.id) ]
+                   , a [ onClick (RefreshMedium m.id) ] [ text "Refresh Data from GoPro" ]
                    , renderIcon m mdls
                    , dl [ H.class "deets" ] ([
                          h2 [] [text "Details" ]
@@ -362,10 +365,14 @@ update msg (Model model) =
                         cameras = Set.fromList (List.map .camera_model meds)
                         types = Set.fromList (List.map (\m -> mediaTypeStr m.media_type) meds)
                         years = Set.fromList <| List.map (Time.toYear z << .captured_at) meds
+                        c = case model.current of
+                                (Nothing, x) -> (Nothing, x)
+                                (Just m, x) -> (List.head (List.filter (\mn -> mn.id == m.id) meds), x)
                     in
                     (filter (Model {model | media = Just (Media meds (Set.toList cameras) (Set.toList types) years []),
                                             camerasChecked = cameras,
-                                            typesChecked = types
+                                            typesChecked = types,
+                                            current = c
                                    }), Cmd.none)
 
                 Err x ->
@@ -400,6 +407,17 @@ update msg (Model model) =
                             { url = "/api/retrieve2/" ++ m.id
                             , expect = Http.expectJson SomeDLOpts dloptsDecoder
                             }])
+
+        RefreshMedium mid ->
+            (Model model, Http.post { url = "/api/refresh/" ++ mid
+                                    , body = Http.emptyBody
+                                    , expect = Http.expectWhatever (always ReloadMedia) })
+
+        ReloadMedia -> (Model model,
+                        Http.get
+                            { url = "/api/media"
+                            , expect = Http.expectJson SomeMedia mediaListDecoder
+                            })
 
         CloseOverlay ->
             (Model { model | overlay = ScreenOverlay.hide model.overlay,
