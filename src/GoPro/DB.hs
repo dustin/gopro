@@ -58,7 +58,9 @@ initTables db = mapM_ (execute_ db)
                  [r|create table if not exists areas (area_id integer primary key autoincrement,
                                                       name text,
                                                       lat1 real, lon1 real,
-                                                      lat2 real, lon2 real)|]]
+                                                      lat2 real, lon2 real)|],
+                 "create table if not exists moments (media_id, timestamp)",
+                 "create index if not exists moments_by_medium on moments(media_id)"]
 
 upsertMediaStatement :: Query
 upsertMediaStatement = [r|insert into media (media_id, camera_model, captured_at, created_at,
