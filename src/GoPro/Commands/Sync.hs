@@ -126,7 +126,6 @@ runGetMeta = do
       download mid var u dest = recoverAll policy $ \r -> do
         liftIO $ createDirectoryIfMissing True ".cache"
         logInfo $ "Fetching " <> tshow mid <> " variant " <> tshow var <> " attempt " <> tshow (rsIterNumber r)
-        logDbg $ "From " <> tshow u
         req <- parseRequest u
         let tmpfile = dest <> ".tmp"
         liftIO $ runConduitRes (httpSource req getResponseBody .| sinkFile tmpfile) >>
