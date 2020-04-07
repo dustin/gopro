@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE LambdaCase       #-}
+{-# LANGUAGE TupleSections    #-}
 
 module GoPro.Commands.Sync where
 
@@ -56,6 +57,13 @@ runFetch stype = do
             c <- asks (optDownloadConcurrency . gpOptions)
             storeMedia =<< fetch c l
           fetch c = mapConcurrentlyLimited c resolve
+
+runGetMoments :: GoPro ()
+runGetMoments = do
+  need <- momentsTODO
+  c <- asks (optDownloadConcurrency . gpOptions)
+  mapM_ (uncurry storeMoments) =<< mapConcurrentlyLimited c pickup need
+    where pickup mid = (mid,) <$> moments mid
 
 runGrokTel :: GoPro ()
 runGrokTel = mapM_ ud =<< metaTODO

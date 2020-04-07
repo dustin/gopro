@@ -7,6 +7,7 @@
 
 module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  MediaRow(..), row_media, row_thumbnail,
+                 storeMoments, loadMoments, momentsTODO,
                  metaBlobTODO, insertMetaBlob,
                  metaTODO, insertMeta, selectMeta,
                  Area(..), area_id, area_name, area_nw, area_se, selectAreas,
@@ -37,7 +38,7 @@ import           Generics.Deriving.Base           (Generic)
 import           Text.RawString.QQ                (r)
 
 import           GoPro.Plus.Media                 (Medium (..), MediumID,
-                                                   MediumType (..),
+                                                   MediumType (..), Moment (..),
                                                    ReadyToViewType (..))
 import           GoPro.Resolve                    (MDSummary (..))
 
@@ -59,7 +60,7 @@ initTables db = mapM_ (execute_ db)
                                                       name text,
                                                       lat1 real, lon1 real,
                                                       lat2 real, lon2 real)|],
-                 "create table if not exists moments (media_id, timestamp)",
+                 "create table if not exists moments (media_id, moment_id integer, timestamp integer)",
                  "create index if not exists moments_by_medium on moments(media_id)"]
 
 upsertMediaStatement :: Query
@@ -265,3 +266,26 @@ selectAreas :: (HasGoProDB m, MonadIO m) => m [Area]
 selectAreas = liftIO . sel =<< goproDB
   where
     sel db = query_ db "select area_id, name, lat1, lon1, lat2, lon2 from areas"
+
+storeMoments :: (HasGoProDB m, MonadIO m) => MediumID -> [Moment] -> m ()
+storeMoments mid ms = liftIO . up =<< goproDB
+  where
+    up db = do
+      execute db "delete from moments where media_id = ?" (Only mid)
+      let vals = [(mid, _moment_id, _moment_time) | Moment{..} <- ms]
+      executeMany db "insert into moments (media_id, moment_id, timestamp) values (?,?,?)" vals
+
+loadMoments :: (HasGoProDB m, MonadIO m) => m (Map MediumID [Moment])
+loadMoments = goproDB >>= \db -> Map.fromListWith (<>) . map (\(a,b,c) -> (a,[Moment b c])) <$> liftIO (sel db)
+  where sel db = query_ db "select media_id, moment_id, timestamp from moments"
+
+momentsTODO :: (HasGoProDB m, MonadIO m) => m [MediumID]
+momentsTODO = liftIO . coerce . sel =<< goproDB
+  where
+    sel :: Connection -> IO [Only MediumID]
+    sel db = query_ db [r|
+                         select m.media_id from media m left outer join
+                           (select media_id, count(*) as moco from moments group by media_id) as mo
+                           on (m. media_id = mo.media_id)
+                          where m.moments_count != ifnull(moco, 0) ;
+                         |]
