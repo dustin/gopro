@@ -61,6 +61,7 @@ runFetch stype = do
 runGetMoments :: GoPro ()
 runGetMoments = do
   need <- momentsTODO
+  unless (null need) $ logInfo ("Need to fetch " <> (tshow . length) need <> " moments")
   c <- asks (optDownloadConcurrency . gpOptions)
   mapM_ (uncurry storeMoments) =<< mapConcurrentlyLimited c pickup need
     where pickup mid = (mid,) <$> moments mid
@@ -81,8 +82,8 @@ runGrokTel = mapM_ ud =<< metaTODO
 runGetMeta :: GoPro ()
 runGetMeta = do
   needs <- metaBlobTODO
-  logInfo $ "Fetching " <> tshow (length needs)
-  logDbg $ tshow needs
+  logInfo $ "Fetching meta " <> tshow (length needs)
+  logDbg $ "Need meta: " <> tshow needs
   mapM_ process needs
     where
       process :: (MediumID, String) -> GoPro ()
