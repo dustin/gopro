@@ -95,6 +95,7 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
             ("serve", runServer),
             ("getmeta", runGetMeta),
             ("groktel", runGrokTel),
+            ("transcoding", runWaitForTranscoding),
             ("backup", runBackup)]
     unknown = do
       putStrLn $ "Unknown command: " <> c

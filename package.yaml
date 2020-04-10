@@ -65,6 +65,7 @@ dependencies:
 - amazonka
 - amazonka-s3 >= 1.6.1
 - amazonka-sqs
+- monad-loops
 
 library:
   source-dirs: src

@@ -6,9 +6,11 @@ module GoPro.Commands.Sync where
 
 import           Conduit
 import           Control.Applicative    (Alternative (..))
+import           Control.Concurrent     (threadDelay)
 import           Control.Lens
 import           Control.Monad          (unless)
 import           Control.Monad.IO.Class (MonadIO (..))
+import           Control.Monad.Loops    (whileM_)
 import           Control.Monad.Reader   (asks)
 import           Control.Retry          (RetryStatus (..), exponentialBackoff,
                                          limitRetries, recoverAll)
@@ -157,3 +159,14 @@ runGetMeta = do
         case ms of
           Nothing -> logError ("Can't find GPMD stream for " <> tshow mid) >> empty
           Just s -> liftIO $ extractGPMDStream f s
+
+runWaitForTranscoding :: GoPro ()
+runWaitForTranscoding = whileM_ isTranscoding (sleep 15)
+  where
+    isTranscoding = do
+      ids <- toListOf (folded . filtered (has (medium_ready_to_view . only ViewTranscoding)) . medium_id) . fst <$> list 30 1
+      unless (null ids) $ logInfo $ "Still transcoding: " <> tshow ids
+      pure $ (not.null) ids
+
+    sleep = liftIO . threadDelay . seconds
+    seconds = (* 1000000)
