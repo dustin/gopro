@@ -13,6 +13,7 @@ import           Data.Text               (Text, pack, unpack)
 import qualified Data.Text.Encoding      as TE
 import           Network.AWS.S3          (BucketName (..))
 import           Network.AWS.SQS         (sendMessage)
+import           UnliftIO                (concurrently)
 
 import           GoPro.Commands
 import           GoPro.DB
@@ -52,8 +53,13 @@ runBackup = do
 
 runStoreMeta :: GoPro ()
 runStoreMeta = do
-  meta <- selectMetaBlob
-  c <- asks (optUploadConcurrency . gpOptions)
   bucket <- asks (optS3Bucket . gpOptions)
-  _ <- mapConcurrentlyLimited c (\(mid,blob) -> storeMetaBlob bucket mid (BL.fromStrict blob)) meta
-  clearMetaBlob (fst <$> meta)
+  (have, local) <- concurrently (Set.fromList <$> listMetaBlobs bucket) selectMetaBlob
+  logDbg $ "have: " <> (pack.show) have
+  logDbg $ "local: " <> (pack.show.fmap fst) local
+  let todo = filter ((`Set.member` have) . fst) local
+  logInfo $ "todo: " <> (pack.show) todo
+
+  c <- asks (optUploadConcurrency . gpOptions)
+  _ <- mapConcurrentlyLimited c (\(mid,blob) -> storeMetaBlob bucket mid (BL.fromStrict blob)) todo
+  clearMetaBlob (fst <$> todo)
