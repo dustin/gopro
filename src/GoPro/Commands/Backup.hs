@@ -59,4 +59,5 @@ runStoreMeta = do
   meta <- selectMetaBlob
   c <- asks (optUploadConcurrency . gpOptions)
   bucket <- asks (optS3Bucket . gpOptions)
-  void $ mapConcurrentlyLimited c (\(mid,blob) -> storeMetaBlob bucket mid (BL.fromStrict blob)) meta
+  _ <- mapConcurrentlyLimited c (\(mid,blob) -> storeMetaBlob bucket mid (BL.fromStrict blob)) meta
+  clearMetaBlob (fst <$> meta)

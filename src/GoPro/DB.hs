@@ -8,7 +8,7 @@
 module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  MediaRow(..), row_media, row_thumbnail,
                  storeMoments, loadMoments, momentsTODO,
-                 metaBlobTODO, insertMetaBlob, selectMetaBlob,
+                 metaBlobTODO, insertMetaBlob, selectMetaBlob, clearMetaBlob,
                  metaTODO, insertMeta, selectMeta,
                  Area(..), area_id, area_name, area_nw, area_se, selectAreas,
                  HasGoProDB(..),
@@ -55,7 +55,7 @@ initTables db = mapM_ (execute_ db)
                  [r|create table if not exists
                            meta (media_id primary key, camera_model, captured_at,
                                  lat, lon, max_speed_2d, max_speed_3d, max_faces, main_scene, main_scene_prob)|],
-                 "create table if not exists metablob (media_id primary key, meta blob, format text)",
+                 "create table if not exists metablob (media_id primary key, meta blob, format text, backedup boolean)",
                  [r|create table if not exists areas (area_id integer primary key autoincrement,
                                                       name text,
                                                       lat1 real, lon1 real,
@@ -195,6 +195,10 @@ metaTODO = liftIO . sel =<< goproDB
 selectMetaBlob :: (HasGoProDB m, MonadIO m) => m [(MediumID, BS.ByteString)]
 selectMetaBlob = liftIO . sel =<< goproDB
   where sel db = query_ db "select media_id, meta from metablob where meta is not null"
+
+clearMetaBlob :: (HasGoProDB m, MonadIO m) => [MediumID] -> m ()
+clearMetaBlob ms = liftIO . up =<< goproDB
+  where up db = executeMany db "update metablob set meta = null, backedup = true where media_id = ?" [Only m | m <- ms]
 
 insertMeta :: (HasGoProDB m, MonadIO m) => MediumID -> MDSummary -> m ()
 insertMeta mid MDSummary{..} = liftIO . up =<< goproDB
