@@ -57,8 +57,8 @@ runStoreMeta = do
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs bucket) selectMetaBlob
   logDbg $ "have: " <> (pack.show) have
   logDbg $ "local: " <> (pack.show.fmap fst) local
-  let todo = filter ((`Set.member` have) . fst) local
-  logInfo $ "todo: " <> (pack.show) todo
+  let todo = filter ((`Set.notMember` have) . fst) local
+  logInfo $ "todo: " <> (pack.show.fmap fst) todo
 
   c <- asks (optUploadConcurrency . gpOptions)
   _ <- mapConcurrentlyLimited c (\(mid,blob) -> storeMetaBlob bucket mid (BL.fromStrict blob)) todo
