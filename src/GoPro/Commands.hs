@@ -23,27 +23,29 @@ import           Control.Monad.Reader    (MonadReader, ReaderT (..), asks, lift)
 import           Data.Cache              (Cache (..), fetchWithCache)
 import qualified Data.Text               as T
 import           Database.SQLite.Simple  (Connection)
+import           Network.AWS.S3          (BucketName (..))
 import           UnliftIO                (MonadUnliftIO (..), mapConcurrently)
 
 import           GoPro.AuthDB
 import           GoPro.DB                (HasGoProDB (..))
 import           GoPro.Plus.Auth
 
-data Options = Options {
-  optDBPath              :: String,
-  optStaticPath          :: FilePath,
-  optVerbose             :: Bool,
-  optUploadConcurrency   :: Int,
-  optDownloadConcurrency :: Int,
-  optArgv                :: [String]
-  }
+data Options = Options
+    { optDBPath              :: String
+    , optStaticPath          :: FilePath
+    , optVerbose             :: Bool
+    , optUploadConcurrency   :: Int
+    , optDownloadConcurrency :: Int
+    , optS3Bucket            :: BucketName
+    , optArgv                :: [String]
+    }
 
-data Env = Env {
-  gpOptions :: Options,
-  dbConn    :: Connection,
-  authCache :: Cache () AuthInfo,
-  envLogger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
-  }
+data Env = Env
+    { gpOptions :: Options
+    , dbConn    :: Connection
+    , authCache :: Cache () AuthInfo
+    , envLogger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
+    }
 
 newtype EnvM a = EnvM
   { runEnvM :: ReaderT Env IO a

@@ -63,9 +63,11 @@ dependencies:
 - resourcet
 - conduit-extra
 - amazonka
+- amazonka-core
 - amazonka-s3 >= 1.6.1
 - amazonka-sqs
 - monad-loops
+- zlib
 
 library:
   source-dirs: src

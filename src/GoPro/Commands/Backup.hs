@@ -1,43 +1,25 @@
-module GoPro.Commands.Backup (runBackup) where
+module GoPro.Commands.Backup (runBackup, runStoreMeta) where
 
 
 import           Control.Lens
 import           Control.Monad           (void, when)
 import           Control.Monad.Reader    (asks)
 import           Control.Monad.Trans.AWS (Credentials (..), Region (..),
-                                          envRegion, newEnv, paginate, runAWST,
+                                          envRegion, newEnv, runAWST,
                                           runResourceT, send)
 import qualified Data.Aeson              as J
 import qualified Data.ByteString.Lazy    as BL
-import           Data.Conduit            (runConduit, (.|))
-import qualified Data.Conduit.List       as CL
 import qualified Data.Set                as Set
 import           Data.String             (fromString)
-import           Data.Text               (Text, isSuffixOf, pack, unpack)
+import           Data.Text               (Text, pack, unpack)
 import qualified Data.Text.Encoding      as TE
-import           Network.AWS.S3
+import           Network.AWS.S3          (BucketName (..))
 import           Network.AWS.SQS         (sendMessage)
-import           System.FilePath.Posix   (takeBaseName, takeDirectory)
 
 import           GoPro.Commands
 import           GoPro.DB
 import           GoPro.Plus.Media
-
-type Derivative = (MediumID, Text)
-
-allDerivatives :: BucketName -> GoPro [Derivative]
-allDerivatives bucketName = do
-  awsenv <- newEnv Discover <&> set envRegion Oregon
-  runResourceT . runAWST awsenv $
-    runConduit $ paginate (listObjectsV2 bucketName & lovPrefix ?~ "derivatives/")
-    .| CL.concatMap (view lovrsContents)
-    .| CL.map (view (oKey . _ObjectKey))
-    .| CL.filter (not . ("/" `isSuffixOf`))
-    .| CL.map toDir
-    .| CL.consume
-
-  where toDir t = let s = unpack t in
-                    (pack . takeBaseName . takeDirectory $ s, pack $ takeBaseName s)
+import           GoPro.S3
 
 type QueueURL = Text
 
@@ -71,3 +53,10 @@ runBackup = do
   logDbg $ "todo: " <> (pack.show) todo
   c <- asks (optUploadConcurrency . gpOptions)
   void $ mapConcurrentlyLimited c (\mid -> storeDerivative (pack qrl) (fromString bucketName) mid "source") todo
+
+runStoreMeta :: GoPro ()
+runStoreMeta = do
+  meta <- selectMetaBlob
+  c <- asks (optUploadConcurrency . gpOptions)
+  bucket <- asks (optS3Bucket . gpOptions)
+  void $ mapConcurrentlyLimited c (\(mid,blob) -> storeMetaBlob bucket mid (BL.fromStrict blob)) meta

@@ -45,6 +45,7 @@ options = Options
   <*> switch (short 'v' <> long "verbose" <> help "enable debug logging")
   <*> option auto (short 'u' <> long "upload-concurrency" <> showDefault <> value 3 <> help "Upload concurrency")
   <*> option auto (short 'd' <> long "download-concurrency" <> showDefault <> value 11 <> help "Download concurrency")
+  <*> strOption (long "bucket" <> showDefault <> value "gopro.bucket" <> help "S3 bucket")
   <*> some (argument str (metavar "cmd args..."))
 
 runCleanup :: GoPro ()
@@ -96,6 +97,7 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
             ("getmeta", runGetMeta),
             ("groktel", runGrokTel),
             ("transcoding", runWaitForTranscoding),
+            ("storemeta", runStoreMeta),
             ("backup", runBackup)]
     unknown = do
       putStrLn $ "Unknown command: " <> c

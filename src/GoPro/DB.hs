@@ -8,7 +8,7 @@
 module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  MediaRow(..), row_media, row_thumbnail,
                  storeMoments, loadMoments, momentsTODO,
-                 metaBlobTODO, insertMetaBlob,
+                 metaBlobTODO, insertMetaBlob, selectMetaBlob,
                  metaTODO, insertMeta, selectMeta,
                  Area(..), area_id, area_name, area_nw, area_se, selectAreas,
                  HasGoProDB(..),
@@ -191,6 +191,10 @@ metaTODO = liftIO . sel =<< goproDB
                          where b.meta is not null
                                and b.media_id not in (select media_id from meta)
                          |]
+
+selectMetaBlob :: (HasGoProDB m, MonadIO m) => m [(MediumID, BS.ByteString)]
+selectMetaBlob = liftIO . sel =<< goproDB
+  where sel db = query_ db "select media_id, meta from metablob where meta is not null"
 
 insertMeta :: (HasGoProDB m, MonadIO m) => MediumID -> MDSummary -> m ()
 insertMeta mid MDSummary{..} = liftIO . up =<< goproDB
