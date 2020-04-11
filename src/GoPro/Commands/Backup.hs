@@ -4,9 +4,7 @@ module GoPro.Commands.Backup (runBackup, runStoreMeta) where
 import           Control.Lens
 import           Control.Monad           (void, when)
 import           Control.Monad.Reader    (asks)
-import           Control.Monad.Trans.AWS (Credentials (..), Region (..),
-                                          envRegion, newEnv, runAWST,
-                                          runResourceT, send)
+import           Control.Monad.Trans.AWS (Region (..), send)
 import qualified Data.Aeson              as J
 import qualified Data.ByteString.Lazy    as BL
 import qualified Data.Set                as Set
@@ -29,9 +27,7 @@ storeDerivative qrl (BucketName bucketName) mid d = do
   let u = var ^. var_url
       key = fromString ("derivatives/" <> unpack mid <> "/" <> d <> "." <> (var ^. var_type))
   logInfo $ "Queueing copy of " <>  mid
-  awsenv <- newEnv Discover <&> set envRegion Oregon
-  runResourceT . runAWST awsenv $
-    void . send $ sendMessage qrl (encodeCopyRequest (pack u) bucketName key)
+  inAWS Oregon $ void . send $ sendMessage qrl (encodeCopyRequest (pack u) bucketName key)
 
       where
         encodeCopyRequest src bname key = TE.decodeUtf8 (BL.toStrict . J.encode $ jbod)
