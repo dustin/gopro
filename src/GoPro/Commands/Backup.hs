@@ -56,7 +56,6 @@ runStoreMeta :: GoPro ()
 runStoreMeta = do
   bucket <- asks (optS3Bucket . gpOptions)
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs bucket) selectMetaBlob
-  logDbg $ "have: " <> (pack.show) have
   logDbg $ "local: " <> (pack.show.fmap fst) local
   let todo = filter ((`Set.notMember` have) . fst) local
   logInfo $ "todo: " <> (pack.show.fmap fst) todo
