@@ -41,15 +41,16 @@ storeDerivative qrl (BucketName bucketName) mid d = do
 runBackup :: GoPro ()
 runBackup = do
   args <- asks (optArgv . gpOptions)
-  when (length args /= 2) $ fail "A SQS URL and bucket name must be specified"
-  let [qrl, bucketName] = args
-  have <- Set.fromList . fmap fst <$>  allDerivatives (fromString bucketName)
+  when (length args /= 1) $ fail "A SQS URL must be specified"
+  let [qrl] = args
+  bucket <- asks (optS3Bucket . gpOptions)
+  have <- Set.fromList . fmap fst <$>  allDerivatives bucket
   logDbg $ "have: " <> (pack . show) have
   want <- Set.fromList <$> loadMediaIDs
   let todo = take 25 $  Set.toList (want `Set.difference` have)
   logDbg $ "todo: " <> (pack.show) todo
   c <- asks (optUploadConcurrency . gpOptions)
-  void $ mapConcurrentlyLimited c (\mid -> storeDerivative (pack qrl) (fromString bucketName) mid "source") todo
+  void $ mapConcurrentlyLimited c (\mid -> storeDerivative (pack qrl) bucket mid "source") todo
 
 runStoreMeta :: GoPro ()
 runStoreMeta = do
