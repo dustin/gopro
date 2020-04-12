@@ -4,14 +4,17 @@ import           Codec.Compression.GZip       (compress)
 import           Control.Lens
 import           Control.Monad                (void)
 import           Control.Monad.Catch          (MonadCatch (..))
+import           Control.Monad.Reader         (asks)
 import           Control.Monad.Trans.AWS      (AWST', Credentials (..),
                                                Region (..), envRegion, newEnv,
                                                paginate, runAWST, runResourceT,
-                                               send)
+                                               send, sinkBody)
 import           Control.Monad.Trans.Resource (ResourceT)
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Conduit                 (runConduit, (.|))
+import qualified Data.Conduit.Binary          as CB
 import qualified Data.Conduit.List            as CL
+import           Data.Conduit.Zlib            (ungzip)
 import           Data.String                  (fromString)
 import           Data.Text                    (Text, isSuffixOf, pack, unpack)
 import           Network.AWS.Data.Body        (RqBody (..), ToHashedBody (..))
@@ -39,6 +42,15 @@ allDerivatives bucketName = inAWS Oregon $
 
   where toDir t = let s = unpack t in
                     (pack . takeBaseName . takeDirectory $ s, pack $ takeBaseName s)
+
+getMetaBlob :: MediumID -> GoPro BL.ByteString
+getMetaBlob mid = do
+  b <- asks (optS3Bucket . gpOptions)
+  let key = fromString $ "metablob/" <> unpack mid <> ".gz"
+  logDbg $ "Requesting metablob from S3: " <> tshow key
+  inAWS Oregon $ do
+    rs <- send (getObject b key)
+    (rs ^. gorsBody) `sinkBody` (ungzip .| CB.sinkLbs)
 
 storeMetaBlob :: BucketName -> MediumID -> BL.ByteString -> GoPro ()
 storeMetaBlob bucketName mid blob = do

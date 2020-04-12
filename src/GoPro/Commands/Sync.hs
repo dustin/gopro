@@ -34,9 +34,11 @@ import           GoPro.Commands
 import           GoPro.DB
 import           GoPro.Plus.Media
 import           GoPro.Resolve
+import           GoPro.S3
 
 
-data SyncType = Full | Incremental
+data SyncType = Full
+    | Incremental
 
 runFetch :: SyncType -> GoPro ()
 runFetch stype = do
@@ -105,6 +107,7 @@ runGetMeta = do
                   fv s p = Just <$> fetchX ex fi mid s p
                   fn v = ".cache" </> T.unpack mid <> "-" <> v <> fx
               ms <- asum [
+                Just . BL.toStrict <$> getMetaBlob mid,
                 fv "mp4_low" (fn "low"),
                 fv "high_res_proxy_mp4" (fn "high"),
                 fv "source" (fn "src"),
