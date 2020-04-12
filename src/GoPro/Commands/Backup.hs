@@ -62,4 +62,4 @@ runStoreMeta = do
 
   c <- asks (optUploadConcurrency . gpOptions)
   _ <- mapConcurrentlyLimited c (\(mid,blob) -> storeMetaBlob bucket mid (BL.fromStrict blob)) todo
-  clearMetaBlob (fst <$> todo)
+  clearMetaBlob (fst <$> local)
