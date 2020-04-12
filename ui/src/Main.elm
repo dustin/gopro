@@ -165,6 +165,7 @@ renderMediaList ms (Model model) =
                          text " items (",
                          text (Filesize.format <| totalSize ms.media),
                          text ").",
+                         a [ onClick ReloadMedia ] [ text "↺" ],
                          div [ H.class "datepick" ]
                              ([ Picker.view PickerChanged model.datePicker,
                                     div [ H.class "year" ] [ text "Quick year picker:" ] ]

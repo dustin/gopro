@@ -14179,6 +14179,16 @@ var $author$project$Main$renderMediaList = F2(
 										totalSize(ms.N))),
 									$elm$html$Html$text(').'),
 									A2(
+									$elm$html$Html$a,
+									_List_fromArray(
+										[
+											$elm$html$Html$Events$onClick($author$project$Main$ReloadMedia)
+										]),
+									_List_fromArray(
+										[
+											$elm$html$Html$text('↺')
+										])),
+									A2(
 									$elm$html$Html$div,
 									_List_fromArray(
 										[
