@@ -28,6 +28,7 @@ import           Data.Coerce                      (coerce)
 import           Data.Map.Strict                  (Map)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromJust)
+import           Data.String                      (fromString)
 import qualified Data.Text.Encoding               as TE
 import           Data.Typeable                    (Typeable)
 import           Database.SQLite.Simple           hiding (bind, close)
@@ -45,23 +46,30 @@ import           GoPro.Resolve                    (MDSummary (..))
 class Monad m => HasGoProDB m where
   goproDB :: m Connection
 
+initQueries :: [(Int, Query)]
+initQueries = [
+  (1, [r|create table if not exists media (media_id primary key, camera_model,
+                                           captured_at, created_at, file_size,
+                                           moments_count, source_duration,
+                                           media_type, width, height,
+                                           ready_to_view, thumbnail)|]),
+  (1, [r|create table if not exists
+         meta (media_id primary key, camera_model, captured_at,
+               lat, lon, max_speed_2d, max_speed_3d, max_faces, main_scene, main_scene_prob)|]),
+  (1, "create table if not exists metablob (media_id primary key, meta blob, format text, backedup boolean)"),
+  (1, [r|create table if not exists areas (area_id integer primary key autoincrement,
+                                           name text,
+                                           lat1 real, lon1 real,
+                                           lat2 real, lon2 real)|]),
+  (1, "create table if not exists moments (media_id, moment_id integer, timestamp integer)"),
+  (1, "create index if not exists moments_by_medium on moments(media_id)")]
+
 initTables :: Connection -> IO ()
-initTables db = mapM_ (execute_ db)
-                [[r|create table if not exists media (media_id primary key, camera_model,
-                                                      captured_at, created_at, file_size,
-                                                      moments_count, source_duration,
-                                                      media_type, width, height,
-                                                      ready_to_view, thumbnail)|],
-                 [r|create table if not exists
-                           meta (media_id primary key, camera_model, captured_at,
-                                 lat, lon, max_speed_2d, max_speed_3d, max_faces, main_scene, main_scene_prob)|],
-                 "create table if not exists metablob (media_id primary key, meta blob, format text, backedup boolean)",
-                 [r|create table if not exists areas (area_id integer primary key autoincrement,
-                                                      name text,
-                                                      lat1 real, lon1 real,
-                                                      lat2 real, lon2 real)|],
-                 "create table if not exists moments (media_id, moment_id integer, timestamp integer)",
-                 "create index if not exists moments_by_medium on moments(media_id)"]
+initTables db = do
+  [Only uv] <- query_ db "pragma user_version"
+  mapM_ (execute_ db) [q | (v,q) <- initQueries, v > uv]
+  -- binding doesn't work on this for some reason.  It's safe, at least.
+  execute_ db $ "pragma user_version = " <> (fromString . show . maximum . fmap fst $ initQueries)
 
 upsertMediaStatement :: Query
 upsertMediaStatement = [r|insert into media (media_id, camera_model, captured_at, created_at,
