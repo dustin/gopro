@@ -78,5 +78,4 @@ extra-deps:
 # compiler-check: newer-minor
 
 nix:
-  enable: false
   packages: [zlib]
