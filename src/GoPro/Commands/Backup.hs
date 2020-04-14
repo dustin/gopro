@@ -34,10 +34,10 @@ storeDerivative qrl mid d = do
       where
         encodeCopyRequest src (BucketName bname) key = TE.decodeUtf8 (BL.toStrict . J.encode $ jbod)
           where
-            dest = J.Object $ (mempty & at "bucket" ?~ J.String bname
-                               & at "key" ?~ J.String key)
-            jbod = J.Object $ (mempty & at "src" ?~ J.String src
-                               & at "dest" ?~ dest)
+            dest = J.Object (mempty & at "bucket" ?~ J.String bname
+                              & at "key" ?~ J.String key)
+            jbod = J.Object (mempty & at "src" ?~ J.String src
+                              & at "dest" ?~ dest)
 
 runBackup :: GoPro ()
 runBackup = do
