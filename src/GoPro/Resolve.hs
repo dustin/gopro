@@ -42,7 +42,7 @@ instance ToJSON MDSummary where
                                 ]
 
 instance FromJSON MDSummary where
-  parseJSON _ = pure MDSummary{}
+  parseJSON _ = pure (MDSummary "" Nothing Nothing Nothing Nothing Nothing 0 Nothing)
 
 parseDEVC :: BS.ByteString -> Either String [DEVC]
 parseDEVC = (fmap.fmap) (uncurry mkDEVC) . parseGPMF
