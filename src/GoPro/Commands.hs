@@ -21,6 +21,8 @@ import           Control.Monad.Logger    (Loc (..), LogLevel (..), LogSource,
                                           logInfoN, monadLoggerLog)
 import           Control.Monad.Reader    (MonadReader, ReaderT (..), asks, lift)
 import           Data.Cache              (Cache (..), fetchWithCache)
+import           Data.Map.Strict         (Map)
+import qualified Data.Map.Strict         as Map
 import qualified Data.Text               as T
 import           Database.SQLite.Simple  (Connection)
 import           Network.AWS.S3          (BucketName (..))
@@ -36,16 +38,19 @@ data Options = Options
     , optVerbose             :: Bool
     , optUploadConcurrency   :: Int
     , optDownloadConcurrency :: Int
-    , optS3Bucket            :: BucketName
     , optArgv                :: [String]
     }
 
 data Env = Env
     { gpOptions :: Options
     , dbConn    :: Connection
+    , gpConfig  :: Map T.Text T.Text
     , authCache :: Cache () AuthInfo
     , envLogger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
     }
+
+gpBucket :: Env -> BucketName
+gpBucket Env{gpConfig} = BucketName (Map.findWithDefault "" "bucket" gpConfig)
 
 newtype EnvM a = EnvM
   { runEnvM :: ReaderT Env IO a

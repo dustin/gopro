@@ -32,7 +32,7 @@ inAWS :: (MonadCatch m, MonadUnliftIO m) => Region -> AWST' AWSE.Env (ResourceT 
 inAWS r a = (newEnv Discover <&> set envRegion r) >>= \awsenv -> (runResourceT . runAWST awsenv) a
 
 allDerivatives :: GoPro [Derivative]
-allDerivatives = asks (optS3Bucket . gpOptions) >>= \b -> inAWS Oregon $
+allDerivatives = asks gpBucket >>= \b -> inAWS Oregon $
   runConduit $ paginate (listObjectsV2 b & lovPrefix ?~ "derivatives/")
     .| CL.concatMap (view lovrsContents)
     .| CL.map (view (oKey . _ObjectKey))
@@ -45,7 +45,7 @@ allDerivatives = asks (optS3Bucket . gpOptions) >>= \b -> inAWS Oregon $
 
 getMetaBlob :: MediumID -> GoPro BL.ByteString
 getMetaBlob mid = do
-  b <- asks (optS3Bucket . gpOptions)
+  b <- asks gpBucket
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
   logDbg $ "Requesting metablob from S3: " <> tshow key
   inAWS Oregon $ do
@@ -54,13 +54,13 @@ getMetaBlob mid = do
 
 storeMetaBlob :: MediumID -> BL.ByteString -> GoPro ()
 storeMetaBlob mid blob = do
-  b <- asks (optS3Bucket . gpOptions)
+  b <- asks gpBucket
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
   logInfo $ "Storing metadata blob at " <> tshow key
   inAWS Oregon $ void . send $ putObject b key (Hashed . toHashed . compress $ blob)
 
 listMetaBlobs :: GoPro [MediumID]
-listMetaBlobs = asks (optS3Bucket . gpOptions) >>= \b -> inAWS Oregon $
+listMetaBlobs = asks gpBucket >>= \b -> inAWS Oregon $
   runConduit $ paginate (listObjectsV2 b & lovPrefix ?~ "metablob/")
     .| CL.concatMap (view lovrsContents)
     .| CL.map (view (oKey . _ObjectKey))

@@ -12,7 +12,7 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  metaTODO, insertMeta, selectMeta,
                  Area(..), area_id, area_name, area_nw, area_se, selectAreas,
                  HasGoProDB(..),
-                 initTables) where
+                 initTables, loadConfig) where
 
 import           Control.Applicative              (liftA2)
 import           Control.Lens
@@ -29,6 +29,7 @@ import           Data.Map.Strict                  (Map)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromJust)
 import           Data.String                      (fromString)
+import           Data.Text                        (Text)
 import qualified Data.Text.Encoding               as TE
 import           Data.Typeable                    (Typeable)
 import           Database.SQLite.Simple           hiding (bind, close)
@@ -62,7 +63,9 @@ initQueries = [
                                            lat1 real, lon1 real,
                                            lat2 real, lon2 real)|]),
   (1, "create table if not exists moments (media_id, moment_id integer, timestamp integer)"),
-  (1, "create index if not exists moments_by_medium on moments(media_id)")]
+  (1, "create index if not exists moments_by_medium on moments(media_id)"),
+  (2, "create table if not exists config (key, value)"),
+  (2, "insert into config values ('bucket', 'gopro.west.spy.net')")]
 
 initTables :: Connection -> IO ()
 initTables db = do
@@ -70,6 +73,9 @@ initTables db = do
   mapM_ (execute_ db) [q | (v,q) <- initQueries, v > uv]
   -- binding doesn't work on this for some reason.  It's safe, at least.
   execute_ db $ "pragma user_version = " <> (fromString . show . maximum . fmap fst $ initQueries)
+
+loadConfig :: Connection -> IO (Map Text Text)
+loadConfig db = Map.fromList <$> query_ db "select key, value from config"
 
 upsertMediaStatement :: Query
 upsertMediaStatement = [r|insert into media (media_id, camera_model, captured_at, created_at,
@@ -82,10 +88,10 @@ upsertMediaStatement = [r|insert into media (media_id, camera_model, captured_at
                                      ready_to_view = excluded.ready_to_view
                               |]
 
-data MediaRow = MediaRow {
-  _row_media     :: Medium,
-  _row_thumbnail :: BL.ByteString
-  }
+data MediaRow = MediaRow
+    { _row_media     :: Medium
+    , _row_thumbnail :: BL.ByteString
+    }
 
 makeLenses ''MediaRow
 
@@ -258,12 +264,13 @@ selectMeta = goproDB >>= \db ->  Map.fromList . coerce <$> liftIO (sel db)
                           from meta
                           where camera_model is not null |]
 
-data Area = Area {
-  _area_id   :: Int,
-  _area_name :: String,
-  _area_nw   :: (Double, Double),
-  _area_se   :: (Double, Double)
-  } deriving (Generic, Show)
+data Area = Area
+    { _area_id   :: Int
+    , _area_name :: String
+    , _area_nw   :: (Double, Double)
+    , _area_se   :: (Double, Double)
+    }
+    deriving (Generic, Show)
 
 makeLenses ''Area
 
