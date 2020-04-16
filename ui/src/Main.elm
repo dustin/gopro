@@ -97,6 +97,7 @@ type Msg
   | SomeDLOpts (Result Http.Error DLOpts)
   | SomeAreas (Result Http.Error (List Area))
   | ZoneHere Time.Zone
+  | FirstTime Time.Posix
   | CurrentTime Time.Posix
   | OpenOverlay Medium
   | RefreshMedium String
@@ -389,7 +390,7 @@ update msg (Model model) =
         SomeDLOpts result -> let (m, _) = model.current in
                              (Model {model | current = (m, Just result)}, Cmd.none)
 
-        CurrentTime t ->
+        FirstTime t ->
             (Model model,
                  let sevenDays = TE.addDays -7 t
                      recond = Picker.reconfigure (\c -> { c | predefinedRanges = myRanges }) model.datePicker
@@ -397,9 +398,12 @@ update msg (Model model) =
                  in
                  Picker.now PickerChanged rangedPicker)
 
+        CurrentTime t ->
+            (Model model, Picker.now PickerChanged model.datePicker)
+
 
         ZoneHere z ->
-            (Model {model | zone = z}, Task.perform CurrentTime Time.now)
+            (Model {model | zone = z}, Task.perform FirstTime Time.now)
 
         OpenOverlay m ->
             (Model { model | overlay = ScreenOverlay.show model.overlay, current = (Just m, Nothing) },
@@ -454,8 +458,10 @@ update msg (Model model) =
                              (filter (Model {model | datePicker = nst}), Cmd.none)
 
 subscriptions : Model -> Sub Msg
-subscriptions (Model model) =
-     Picker.subscriptions PickerChanged model.datePicker
+subscriptions (Model model) = Sub.batch [
+                               Picker.subscriptions PickerChanged model.datePicker,
+                               Time.every 60000 CurrentTime
+                              ]
 
 
 main = Browser.element

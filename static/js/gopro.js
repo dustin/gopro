@@ -5829,7 +5829,7 @@ var $elm$time$Time$posixToMillis = function (_v0) {
 var $author$project$Main$dateFilter = F2(
 	function (_v0, m) {
 		var model = _v0;
-		var mr = $allo_media$elm_daterange_picker$DateRangePicker$getRange(model.L);
+		var mr = $allo_media$elm_daterange_picker$DateRangePicker$getRange(model.E);
 		var lte = F2(
 			function (a, b) {
 				return _Utils_cmp(
@@ -5843,9 +5843,9 @@ var $author$project$Main$dateFilter = F2(
 			return A2(
 				lte,
 				$allo_media$elm_daterange_picker$DateRangePicker$Range$beginsAt(r),
-				m.J) && A2(
+				m.K) && A2(
 				lte,
-				m.J,
+				m.K,
 				$allo_media$elm_daterange_picker$DateRangePicker$Range$endsAt(r));
 		}
 	});
@@ -6442,8 +6442,8 @@ var $allo_media$elm_daterange_picker$DateRangePicker$init = F2(
 			U: selected,
 			aS: false,
 			aX: $elm$core$Maybe$Nothing,
-			E: leftCal,
-			G: false,
+			F: leftCal,
+			H: false,
 			C: rightCal,
 			s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(selected),
 			D: $waratuman$time_extra$Time$Extra$epoch
@@ -6490,7 +6490,7 @@ var $author$project$Main$emptyState = {
 	aq: $elm$core$Set$empty,
 	at: $elm$core$Set$empty,
 	U: _Utils_Tuple2($elm$core$Maybe$Nothing, $elm$core$Maybe$Nothing),
-	L: function () {
+	E: function () {
 		var cfg = $allo_media$elm_daterange_picker$DateRangePicker$defaultConfig;
 		return A2(
 			$allo_media$elm_daterange_picker$DateRangePicker$init,
@@ -7278,7 +7278,7 @@ var $author$project$Media$Medium = function (id) {
 										return function (width) {
 											return function (height) {
 												return function (metaData) {
-													return {bx: camera_model, J: captured_at, di: created_at, bC: file_size, bE: height, ah: id, bJ: media_type, dB: metaData, cw: moments_count, dQ: ready_to_view, bR: source_duration, d3: token, bV: width};
+													return {bx: camera_model, K: captured_at, di: created_at, bC: file_size, bE: height, ah: id, bJ: media_type, dB: metaData, cw: moments_count, dQ: ready_to_view, bR: source_duration, d3: token, bV: width};
 												};
 											};
 										};
@@ -8318,174 +8318,44 @@ var $author$project$Main$init = function (_v0) {
 					A2($elm$core$Task$perform, $author$project$Main$ZoneHere, $elm$time$Time$here)
 				])));
 };
+var $author$project$Main$CurrentTime = function (a) {
+	return {$: 5, a: a};
+};
 var $author$project$Main$PickerChanged = function (a) {
-	return {$: 13, a: a};
+	return {$: 14, a: a};
 };
-var $allo_media$elm_daterange_picker$DateRangePicker$Close = {$: 2};
-var $allo_media$elm_daterange_picker$DateRangePicker$Step$Begin = function (a) {
-	return {$: 1, a: a};
-};
-var $allo_media$elm_daterange_picker$DateRangePicker$Step$next = F3(
-	function (zone, picked, step) {
-		switch (step.$) {
-			case 1:
-				var begin = step.a;
-				return _Utils_eq(picked, begin) ? $allo_media$elm_daterange_picker$DateRangePicker$Step$Complete(
-					A3($allo_media$elm_daterange_picker$DateRangePicker$Range$create, zone, begin, begin)) : ((_Utils_cmp(
-					$elm$time$Time$posixToMillis(picked),
-					$elm$time$Time$posixToMillis(begin)) > 0) ? $allo_media$elm_daterange_picker$DateRangePicker$Step$Complete(
-					A3($allo_media$elm_daterange_picker$DateRangePicker$Range$create, zone, begin, picked)) : $allo_media$elm_daterange_picker$DateRangePicker$Step$Begin(picked));
-			case 2:
-				return $allo_media$elm_daterange_picker$DateRangePicker$Step$Begin(picked);
-			default:
-				return $allo_media$elm_daterange_picker$DateRangePicker$Step$Begin(picked);
-		}
-	});
-var $allo_media$elm_daterange_picker$DateRangePicker$update = F2(
-	function (msg, internal) {
-		var leftCal = internal.E;
-		var rightCal = internal.C;
-		var step = internal.s;
-		switch (msg.$) {
-			case 0:
-				var dateRange = msg.a;
-				var _v1 = A3($allo_media$elm_daterange_picker$DateRangePicker$getCalendars, internal.e, dateRange, internal.D);
-				var newLeftCal = _v1.a;
-				var newRightCal = _v1.b;
-				return _Utils_update(
-					internal,
-					{
-						U: dateRange,
-						E: newLeftCal,
-						G: false,
-						C: newRightCal,
-						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(dateRange)
-					});
-			case 1:
-				return _Utils_update(
-					internal,
-					{
-						U: $elm$core$Maybe$Nothing,
-						G: false,
-						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe($elm$core$Maybe$Nothing)
-					});
-			case 2:
-				return _Utils_update(
-					internal,
-					{
-						G: false,
-						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(internal.U)
-					});
-			case 3:
-				var posix = msg.a;
-				return _Utils_update(
-					internal,
-					{
-						aX: function () {
-							if (step.$ === 1) {
-								return $elm$core$Maybe$Just(posix);
-							} else {
-								return $elm$core$Maybe$Nothing;
-							}
-						}()
-					});
-			case 4:
-				return _Utils_update(
-					internal,
-					{
-						E: rightCal,
-						C: A2($allo_media$elm_daterange_picker$DateRangePicker$Helpers$startOfNextMonth, internal.e.Q, rightCal)
-					});
-			case 5:
-				return internal;
-			case 6:
-				var _v3 = A3($allo_media$elm_daterange_picker$DateRangePicker$getCalendars, internal.e, internal.U, internal.D);
-				var newLeftCal = _v3.a;
-				var newRightCal = _v3.b;
-				return _Utils_update(
-					internal,
-					{E: newLeftCal, G: true, C: newRightCal});
-			case 8:
-				var picked = msg.a;
-				return _Utils_update(
-					internal,
-					{
-						s: A3($allo_media$elm_daterange_picker$DateRangePicker$Step$next, internal.e.Q, picked, step)
-					});
-			case 7:
-				return _Utils_update(
-					internal,
-					{
-						E: A2($allo_media$elm_daterange_picker$DateRangePicker$Helpers$startOfPreviousMonth, internal.e.Q, leftCal),
-						C: leftCal
-					});
-			default:
-				var dateRange = msg.a;
-				var _v4 = A3(
-					$allo_media$elm_daterange_picker$DateRangePicker$getCalendars,
-					internal.e,
-					$elm$core$Maybe$Just(dateRange),
-					internal.D);
-				var newLeftCal = _v4.a;
-				var newRightCal = _v4.b;
-				return _Utils_update(
-					internal,
-					{
-						E: newLeftCal,
-						C: newRightCal,
-						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(
-							$elm$core$Maybe$Just(dateRange))
-					});
-		}
-	});
-var $allo_media$elm_daterange_picker$DateRangePicker$handleEvent = F2(
-	function (toMsg, msg) {
-		return A2(
-			$elm$core$Basics$composeR,
-			$allo_media$elm_daterange_picker$DateRangePicker$update(msg),
-			A2($elm$core$Basics$composeR, $elm$core$Basics$identity, toMsg));
-	});
 var $elm$core$Platform$Sub$batch = _Platform_batch;
-var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
-var $elm$browser$Browser$Events$Document = 0;
-var $elm$browser$Browser$Events$MySub = F3(
-	function (a, b, c) {
-		return {$: 0, a: a, b: b, c: c};
+var $elm$time$Time$Every = F2(
+	function (a, b) {
+		return {$: 0, a: a, b: b};
 	});
-var $elm$browser$Browser$Events$State = F2(
-	function (subs, pids) {
-		return {cC: pids, cV: subs};
+var $elm$time$Time$State = F2(
+	function (taggers, processes) {
+		return {cH: processes, cW: taggers};
 	});
-var $elm$browser$Browser$Events$init = $elm$core$Task$succeed(
-	A2($elm$browser$Browser$Events$State, _List_Nil, $elm$core$Dict$empty));
-var $elm$browser$Browser$Events$nodeToKey = function (node) {
-	if (!node) {
-		return 'd_';
-	} else {
-		return 'w_';
-	}
-};
-var $elm$browser$Browser$Events$addKey = function (sub) {
-	var node = sub.a;
-	var name = sub.b;
-	return _Utils_Tuple2(
-		_Utils_ap(
-			$elm$browser$Browser$Events$nodeToKey(node),
-			name),
-		sub);
-};
-var $elm$core$Dict$fromList = function (assocs) {
-	return A3(
-		$elm$core$List$foldl,
-		F2(
-			function (_v0, dict) {
-				var key = _v0.a;
-				var value = _v0.b;
-				return A3($elm$core$Dict$insert, key, value, dict);
-			}),
-		$elm$core$Dict$empty,
-		assocs);
-};
+var $elm$time$Time$init = $elm$core$Task$succeed(
+	A2($elm$time$Time$State, $elm$core$Dict$empty, $elm$core$Dict$empty));
+var $elm$time$Time$addMySub = F2(
+	function (_v0, state) {
+		var interval = _v0.a;
+		var tagger = _v0.b;
+		var _v1 = A2($elm$core$Dict$get, interval, state);
+		if (_v1.$ === 1) {
+			return A3(
+				$elm$core$Dict$insert,
+				interval,
+				_List_fromArray(
+					[tagger]),
+				state);
+		} else {
+			var taggers = _v1.a;
+			return A3(
+				$elm$core$Dict$insert,
+				interval,
+				A2($elm$core$List$cons, tagger, taggers),
+				state);
+		}
+	});
 var $elm$core$Dict$foldl = F3(
 	function (func, acc, dict) {
 		foldl:
@@ -8572,6 +8442,308 @@ var $elm$core$Dict$merge = F6(
 			intermediateResult,
 			leftovers);
 	});
+var $elm$time$Time$setInterval = _Time_setInterval;
+var $elm$time$Time$spawnHelp = F3(
+	function (router, intervals, processes) {
+		if (!intervals.b) {
+			return $elm$core$Task$succeed(processes);
+		} else {
+			var interval = intervals.a;
+			var rest = intervals.b;
+			var spawnTimer = $elm$core$Process$spawn(
+				A2(
+					$elm$time$Time$setInterval,
+					interval,
+					A2($elm$core$Platform$sendToSelf, router, interval)));
+			var spawnRest = function (id) {
+				return A3(
+					$elm$time$Time$spawnHelp,
+					router,
+					rest,
+					A3($elm$core$Dict$insert, interval, id, processes));
+			};
+			return A2($elm$core$Task$andThen, spawnRest, spawnTimer);
+		}
+	});
+var $elm$time$Time$onEffects = F3(
+	function (router, subs, _v0) {
+		var processes = _v0.cH;
+		var rightStep = F3(
+			function (_v6, id, _v7) {
+				var spawns = _v7.a;
+				var existing = _v7.b;
+				var kills = _v7.c;
+				return _Utils_Tuple3(
+					spawns,
+					existing,
+					A2(
+						$elm$core$Task$andThen,
+						function (_v5) {
+							return kills;
+						},
+						$elm$core$Process$kill(id)));
+			});
+		var newTaggers = A3($elm$core$List$foldl, $elm$time$Time$addMySub, $elm$core$Dict$empty, subs);
+		var leftStep = F3(
+			function (interval, taggers, _v4) {
+				var spawns = _v4.a;
+				var existing = _v4.b;
+				var kills = _v4.c;
+				return _Utils_Tuple3(
+					A2($elm$core$List$cons, interval, spawns),
+					existing,
+					kills);
+			});
+		var bothStep = F4(
+			function (interval, taggers, id, _v3) {
+				var spawns = _v3.a;
+				var existing = _v3.b;
+				var kills = _v3.c;
+				return _Utils_Tuple3(
+					spawns,
+					A3($elm$core$Dict$insert, interval, id, existing),
+					kills);
+			});
+		var _v1 = A6(
+			$elm$core$Dict$merge,
+			leftStep,
+			bothStep,
+			rightStep,
+			newTaggers,
+			processes,
+			_Utils_Tuple3(
+				_List_Nil,
+				$elm$core$Dict$empty,
+				$elm$core$Task$succeed(0)));
+		var spawnList = _v1.a;
+		var existingDict = _v1.b;
+		var killTask = _v1.c;
+		return A2(
+			$elm$core$Task$andThen,
+			function (newProcesses) {
+				return $elm$core$Task$succeed(
+					A2($elm$time$Time$State, newTaggers, newProcesses));
+			},
+			A2(
+				$elm$core$Task$andThen,
+				function (_v2) {
+					return A3($elm$time$Time$spawnHelp, router, spawnList, existingDict);
+				},
+				killTask));
+	});
+var $elm$time$Time$now = _Time_now($elm$time$Time$millisToPosix);
+var $elm$time$Time$onSelfMsg = F3(
+	function (router, interval, state) {
+		var _v0 = A2($elm$core$Dict$get, interval, state.cW);
+		if (_v0.$ === 1) {
+			return $elm$core$Task$succeed(state);
+		} else {
+			var taggers = _v0.a;
+			var tellTaggers = function (time) {
+				return $elm$core$Task$sequence(
+					A2(
+						$elm$core$List$map,
+						function (tagger) {
+							return A2(
+								$elm$core$Platform$sendToApp,
+								router,
+								tagger(time));
+						},
+						taggers));
+			};
+			return A2(
+				$elm$core$Task$andThen,
+				function (_v1) {
+					return $elm$core$Task$succeed(state);
+				},
+				A2($elm$core$Task$andThen, tellTaggers, $elm$time$Time$now));
+		}
+	});
+var $elm$core$Basics$composeL = F3(
+	function (g, f, x) {
+		return g(
+			f(x));
+	});
+var $elm$time$Time$subMap = F2(
+	function (f, _v0) {
+		var interval = _v0.a;
+		var tagger = _v0.b;
+		return A2(
+			$elm$time$Time$Every,
+			interval,
+			A2($elm$core$Basics$composeL, f, tagger));
+	});
+_Platform_effectManagers['Time'] = _Platform_createManager($elm$time$Time$init, $elm$time$Time$onEffects, $elm$time$Time$onSelfMsg, 0, $elm$time$Time$subMap);
+var $elm$time$Time$subscription = _Platform_leaf('Time');
+var $elm$time$Time$every = F2(
+	function (interval, tagger) {
+		return $elm$time$Time$subscription(
+			A2($elm$time$Time$Every, interval, tagger));
+	});
+var $allo_media$elm_daterange_picker$DateRangePicker$Close = {$: 2};
+var $allo_media$elm_daterange_picker$DateRangePicker$Step$Begin = function (a) {
+	return {$: 1, a: a};
+};
+var $allo_media$elm_daterange_picker$DateRangePicker$Step$next = F3(
+	function (zone, picked, step) {
+		switch (step.$) {
+			case 1:
+				var begin = step.a;
+				return _Utils_eq(picked, begin) ? $allo_media$elm_daterange_picker$DateRangePicker$Step$Complete(
+					A3($allo_media$elm_daterange_picker$DateRangePicker$Range$create, zone, begin, begin)) : ((_Utils_cmp(
+					$elm$time$Time$posixToMillis(picked),
+					$elm$time$Time$posixToMillis(begin)) > 0) ? $allo_media$elm_daterange_picker$DateRangePicker$Step$Complete(
+					A3($allo_media$elm_daterange_picker$DateRangePicker$Range$create, zone, begin, picked)) : $allo_media$elm_daterange_picker$DateRangePicker$Step$Begin(picked));
+			case 2:
+				return $allo_media$elm_daterange_picker$DateRangePicker$Step$Begin(picked);
+			default:
+				return $allo_media$elm_daterange_picker$DateRangePicker$Step$Begin(picked);
+		}
+	});
+var $allo_media$elm_daterange_picker$DateRangePicker$update = F2(
+	function (msg, internal) {
+		var leftCal = internal.F;
+		var rightCal = internal.C;
+		var step = internal.s;
+		switch (msg.$) {
+			case 0:
+				var dateRange = msg.a;
+				var _v1 = A3($allo_media$elm_daterange_picker$DateRangePicker$getCalendars, internal.e, dateRange, internal.D);
+				var newLeftCal = _v1.a;
+				var newRightCal = _v1.b;
+				return _Utils_update(
+					internal,
+					{
+						U: dateRange,
+						F: newLeftCal,
+						H: false,
+						C: newRightCal,
+						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(dateRange)
+					});
+			case 1:
+				return _Utils_update(
+					internal,
+					{
+						U: $elm$core$Maybe$Nothing,
+						H: false,
+						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe($elm$core$Maybe$Nothing)
+					});
+			case 2:
+				return _Utils_update(
+					internal,
+					{
+						H: false,
+						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(internal.U)
+					});
+			case 3:
+				var posix = msg.a;
+				return _Utils_update(
+					internal,
+					{
+						aX: function () {
+							if (step.$ === 1) {
+								return $elm$core$Maybe$Just(posix);
+							} else {
+								return $elm$core$Maybe$Nothing;
+							}
+						}()
+					});
+			case 4:
+				return _Utils_update(
+					internal,
+					{
+						F: rightCal,
+						C: A2($allo_media$elm_daterange_picker$DateRangePicker$Helpers$startOfNextMonth, internal.e.Q, rightCal)
+					});
+			case 5:
+				return internal;
+			case 6:
+				var _v3 = A3($allo_media$elm_daterange_picker$DateRangePicker$getCalendars, internal.e, internal.U, internal.D);
+				var newLeftCal = _v3.a;
+				var newRightCal = _v3.b;
+				return _Utils_update(
+					internal,
+					{F: newLeftCal, H: true, C: newRightCal});
+			case 8:
+				var picked = msg.a;
+				return _Utils_update(
+					internal,
+					{
+						s: A3($allo_media$elm_daterange_picker$DateRangePicker$Step$next, internal.e.Q, picked, step)
+					});
+			case 7:
+				return _Utils_update(
+					internal,
+					{
+						F: A2($allo_media$elm_daterange_picker$DateRangePicker$Helpers$startOfPreviousMonth, internal.e.Q, leftCal),
+						C: leftCal
+					});
+			default:
+				var dateRange = msg.a;
+				var _v4 = A3(
+					$allo_media$elm_daterange_picker$DateRangePicker$getCalendars,
+					internal.e,
+					$elm$core$Maybe$Just(dateRange),
+					internal.D);
+				var newLeftCal = _v4.a;
+				var newRightCal = _v4.b;
+				return _Utils_update(
+					internal,
+					{
+						F: newLeftCal,
+						C: newRightCal,
+						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(
+							$elm$core$Maybe$Just(dateRange))
+					});
+		}
+	});
+var $allo_media$elm_daterange_picker$DateRangePicker$handleEvent = F2(
+	function (toMsg, msg) {
+		return A2(
+			$elm$core$Basics$composeR,
+			$allo_media$elm_daterange_picker$DateRangePicker$update(msg),
+			A2($elm$core$Basics$composeR, $elm$core$Basics$identity, toMsg));
+	});
+var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
+var $elm$browser$Browser$Events$Document = 0;
+var $elm$browser$Browser$Events$MySub = F3(
+	function (a, b, c) {
+		return {$: 0, a: a, b: b, c: c};
+	});
+var $elm$browser$Browser$Events$State = F2(
+	function (subs, pids) {
+		return {cC: pids, cV: subs};
+	});
+var $elm$browser$Browser$Events$init = $elm$core$Task$succeed(
+	A2($elm$browser$Browser$Events$State, _List_Nil, $elm$core$Dict$empty));
+var $elm$browser$Browser$Events$nodeToKey = function (node) {
+	if (!node) {
+		return 'd_';
+	} else {
+		return 'w_';
+	}
+};
+var $elm$browser$Browser$Events$addKey = function (sub) {
+	var node = sub.a;
+	var name = sub.b;
+	return _Utils_Tuple2(
+		_Utils_ap(
+			$elm$browser$Browser$Events$nodeToKey(node),
+			name),
+		sub);
+};
+var $elm$core$Dict$fromList = function (assocs) {
+	return A3(
+		$elm$core$List$foldl,
+		F2(
+			function (_v0, dict) {
+				var key = _v0.a;
+				var value = _v0.b;
+				return A3($elm$core$Dict$insert, key, value, dict);
+			}),
+		$elm$core$Dict$empty,
+		assocs);
+};
 var $elm$browser$Browser$Events$Event = F2(
 	function (key, event) {
 		return {cd: event, cu: key};
@@ -8720,22 +8892,27 @@ var $elm$browser$Browser$Events$onMouseUp = A2($elm$browser$Browser$Events$on, 0
 var $allo_media$elm_daterange_picker$DateRangePicker$subscriptions = F2(
 	function (toMsg, _v0) {
 		var internal = _v0;
-		return (internal.G && (!internal.e.ab)) ? $elm$browser$Browser$Events$onMouseUp(
+		return (internal.H && (!internal.e.ab)) ? $elm$browser$Browser$Events$onMouseUp(
 			$elm$json$Json$Decode$succeed(
 				A3($allo_media$elm_daterange_picker$DateRangePicker$handleEvent, toMsg, $allo_media$elm_daterange_picker$DateRangePicker$Close, internal))) : $elm$core$Platform$Sub$none;
 	});
 var $author$project$Main$subscriptions = function (_v0) {
 	var model = _v0;
-	return A2($allo_media$elm_daterange_picker$DateRangePicker$subscriptions, $author$project$Main$PickerChanged, model.L);
+	return $elm$core$Platform$Sub$batch(
+		_List_fromArray(
+			[
+				A2($allo_media$elm_daterange_picker$DateRangePicker$subscriptions, $author$project$Main$PickerChanged, model.E),
+				A2($elm$time$Time$every, 60000, $author$project$Main$CurrentTime)
+			]));
 };
-var $author$project$Main$CurrentTime = function (a) {
+var $author$project$Main$FirstTime = function (a) {
 	return {$: 4, a: a};
 };
 var $author$project$Main$Media = F5(
 	function (media, cameras, types, years, filty) {
 		return {b6: cameras, aU: filty, N: media, c1: types, c7: years};
 	});
-var $author$project$Main$ReloadMedia = {$: 7};
+var $author$project$Main$ReloadMedia = {$: 8};
 var $author$project$Main$SomeDLOpts = function (a) {
 	return {$: 1, a: a};
 };
@@ -8752,11 +8929,6 @@ var $elm$core$Set$remove = F2(
 var $author$project$Main$addOrRemove = function (b) {
 	return b ? $elm$core$Set$insert : $elm$core$Set$remove;
 };
-var $elm$core$Basics$composeL = F3(
-	function (g, f, x) {
-		return g(
-			f(x));
-	});
 var $author$project$Main$DLOpts = F2(
 	function (vidclip, list) {
 		return {cv: list, c2: vidclip};
@@ -9126,7 +9298,6 @@ var $author$project$Main$myRanges = F2(
 			]);
 	});
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
-var $elm$time$Time$now = _Time_now($elm$time$Time$millisToPosix);
 var $allo_media$elm_daterange_picker$DateRangePicker$setToday = F2(
 	function (today, _v0) {
 		var internal = _v0;
@@ -9135,7 +9306,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$setToday = F2(
 		var newRightCal = _v1.b;
 		return _Utils_update(
 			internal,
-			{E: newLeftCal, C: newRightCal, D: today});
+			{F: newLeftCal, C: newRightCal, D: today});
 	});
 var $allo_media$elm_daterange_picker$DateRangePicker$nowTask = F2(
 	function (config, selected) {
@@ -9208,7 +9379,7 @@ var $author$project$Main$update = F2(
 								$elm$core$Basics$composeL,
 								$elm$time$Time$toYear(z),
 								function ($) {
-									return $.J;
+									return $.K;
 								}),
 							meds));
 					var types = $elm$core$Set$fromList(
@@ -9319,7 +9490,7 @@ var $author$project$Main$update = F2(
 									c,
 									{dO: $author$project$Main$myRanges});
 							},
-							model.L);
+							model.E);
 						var rangedPicker = A2(
 							$allo_media$elm_daterange_picker$DateRangePicker$setRange,
 							$elm$core$Maybe$Just(
@@ -9327,14 +9498,19 @@ var $author$project$Main$update = F2(
 							recond);
 						return A2($allo_media$elm_daterange_picker$DateRangePicker$now, $author$project$Main$PickerChanged, rangedPicker);
 					}());
+			case 5:
+				var t = msg.a;
+				return _Utils_Tuple2(
+					model,
+					A2($allo_media$elm_daterange_picker$DateRangePicker$now, $author$project$Main$PickerChanged, model.E));
 			case 3:
 				var z = msg.a;
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
 						{Q: z}),
-					A2($elm$core$Task$perform, $author$project$Main$CurrentTime, $elm$time$Time$now));
-			case 5:
+					A2($elm$core$Task$perform, $author$project$Main$FirstTime, $elm$time$Time$now));
+			case 6:
 				var m = msg.a;
 				return _Utils_Tuple2(
 					_Utils_update(
@@ -9355,7 +9531,7 @@ var $author$project$Main$update = F2(
 									ad: '/api/retrieve2/' + m.ah
 								})
 							])));
-			case 6:
+			case 7:
 				var mid = msg.a;
 				return _Utils_Tuple2(
 					model,
@@ -9366,7 +9542,7 @@ var $author$project$Main$update = F2(
 								$elm$core$Basics$always($author$project$Main$ReloadMedia)),
 							ad: '/api/refresh/' + mid
 						}));
-			case 7:
+			case 8:
 				return _Utils_Tuple2(
 					model,
 					$elm$http$Http$get(
@@ -9374,7 +9550,7 @@ var $author$project$Main$update = F2(
 							aT: A2($elm$http$Http$expectJson, $author$project$Main$SomeMedia, $author$project$Media$mediaListDecoder),
 							ad: '/api/media'
 						}));
-			case 8:
+			case 9:
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
@@ -9383,15 +9559,15 @@ var $author$project$Main$update = F2(
 							aF: $author$project$ScreenOverlay$hide(model.aF)
 						}),
 					$author$project$Main$unlockScroll($elm$core$Maybe$Nothing));
-			case 13:
+			case 14:
 				var state = msg.a;
 				return _Utils_Tuple2(
 					$author$project$Main$filter(
 						_Utils_update(
 							model,
-							{L: state})),
+							{E: state})),
 					$elm$core$Platform$Cmd$none);
-			case 9:
+			case 10:
 				var c = msg.a;
 				var checked = msg.b;
 				return _Utils_Tuple2(
@@ -9402,7 +9578,7 @@ var $author$project$Main$update = F2(
 								at: A3($author$project$Main$addOrRemove, checked, c, model.at)
 							})),
 					$elm$core$Platform$Cmd$none);
-			case 10:
+			case 11:
 				var t = msg.a;
 				var checked = msg.b;
 				return _Utils_Tuple2(
@@ -9413,7 +9589,7 @@ var $author$project$Main$update = F2(
 								aL: A3($author$project$Main$addOrRemove, checked, t, model.aL)
 							})),
 					$elm$core$Platform$Cmd$none);
-			case 12:
+			case 13:
 				var t = msg.a;
 				var checked = msg.b;
 				return _Utils_Tuple2(
@@ -9424,7 +9600,7 @@ var $author$project$Main$update = F2(
 								aq: A3($author$project$Main$addOrRemove, checked, t, model.aq)
 							})),
 					$elm$core$Platform$Cmd$none);
-			case 11:
+			case 12:
 				var checked = msg.a;
 				return _Utils_Tuple2(
 					$author$project$Main$filter(
@@ -9447,16 +9623,16 @@ var $author$project$Main$update = F2(
 							$allo_media$elm_daterange_picker$DateRangePicker$setRange,
 							$elm$core$Maybe$Just(
 								A3($allo_media$elm_daterange_picker$DateRangePicker$Range$create, model.Q, l, h)),
-							model.L);
+							model.E);
 					} else {
-						return model.L;
+						return model.E;
 					}
 				}();
 				return _Utils_Tuple2(
 					$author$project$Main$filter(
 						_Utils_update(
 							model,
-							{L: nst})),
+							{E: nst})),
 					$elm$core$Platform$Cmd$none);
 		}
 	});
@@ -9480,22 +9656,22 @@ var $author$project$Formats$httpErr = function (e) {
 var $elm$html$Html$pre = _VirtualDom_node('pre');
 var $author$project$Main$CheckedArea = F2(
 	function (a, b) {
-		return {$: 12, a: a, b: b};
+		return {$: 13, a: a, b: b};
 	});
 var $author$project$Main$CheckedCam = F2(
 	function (a, b) {
-		return {$: 9, a: a, b: b};
+		return {$: 10, a: a, b: b};
 	});
 var $author$project$Main$CheckedMoments = function (a) {
-	return {$: 11, a: a};
+	return {$: 12, a: a};
 };
 var $author$project$Main$CheckedType = F2(
 	function (a, b) {
-		return {$: 10, a: a, b: b};
+		return {$: 11, a: a, b: b};
 	});
-var $author$project$Main$CloseOverlay = {$: 8};
+var $author$project$Main$CloseOverlay = {$: 9};
 var $author$project$Main$YearClicked = function (a) {
-	return {$: 14, a: a};
+	return {$: 15, a: a};
 };
 var $elm$html$Html$a = _VirtualDom_node('a');
 var $elm$json$Json$Encode$bool = _Json_wrap;
@@ -10204,7 +10380,7 @@ var $elm$html$Html$h2 = _VirtualDom_node('h2');
 var $elm$virtual_dom$VirtualDom$lazy = _VirtualDom_lazy;
 var $elm$html$Html$Lazy$lazy = $elm$virtual_dom$VirtualDom$lazy;
 var $author$project$Main$OpenOverlay = function (a) {
-	return {$: 5, a: a};
+	return {$: 6, a: a};
 };
 var $elm$html$Html$img = _VirtualDom_node('img');
 var $author$project$Formats$millis = function (i) {
@@ -10289,7 +10465,7 @@ var $author$project$Main$mediaHTML = F2(
 		var oneDay = function (_v0) {
 			var first = _v0.a;
 			var rest = _v0.b;
-			var theDay = first.J;
+			var theDay = first.K;
 			return A2(
 				$elm$html$Html$div,
 				_List_fromArray(
@@ -11976,7 +12152,7 @@ var $rtfeldman$elm_css$Css$angleConverter = F2(
 	function (suffix, angleVal) {
 		return {
 			db: 0,
-			I: 0,
+			J: 0,
 			P: _Utils_ap(
 				$elm$core$String$fromFloat(angleVal),
 				suffix)
@@ -12023,7 +12199,7 @@ var $rtfeldman$elm_css$Css$rgba = F4(
 		return {
 			aP: alpha,
 			aR: b,
-			K: 0,
+			L: 0,
 			aW: g,
 			a1: r,
 			P: A2(
@@ -12087,7 +12263,7 @@ var $rtfeldman$elm_css$Css$transform = function (only) {
 		_List_fromArray(
 			[only]));
 };
-var $rtfeldman$elm_css$Css$transparent = {K: 0, P: 'transparent'};
+var $rtfeldman$elm_css$Css$transparent = {L: 0, P: 'transparent'};
 var $rtfeldman$elm_css$Css$zIndex = $rtfeldman$elm_css$Css$prop1('z-index');
 var $author$project$ScreenOverlay$exitButtonStyle = function (onScreen) {
 	return $rtfeldman$elm_css$Css$batch(
@@ -12242,7 +12418,7 @@ var $author$project$ScreenOverlay$extractOverrideStyles = function (override) {
 		return styles;
 	}
 };
-var $rtfeldman$elm_css$Css$auto = {c8: 0, c: 0, ax: 0, bf: 0, dv: 0, aB: 0, Y: 0, M: 0, aE: 0, H: 0, bq: 0, aK: 0, z: 0, P: 'auto'};
+var $rtfeldman$elm_css$Css$auto = {c8: 0, c: 0, ax: 0, bf: 0, dv: 0, aB: 0, Y: 0, M: 0, aE: 0, I: 0, bq: 0, aK: 0, z: 0, P: 'auto'};
 var $rtfeldman$elm_css$Css$height = $rtfeldman$elm_css$Css$prop1('height');
 var $rtfeldman$elm_css$Css$overflowX = $rtfeldman$elm_css$Css$prop1('overflow-x');
 var $rtfeldman$elm_css$Css$padding4 = $rtfeldman$elm_css$Css$prop4('padding');
@@ -12837,7 +13013,7 @@ var $author$project$ScreenOverlay$overlayView = F3(
 				$rtfeldman$elm_css$Html$Styled$fromUnstyled(markup)));
 	});
 var $author$project$Main$RefreshMedium = function (a) {
-	return {$: 6, a: a};
+	return {$: 7, a: a};
 };
 var $elm$html$Html$dd = _VirtualDom_node('dd');
 var $elm$html$Html$dl = _VirtualDom_node('dl');
@@ -13113,12 +13289,12 @@ var $author$project$Main$renderOverlay = F2(
 											[
 												$elm$html$Html$Attributes$title(
 												$elm$core$String$fromInt(
-													$elm$time$Time$posixToMillis(m.J)))
+													$elm$time$Time$posixToMillis(m.K)))
 											]),
 										_List_fromArray(
 											[
 												$elm$html$Html$text(
-												A2($author$project$Formats$day, z, m.J) + (' ' + A2($author$project$Formats$time, z, m.J)))
+												A2($author$project$Formats$day, z, m.K) + (' ' + A2($author$project$Formats$time, z, m.K)))
 											])),
 										$author$project$Main$dts('Camera Model'),
 										A2(
@@ -13962,7 +14138,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$panel = F2(
 								{
 									cE: $elm$core$Maybe$Just(
 										A3($allo_media$elm_daterange_picker$DateRangePicker$handleEvent, toMsg, $allo_media$elm_daterange_picker$DateRangePicker$Prev, internal)),
-									bT: internal.E
+									bT: internal.F
 								})),
 							$allo_media$elm_daterange_picker$DateRangePicker$Calendar$view(
 							_Utils_update(
@@ -14094,7 +14270,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$view = F2(
 							$elm$html$Html$Attributes$readonly(true)
 						]),
 					_List_Nil),
-					(internal.e.ab || internal.G) ? A2($allo_media$elm_daterange_picker$DateRangePicker$panel, toMsg, internal) : $elm$html$Html$text('')
+					(internal.e.ab || internal.H) ? A2($allo_media$elm_daterange_picker$DateRangePicker$panel, toMsg, internal) : $elm$html$Html$text('')
 				]));
 	});
 var $author$project$Main$renderMediaList = F2(
@@ -14113,8 +14289,8 @@ var $author$project$Main$renderMediaList = F2(
 			F2(
 				function (a, b) {
 					return _Utils_eq(
-						A2($author$project$Formats$day, z, a.J),
-						A2($author$project$Formats$day, z, b.J));
+						A2($author$project$Formats$day, z, a.K),
+						A2($author$project$Formats$day, z, b.K));
 				}),
 			ms.aU);
 		var aYear = function (y) {
@@ -14197,7 +14373,7 @@ var $author$project$Main$renderMediaList = F2(
 									_Utils_ap(
 										_List_fromArray(
 											[
-												A2($allo_media$elm_daterange_picker$DateRangePicker$view, $author$project$Main$PickerChanged, model.L),
+												A2($allo_media$elm_daterange_picker$DateRangePicker$view, $author$project$Main$PickerChanged, model.E),
 												A2(
 												$elm$html$Html$div,
 												_List_fromArray(
