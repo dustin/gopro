@@ -162,13 +162,18 @@ runGetMeta = do
           Nothing -> logError ("Can't find GPMD stream for " <> tshow mid) >> empty
           Just s -> liftIO $ extractGPMDStream f s
 
-runWaitForTranscoding :: GoPro ()
-runWaitForTranscoding = whileM_ isTranscoding (sleep 15)
+runWaitForUploads :: GoPro ()
+runWaitForUploads = whileM_ inProgress (sleep 15)
   where
-    isTranscoding = do
-      ids <- toListOf (folded . filtered (has (medium_ready_to_view . only ViewTranscoding)) . medium_id) . fst <$> list 30 1
-      unless (null ids) $ logInfo $ "Still transcoding: " <> tshow ids
-      pure $ (not.null) ids
+    inProgress = do
+      ms <- toListOf (folded . filtered ((`elem` [ViewUploading, ViewTranscoding]) . view medium_ready_to_view)) . fst <$> list 30 1
+      let ups = filter (when ViewUploading) ms
+          ts = filter (when ViewTranscoding) ms
+      unless (null ups) $ logInfo $ "Still uploading: " <> tshow (ids ups)
+      unless (null ts) $ logInfo $ "Still transcoding: " <> tshow (ids ts)
+      pure $ (not.null) (ups <> ts)
 
+    ids = toListOf (folded . medium_id)
+    when x Medium{_medium_ready_to_view} = x == _medium_ready_to_view
     sleep = liftIO . threadDelay . seconds
     seconds = (* 1000000)

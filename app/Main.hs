@@ -85,7 +85,7 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
     cmds = [("auth", runAuth),
             ("reauth", runReauth),
             ("sync", do
-                runWaitForTranscoding
+                runWaitForUploads
                 runFetch Incremental
                 runGetMeta
                 runGrokTel
@@ -101,7 +101,7 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
             ("serve", runServer),
             ("getmeta", runGetMeta),
             ("groktel", runGrokTel),
-            ("transcoding", runWaitForTranscoding),
+            ("wait", runWaitForUploads),
             ("storemeta", runStoreMeta),
             ("backup", runBackup)]
     unknown = do
