@@ -92,6 +92,9 @@ emptyState = Model
              , areas = []
              , filters = [dateFilter, camFilter, typeFilter, momentFilter, areaFilter]}
 
+type BackendCommand
+    = Reauth
+
 type Msg
   = SomeMedia (Result Http.Error (List Medium))
   | SomeDLOpts (Result Http.Error DLOpts)
@@ -102,6 +105,8 @@ type Msg
   | OpenOverlay Medium
   | RefreshMedium String
   | ReloadMedia
+  | BackendCmd BackendCommand
+  | BackendResponse BackendCommand (Result Http.Error ())
   | CloseOverlay
   | CheckedCam String Bool
   | CheckedType String Bool
@@ -167,6 +172,7 @@ renderMediaList ms (Model model) =
                          text (Filesize.format <| totalSize ms.media),
                          text ").",
                          a [ onClick ReloadMedia ] [ text "↺" ],
+                         a [ onClick (BackendCmd Reauth) ] [ text "🔒" ],
                          div [ H.class "datepick" ]
                              ([ Picker.view PickerChanged model.datePicker,
                                     div [ H.class "year" ] [ text "Quick year picker:" ] ]
@@ -423,6 +429,12 @@ update msg (Model model) =
                             { url = "/api/media"
                             , expect = Http.expectJson SomeMedia mediaListDecoder
                             })
+
+        BackendResponse Reauth result -> (Model model, Cmd.none)
+
+        BackendCmd Reauth -> (Model model, Http.post { url = "/api/reauth"
+                                                     , body = Http.emptyBody
+                                                     , expect = Http.expectWhatever (BackendResponse Reauth) })
 
         CloseOverlay ->
             (Model { model | overlay = ScreenOverlay.hide model.overlay,

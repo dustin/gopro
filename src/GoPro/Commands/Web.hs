@@ -4,9 +4,11 @@ module GoPro.Commands.Web where
 
 import           Control.Applicative           ((<|>))
 import           Control.Lens
-import           Control.Monad.Reader          (ask, lift)
+import           Control.Monad.IO.Class        (MonadIO (..))
+import           Control.Monad.Reader          (ask, asks, lift)
 import qualified Data.Aeson                    as J
 import           Data.Aeson.Lens               (_Object)
+import           Data.Cache                    (insert)
 import qualified Data.HashMap.Strict           as HM
 import qualified Data.Map.Strict               as Map
 import           Data.String                   (fromString)
@@ -22,8 +24,10 @@ import           Web.Scotty.Trans              (ScottyT, file, get, json,
                                                 middleware, param, post, raw,
                                                 scottyT, setHeader, status)
 
+import           GoPro.AuthDB
 import           GoPro.Commands
 import           GoPro.DB
+import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
 import           GoPro.Resolve
 
@@ -57,6 +61,18 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
         lift . logInfo $ "Refreshing " <> imgid
         m <- lift (medium imgid)
         lift (storeMedia [MediaRow m mempty])
+        status noContent204
+
+      post "/api/reauth" $ do
+        lift $ do
+          db <- asks dbConn
+          res <- refreshAuth =<< loadAuth db
+          -- Replace the DB value
+          updateAuth db res
+          -- Replace the cache value
+          cache <- asks authCache
+          liftIO (insert cache () res)
+          logInfo "Refreshed auth"
         status noContent204
 
       get "/thumb/:id" $ do
