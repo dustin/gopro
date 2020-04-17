@@ -8965,6 +8965,71 @@ var $elm$core$Set$remove = F2(
 var $author$project$Main$addOrRemove = function (b) {
 	return b ? $elm$core$Set$insert : $elm$core$Set$remove;
 };
+var $elm$core$String$cons = _String_cons;
+var $elm$core$String$fromChar = function (_char) {
+	return A2($elm$core$String$cons, _char, '');
+};
+var $elm$core$Bitwise$and = _Bitwise_and;
+var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
+var $elm$core$String$repeatHelp = F3(
+	function (n, chunk, result) {
+		return (n <= 0) ? result : A3(
+			$elm$core$String$repeatHelp,
+			n >> 1,
+			_Utils_ap(chunk, chunk),
+			(!(n & 1)) ? result : _Utils_ap(result, chunk));
+	});
+var $elm$core$String$repeat = F2(
+	function (n, chunk) {
+		return A3($elm$core$String$repeatHelp, n, chunk, '');
+	});
+var $elm$core$String$padLeft = F3(
+	function (n, _char, string) {
+		return _Utils_ap(
+			A2(
+				$elm$core$String$repeat,
+				n - $elm$core$String$length(string),
+				$elm$core$String$fromChar(_char)),
+			string);
+	});
+var $elm_community$list_extra$List$Extra$unfoldr = F2(
+	function (f, seed) {
+		var _v0 = f(seed);
+		if (_v0.$ === 1) {
+			return _List_Nil;
+		} else {
+			var _v1 = _v0.a;
+			var a = _v1.a;
+			var b = _v1.b;
+			return A2(
+				$elm$core$List$cons,
+				a,
+				A2($elm_community$list_extra$List$Extra$unfoldr, f, b));
+		}
+	});
+var $author$project$Formats$comma = function (i) {
+	var seg = function (x) {
+		return A3(
+			$elm$core$String$padLeft,
+			(x >= 1000) ? 3 : 0,
+			'0',
+			$elm$core$String$fromInt(
+				A2($elm$core$Basics$modBy, 1000, x)));
+	};
+	var parts = A2(
+		$elm_community$list_extra$List$Extra$unfoldr,
+		function (x) {
+			return (!x) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
+				_Utils_Tuple2(
+					seg(x),
+					(x / 1000) | 0));
+		},
+		i);
+	return A2(
+		$elm$core$String$join,
+		',',
+		$elm$core$List$reverse(parts));
+};
 var $author$project$Main$DLOpts = F2(
 	function (vidclip, list) {
 		return {cB: list, c9: vidclip};
@@ -9528,7 +9593,6 @@ var $pablen$toasty$Toasty$TransitionOut = function (a) {
 	return {$: 2, a: a};
 };
 var $elm$random$Random$Generator = $elm$core$Basics$identity;
-var $elm$core$Bitwise$and = _Bitwise_and;
 var $elm$core$Bitwise$xor = _Bitwise_xor;
 var $elm$random$Random$peel = function (_v0) {
 	var state = _v0.a;
@@ -9772,7 +9836,8 @@ var $author$project$Main$update = F2(
 					return A3(
 						$author$project$Main$toastSuccess,
 						'Loaded',
-						'Loaded media',
+						'Loaded ' + ($author$project$Formats$comma(
+							$elm$core$List$length(meds)) + ' media items.'),
 						_Utils_Tuple2(
 							$author$project$Main$filter(
 								_Utils_update(
@@ -10167,70 +10232,6 @@ var $author$project$Main$aList = F5(
 				},
 				things));
 	});
-var $elm$core$String$cons = _String_cons;
-var $elm$core$String$fromChar = function (_char) {
-	return A2($elm$core$String$cons, _char, '');
-};
-var $elm$core$Bitwise$shiftRightBy = _Bitwise_shiftRightBy;
-var $elm$core$String$repeatHelp = F3(
-	function (n, chunk, result) {
-		return (n <= 0) ? result : A3(
-			$elm$core$String$repeatHelp,
-			n >> 1,
-			_Utils_ap(chunk, chunk),
-			(!(n & 1)) ? result : _Utils_ap(result, chunk));
-	});
-var $elm$core$String$repeat = F2(
-	function (n, chunk) {
-		return A3($elm$core$String$repeatHelp, n, chunk, '');
-	});
-var $elm$core$String$padLeft = F3(
-	function (n, _char, string) {
-		return _Utils_ap(
-			A2(
-				$elm$core$String$repeat,
-				n - $elm$core$String$length(string),
-				$elm$core$String$fromChar(_char)),
-			string);
-	});
-var $elm_community$list_extra$List$Extra$unfoldr = F2(
-	function (f, seed) {
-		var _v0 = f(seed);
-		if (_v0.$ === 1) {
-			return _List_Nil;
-		} else {
-			var _v1 = _v0.a;
-			var a = _v1.a;
-			var b = _v1.b;
-			return A2(
-				$elm$core$List$cons,
-				a,
-				A2($elm_community$list_extra$List$Extra$unfoldr, f, b));
-		}
-	});
-var $author$project$Formats$comma = function (i) {
-	var seg = function (x) {
-		return A3(
-			$elm$core$String$padLeft,
-			(x >= 1000) ? 3 : 0,
-			'0',
-			$elm$core$String$fromInt(
-				A2($elm$core$Basics$modBy, 1000, x)));
-	};
-	var parts = A2(
-		$elm_community$list_extra$List$Extra$unfoldr,
-		function (x) {
-			return (!x) ? $elm$core$Maybe$Nothing : $elm$core$Maybe$Just(
-				_Utils_Tuple2(
-					seg(x),
-					(x / 1000) | 0));
-		},
-		i);
-	return A2(
-		$elm$core$String$join,
-		',',
-		$elm$core$List$reverse(parts));
-};
 var $author$project$Formats$monthStr = function (month) {
 	switch (month) {
 		case 0:

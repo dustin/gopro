@@ -408,7 +408,9 @@ update msg (Model model) =
                                             camerasChecked = cameras,
                                             typesChecked = types,
                                             current = c
-                                   }), Cmd.none) |> toastSuccess "Loaded" "Loaded media"
+                                   }), Cmd.none) |> toastSuccess "Loaded" ("Loaded " ++
+                                                                               (F.comma (List.length meds)) ++
+                                                                               " media items.")
 
                 Err x ->
                     (Model {model | httpError = Just x}, Cmd.none)
