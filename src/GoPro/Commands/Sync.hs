@@ -166,7 +166,7 @@ runWaitForUploads :: GoPro ()
 runWaitForUploads = whileM_ inProgress (sleep 15)
   where
     inProgress = do
-      ms <- toListOf (folded . filtered ((`elem` [ViewUploading, ViewTranscoding]) . view medium_ready_to_view)) . fst <$> list 30 1
+      ms <- toListOf (folded . filtered ((`elem` [ViewUploading, ViewTranscoding]) . view medium_ready_to_view)) . fst <$> list 10 1
       let ups = filter (when ViewUploading) ms
           ts = filter (when ViewTranscoding) ms
       unless (null ups) $ logInfo $ "Still uploading: " <> tshow (ids ups)
