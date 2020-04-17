@@ -15,7 +15,8 @@ import Dict
 import DateRangePicker as Picker
 import DateRangePicker.Range as Range exposing (beginsAt, endsAt)
 import Time.Extra as TE
-
+import Toasty
+import Toasty.Defaults
 import ScreenOverlay
 import Geo exposing (..)
 import List.Extra exposing (groupWhile, minimumBy, maximumBy)
@@ -64,6 +65,7 @@ type Model = Model
     { httpError : Maybe Http.Error
     , zone  : Time.Zone
     , overlay : ScreenOverlay.ScreenOverlay
+    , toasties : Toasty.Stack Toasty.Defaults.Toast
     , current : (Maybe Medium, Maybe (Result Http.Error DLOpts))
     , datePicker : Picker.State
     , camerasChecked : Set.Set String
@@ -80,6 +82,7 @@ emptyState = Model
              { httpError = Nothing
              , zone = Time.utc
              , overlay = ScreenOverlay.initOverlay
+             , toasties = Toasty.initialState
              , current = (Nothing, Nothing)
              , datePicker = let cfg = Picker.defaultConfig in
                             Picker.init {cfg | noRangeCaption = "All Time",
@@ -103,6 +106,7 @@ type Msg
   | FirstTime Time.Posix
   | CurrentTime Time.Posix
   | OpenOverlay Medium
+  | ToastyMsg (Toasty.Msg Toasty.Defaults.Toast)
   | RefreshMedium String
   | ReloadMedia
   | BackendCmd BackendCommand
@@ -191,6 +195,7 @@ renderMediaList ms (Model model) =
                        ]
              ],
          div [] [ScreenOverlay.overlayView model.overlay CloseOverlay (renderOverlay z model.current)],
+         Toasty.view toastConfig Toasty.Defaults.view ToastyMsg model.toasties,
          div [ H.class "media" ]
              (mediaHTML z groupies)]
 
@@ -234,6 +239,14 @@ renderMetaData g = (case (g.lat, g.lon) of
                                   [ span [ H.class "scene" ] [text (locationStr c)],
                                     text (" with probability " ++
                                           String.fromFloat (Maybe.withDefault 0 g.sceneProb)) ]])
+
+renderToast : String -> Html Msg
+renderToast toast = div [] [ text toast ]
+
+toastConfig : Toasty.Config msg
+toastConfig = Toasty.Defaults.config
+            |> Toasty.transitionOutDuration 700
+            |> Toasty.delay 5000
 
 renderOverlay : Time.Zone -> (Maybe Medium, Maybe (Result Http.Error DLOpts)) -> Html Msg
 renderOverlay z (mm, mdls) =
@@ -363,6 +376,19 @@ myRanges zone today =
     , ( "Last year", Range.create zone (today |> startOfPreviousYear zone) (today |> startOfYear zone))
     ]
 
+addToast : Toasty.Defaults.Toast -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+addToast toast ( Model model, cmd ) =
+    let (m, a) = Toasty.addToast toastConfig ToastyMsg toast ( model, cmd ) in (Model m, a)
+
+toastX : (String -> String -> Toasty.Defaults.Toast) -> String -> String -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+toastX f m t = addToast (f m t)
+
+toastSuccess : String -> String -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+toastSuccess = toastX Toasty.Defaults.Success
+
+toastError : String -> String -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+toastError = toastX Toasty.Defaults.Error
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg (Model model) =
     case msg of
@@ -428,9 +454,12 @@ update msg (Model model) =
                         Http.get
                             { url = "/api/media"
                             , expect = Http.expectJson SomeMedia mediaListDecoder
-                            })
+                            }) |> toastSuccess "Reloading" ""
 
-        BackendResponse Reauth result -> (Model model, Cmd.none)
+        BackendResponse Reauth result ->
+            case result of
+                Ok () -> (Model model, Cmd.none) |> toastSuccess "Reauthed" ""
+                Err x -> (Model model, Cmd.none) |> toastError "Reauth failure" (F.httpErr x)
 
         BackendCmd Reauth -> (Model model, Http.post { url = "/api/reauth"
                                                      , body = Http.emptyBody
@@ -439,6 +468,9 @@ update msg (Model model) =
         CloseOverlay ->
             (Model { model | overlay = ScreenOverlay.hide model.overlay,
                              current = (Nothing, Nothing) }, unlockScroll Nothing )
+
+        ToastyMsg submsg -> let (m, a) = Toasty.update toastConfig ToastyMsg submsg model
+                            in (Model m, a)
 
         PickerChanged state ->
             ( filter (Model { model | datePicker = state } ), Cmd.none )

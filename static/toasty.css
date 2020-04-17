@@ -1,0 +1,83 @@
+.toasty-container {
+  padding: 1em;
+  border-radius: 5px;
+  cursor: pointer;
+  box-shadow: 0 5px 5px -5px rgba(0, 0, 0, 0.5);
+  color: white;
+  font-size: 13px;
+}
+
+.toasty-title {
+  font-size: 1em;
+  margin: 0;
+}
+
+.toasty-message {
+  font-size: 0.9em;
+  margin-top: 0.5em;
+  margin-bottom: 0;
+}
+
+.toasty-success {
+  background-color: #2ECC40;
+}
+
+.toasty-warning {
+  background-color: #FF851B;
+}
+
+.toasty-error {
+  background-color: #FF4136;
+}
+
+.animated {
+  animation-duration: 1s;
+  animation-fill-mode: both;
+}
+
+@keyframes bounceInRight {
+  from, 60%, 75%, 90%, to {
+    animation-timing-function: cubic-bezier(0.215, 0.610, 0.355, 1.000);
+  }
+
+  from {
+    opacity: 0;
+    transform: translate3d(3000px, 0, 0);
+  }
+
+  60% {
+    opacity: 1;
+    transform: translate3d(-25px, 0, 0);
+  }
+
+  75% {
+    transform: translate3d(10px, 0, 0);
+  }
+
+  90% {
+    transform: translate3d(-5px, 0, 0);
+  }
+
+  to {
+    transform: none;
+  }
+}
+
+.bounceInRight {
+  animation-name: bounceInRight;
+}
+
+@keyframes fadeOutRightBig {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+    transform: translate3d(2000px, 0, 0);
+  }
+}
+
+.fadeOutRightBig {
+  animation-name: fadeOutRightBig;
+}
