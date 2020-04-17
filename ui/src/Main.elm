@@ -247,6 +247,7 @@ toastConfig : Toasty.Config msg
 toastConfig = Toasty.Defaults.config
             |> Toasty.transitionOutDuration 700
             |> Toasty.delay 5000
+            |> Toasty.containerAttrs [ H.class "toastol" ]
 
 renderOverlay : Time.Zone -> (Maybe Medium, Maybe (Result Http.Error DLOpts)) -> Html Msg
 renderOverlay z (mm, mdls) =
@@ -407,7 +408,7 @@ update msg (Model model) =
                                             camerasChecked = cameras,
                                             typesChecked = types,
                                             current = c
-                                   }), Cmd.none)
+                                   }), Cmd.none) |> toastSuccess "Loaded" "Loaded media"
 
                 Err x ->
                     (Model {model | httpError = Just x}, Cmd.none)
@@ -433,7 +434,6 @@ update msg (Model model) =
         CurrentTime t ->
             (Model model, Picker.now PickerChanged model.datePicker)
 
-
         ZoneHere z ->
             (Model {model | zone = z}, Task.perform FirstTime Time.now)
 
@@ -454,7 +454,7 @@ update msg (Model model) =
                         Http.get
                             { url = "/api/media"
                             , expect = Http.expectJson SomeMedia mediaListDecoder
-                            }) |> toastSuccess "Reloading" ""
+                            })
 
         BackendResponse Reauth result ->
             case result of

@@ -9411,6 +9411,14 @@ var $author$project$ScreenOverlay$show = function (_v0) {
 	var styles = _v0.b;
 	return A2($author$project$ScreenOverlay$ScreenOverlay, 0, styles);
 };
+var $elm$html$Html$Attributes$stringProperty = F2(
+	function (key, string) {
+		return A2(
+			_VirtualDom_property,
+			key,
+			$elm$json$Json$Encode$string(string));
+	});
+var $elm$html$Html$Attributes$class = $elm$html$Html$Attributes$stringProperty('className');
 var $pablen$toasty$Toasty$Config = $elm$core$Basics$identity;
 var $pablen$toasty$Toasty$config = {by: _List_Nil, bA: 5000, bJ: _List_Nil, bX: _List_Nil, bY: _List_Nil, bZ: 0};
 var $pablen$toasty$Toasty$containerAttrs = F2(
@@ -9460,14 +9468,6 @@ var $pablen$toasty$Toasty$transitionInAttrs = F2(
 			cfg,
 			{bX: attrs});
 	});
-var $elm$html$Html$Attributes$stringProperty = F2(
-	function (key, string) {
-		return A2(
-			_VirtualDom_property,
-			key,
-			$elm$json$Json$Encode$string(string));
-	});
-var $elm$html$Html$Attributes$class = $elm$html$Html$Attributes$stringProperty('className');
 var $pablen$toasty$Toasty$Defaults$transitionInAttrs = _List_fromArray(
 	[
 		$elm$html$Html$Attributes$class('animated bounceInRight')
@@ -9509,9 +9509,15 @@ var $pablen$toasty$Toasty$Defaults$config = A2(
 					$pablen$toasty$Toasty$Defaults$transitionOutAttrs,
 					A2($pablen$toasty$Toasty$transitionOutDuration, 700, $pablen$toasty$Toasty$config))))));
 var $author$project$Main$toastConfig = A2(
-	$pablen$toasty$Toasty$delay,
-	5000,
-	A2($pablen$toasty$Toasty$transitionOutDuration, 700, $pablen$toasty$Toasty$Defaults$config));
+	$pablen$toasty$Toasty$containerAttrs,
+	_List_fromArray(
+		[
+			$elm$html$Html$Attributes$class('toastol')
+		]),
+	A2(
+		$pablen$toasty$Toasty$delay,
+		5000,
+		A2($pablen$toasty$Toasty$transitionOutDuration, 700, $pablen$toasty$Toasty$Defaults$config)));
 var $pablen$toasty$Toasty$Defaults$Error = F2(
 	function (a, b) {
 		return {$: 2, a: a, b: b};
@@ -9763,24 +9769,28 @@ var $author$project$Main$update = F2(
 								x);
 						}
 					}();
-					return _Utils_Tuple2(
-						$author$project$Main$filter(
-							_Utils_update(
-								model,
-								{
-									at: cameras,
-									V: c,
-									N: $elm$core$Maybe$Just(
-										A5(
-											$author$project$Main$Media,
-											meds,
-											$elm$core$Set$toList(cameras),
-											$elm$core$Set$toList(types),
-											years,
-											_List_Nil)),
-									aM: types
-								})),
-						$elm$core$Platform$Cmd$none);
+					return A3(
+						$author$project$Main$toastSuccess,
+						'Loaded',
+						'Loaded media',
+						_Utils_Tuple2(
+							$author$project$Main$filter(
+								_Utils_update(
+									model,
+									{
+										at: cameras,
+										V: c,
+										N: $elm$core$Maybe$Just(
+											A5(
+												$author$project$Main$Media,
+												meds,
+												$elm$core$Set$toList(cameras),
+												$elm$core$Set$toList(types),
+												years,
+												_List_Nil)),
+										aM: types
+									})),
+							$elm$core$Platform$Cmd$none));
 				} else {
 					var x = result.a;
 					return _Utils_Tuple2(
@@ -9890,17 +9900,13 @@ var $author$project$Main$update = F2(
 							P: '/api/refresh/' + mid
 						}));
 			case 9:
-				return A3(
-					$author$project$Main$toastSuccess,
-					'Reloading',
-					'',
-					_Utils_Tuple2(
-						model,
-						$elm$http$Http$get(
-							{
-								ax: A2($elm$http$Http$expectJson, $author$project$Main$SomeMedia, $author$project$Media$mediaListDecoder),
-								P: '/api/media'
-							})));
+				return _Utils_Tuple2(
+					model,
+					$elm$http$Http$get(
+						{
+							ax: A2($elm$http$Http$expectJson, $author$project$Main$SomeMedia, $author$project$Media$mediaListDecoder),
+							P: '/api/media'
+						}));
 			case 11:
 				var _v7 = msg.a;
 				var result = msg.b;

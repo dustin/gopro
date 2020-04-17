@@ -1,3 +1,15 @@
+.toastol {
+  z-index: 6;
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 100%;
+  max-width: 300px;
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
 .toasty-container {
   padding: 1em;
   border-radius: 5px;
