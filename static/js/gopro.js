@@ -6268,11 +6268,11 @@ var $allo_media$elm_daterange_picker$DateRangePicker$init = F2(
 			O: selected,
 			aU: false,
 			aY: $elm$core$Maybe$Nothing,
-			F: leftCal,
+			G: leftCal,
 			I: false,
-			D: rightCal,
+			E: rightCal,
 			s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(selected),
-			E: $waratuman$time_extra$Time$Extra$epoch
+			F: $waratuman$time_extra$Time$Extra$epoch
 		};
 	});
 var $author$project$ScreenOverlay$NonVisible = 1;
@@ -6323,7 +6323,7 @@ var $author$project$Main$emptyState = {
 			$elm$core$Maybe$Nothing);
 	}(),
 	aZ: $elm$core$Maybe$Nothing,
-	G: $elm$core$Maybe$Nothing,
+	D: $elm$core$Maybe$Nothing,
 	a2: false,
 	am: $author$project$ScreenOverlay$initOverlay,
 	bX: $pablen$toasty$Toasty$initialState,
@@ -8456,22 +8456,22 @@ var $allo_media$elm_daterange_picker$DateRangePicker$Step$next = F3(
 	});
 var $allo_media$elm_daterange_picker$DateRangePicker$update = F2(
 	function (msg, internal) {
-		var leftCal = internal.F;
-		var rightCal = internal.D;
+		var leftCal = internal.G;
+		var rightCal = internal.E;
 		var step = internal.s;
 		switch (msg.$) {
 			case 0:
 				var dateRange = msg.a;
-				var _v1 = A3($allo_media$elm_daterange_picker$DateRangePicker$getCalendars, internal.e, dateRange, internal.E);
+				var _v1 = A3($allo_media$elm_daterange_picker$DateRangePicker$getCalendars, internal.e, dateRange, internal.F);
 				var newLeftCal = _v1.a;
 				var newRightCal = _v1.b;
 				return _Utils_update(
 					internal,
 					{
 						O: dateRange,
-						F: newLeftCal,
+						G: newLeftCal,
 						I: false,
-						D: newRightCal,
+						E: newRightCal,
 						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(dateRange)
 					});
 			case 1:
@@ -8506,18 +8506,18 @@ var $allo_media$elm_daterange_picker$DateRangePicker$update = F2(
 				return _Utils_update(
 					internal,
 					{
-						F: rightCal,
-						D: A2($allo_media$elm_daterange_picker$DateRangePicker$Helpers$startOfNextMonth, internal.e.K, rightCal)
+						G: rightCal,
+						E: A2($allo_media$elm_daterange_picker$DateRangePicker$Helpers$startOfNextMonth, internal.e.K, rightCal)
 					});
 			case 5:
 				return internal;
 			case 6:
-				var _v3 = A3($allo_media$elm_daterange_picker$DateRangePicker$getCalendars, internal.e, internal.O, internal.E);
+				var _v3 = A3($allo_media$elm_daterange_picker$DateRangePicker$getCalendars, internal.e, internal.O, internal.F);
 				var newLeftCal = _v3.a;
 				var newRightCal = _v3.b;
 				return _Utils_update(
 					internal,
-					{F: newLeftCal, I: true, D: newRightCal});
+					{G: newLeftCal, I: true, E: newRightCal});
 			case 8:
 				var picked = msg.a;
 				return _Utils_update(
@@ -8529,8 +8529,8 @@ var $allo_media$elm_daterange_picker$DateRangePicker$update = F2(
 				return _Utils_update(
 					internal,
 					{
-						F: A2($allo_media$elm_daterange_picker$DateRangePicker$Helpers$startOfPreviousMonth, internal.e.K, leftCal),
-						D: leftCal
+						G: A2($allo_media$elm_daterange_picker$DateRangePicker$Helpers$startOfPreviousMonth, internal.e.K, leftCal),
+						E: leftCal
 					});
 			default:
 				var dateRange = msg.a;
@@ -8538,14 +8538,14 @@ var $allo_media$elm_daterange_picker$DateRangePicker$update = F2(
 					$allo_media$elm_daterange_picker$DateRangePicker$getCalendars,
 					internal.e,
 					$elm$core$Maybe$Just(dateRange),
-					internal.E);
+					internal.F);
 				var newLeftCal = _v4.a;
 				var newRightCal = _v4.b;
 				return _Utils_update(
 					internal,
 					{
-						F: newLeftCal,
-						D: newRightCal,
+						G: newLeftCal,
+						E: newRightCal,
 						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(
 							$elm$core$Maybe$Just(dateRange))
 					});
@@ -9078,7 +9078,7 @@ var $author$project$Main$typeFilter = F2(
 var $author$project$Main$allFilters = _List_fromArray(
 	[$author$project$Main$dateFilter, $author$project$Main$camFilter, $author$project$Main$typeFilter, $author$project$Main$momentFilter, $author$project$Main$areaFilter]);
 var $author$project$Main$filter = function (model) {
-	var _v0 = model.G;
+	var _v0 = model.D;
 	if (_v0.$ === 1) {
 		return model;
 	} else {
@@ -9094,11 +9094,11 @@ var $author$project$Main$filter = function (model) {
 					},
 					$author$project$Main$allFilters);
 			},
-			ms.G);
+			ms.D);
 		return _Utils_update(
 			model,
 			{
-				G: $elm$core$Maybe$Just(
+				D: $elm$core$Maybe$Just(
 					_Utils_update(
 						ms,
 						{aV: filty}))
@@ -9265,7 +9265,7 @@ var $waratuman$time_extra$Time$Extra$fromIso8601Date = F2(
 	});
 var $author$project$Main$Media = F5(
 	function (media, cameras, types, years, filty) {
-		return {cd: cameras, aV: filty, G: media, c7: types, dd: years};
+		return {cd: cameras, aV: filty, D: media, c7: types, dd: years};
 	});
 var $elm$core$Set$fromList = function (list) {
 	return A3($elm$core$List$foldl, $elm$core$Set$insert, $elm$core$Set$empty, list);
@@ -9332,7 +9332,7 @@ var $author$project$Main$gotMedia = F2(
 				{
 					ag: cameras,
 					O: c,
-					G: $elm$core$Maybe$Just(
+					D: $elm$core$Maybe$Just(
 						A5(
 							$author$project$Main$Media,
 							meds,
@@ -9364,6 +9364,11 @@ var $author$project$Formats$httpErr = function (e) {
 			return 'bad body: ' + b;
 	}
 };
+var $author$project$Main$isJust = A2(
+	$elm$core$Basics$composeL,
+	$elm$core$Maybe$withDefault(false),
+	$elm$core$Maybe$map(
+		$elm$core$Basics$always(true)));
 var $elm$core$Maybe$destruct = F3(
 	function (_default, func, maybe) {
 		if (!maybe.$) {
@@ -9480,7 +9485,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$setToday = F2(
 		var newRightCal = _v1.b;
 		return _Utils_update(
 			internal,
-			{F: newLeftCal, D: newRightCal, E: today});
+			{G: newLeftCal, E: newRightCal, F: today});
 	});
 var $allo_media$elm_daterange_picker$DateRangePicker$nowTask = F2(
 	function (config, selected) {
@@ -9757,6 +9762,16 @@ var $pablen$toasty$Toasty$Defaults$Success = F2(
 		return {$: 0, a: a, b: b};
 	});
 var $author$project$Main$toastSuccess = $author$project$Main$toastX($pablen$toasty$Toasty$Defaults$Success);
+var $author$project$Main$toastSuccessIf = function (b) {
+	if (b) {
+		return $author$project$Main$toastX($pablen$toasty$Toasty$Defaults$Success);
+	} else {
+		return F3(
+			function (_v1, _v2, m) {
+				return m;
+			});
+	}
+};
 var $author$project$Main$unlockScroll = _Platform_outgoingPort(
 	'unlockScroll',
 	function ($) {
@@ -9832,8 +9847,9 @@ var $author$project$Main$update = F2(
 				var result = msg.a;
 				if (!result.$) {
 					var meds = result.a;
-					return A3(
-						$author$project$Main$toastSuccess,
+					return A4(
+						$author$project$Main$toastSuccessIf,
+						$author$project$Main$isJust(model.D),
 						'Loaded',
 						'Loaded ' + ($author$project$Formats$comma(
 							$elm$core$List$length(meds)) + ' media items.'),
@@ -13913,7 +13929,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$predefinedRangesView = F2(
 	function (toMsg, internal) {
 		var config = internal.e;
 		var step = internal.s;
-		var today = internal.E;
+		var today = internal.F;
 		var entry = function (_v0) {
 			var name = _v0.a;
 			var range = _v0.b;
@@ -14013,7 +14029,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$Calendar$dayCell = F2(
 		var pick = _v0.dR;
 		var step = _v0.s;
 		var target = _v0.bV;
-		var today = _v0.E;
+		var today = _v0.F;
 		var zone = _v0.K;
 		var disabled = (!allowFuture) && (_Utils_cmp(
 			$elm$time$Time$posixToMillis(day),
@@ -14445,17 +14461,17 @@ var $allo_media$elm_daterange_picker$DateRangePicker$panel = F2(
 			},
 			cK: $elm$core$Maybe$Nothing,
 			s: internal.s,
-			bV: internal.E,
-			E: internal.E,
+			bV: internal.F,
+			F: internal.F,
 			bs: internal.e.bs,
 			bt: internal.e.bt,
 			K: internal.e.K
 		};
 		var allowNext = internal.e.dg || (_Utils_cmp(
 			$elm$time$Time$posixToMillis(
-				A2($waratuman$time_extra$Time$Extra$startOfMonth, internal.e.K, internal.D)),
+				A2($waratuman$time_extra$Time$Extra$startOfMonth, internal.e.K, internal.E)),
 			$elm$time$Time$posixToMillis(
-				A2($waratuman$time_extra$Time$Extra$startOfMonth, internal.e.K, internal.E))) < 0);
+				A2($waratuman$time_extra$Time$Extra$startOfMonth, internal.e.K, internal.F))) < 0);
 		return A2(
 			$elm$html$Html$div,
 			_List_fromArray(
@@ -14486,7 +14502,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$panel = F2(
 								{
 									cK: $elm$core$Maybe$Just(
 										A3($allo_media$elm_daterange_picker$DateRangePicker$handleEvent, toMsg, $allo_media$elm_daterange_picker$DateRangePicker$Prev, internal)),
-									bV: internal.F
+									bV: internal.G
 								})),
 							$allo_media$elm_daterange_picker$DateRangePicker$Calendar$view(
 							_Utils_update(
@@ -14494,7 +14510,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$panel = F2(
 								{
 									cF: allowNext ? $elm$core$Maybe$Just(
 										A3($allo_media$elm_daterange_picker$DateRangePicker$handleEvent, toMsg, $allo_media$elm_daterange_picker$DateRangePicker$Next, internal)) : $elm$core$Maybe$Nothing,
-									bV: internal.D
+									bV: internal.E
 								}))
 						])),
 					A2(
@@ -14796,11 +14812,11 @@ var $author$project$Main$renderMediaList = F2(
 									$elm$html$Html$text(') out of '),
 									$elm$html$Html$text(
 									$author$project$Formats$comma(
-										$elm$core$List$length(ms.G))),
+										$elm$core$List$length(ms.D))),
 									$elm$html$Html$text(' items ('),
 									$elm$html$Html$text(
 									$basti1302$elm_human_readable_filesize$Filesize$format(
-										totalSize(ms.G))),
+										totalSize(ms.D))),
 									$elm$html$Html$text(').'),
 									A2(
 									$elm$html$Html$a,
@@ -14918,7 +14934,7 @@ var $author$project$Main$renderMediaList = F2(
 var $author$project$Main$view = function (model) {
 	var _v0 = model.aZ;
 	if (_v0.$ === 1) {
-		var _v1 = model.G;
+		var _v1 = model.D;
 		if (_v1.$ === 1) {
 			return $elm$html$Html$text('Loading...');
 		} else {

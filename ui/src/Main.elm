@@ -387,6 +387,11 @@ toastX f m t = addToast (f m t)
 toastSuccess : String -> String -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
 toastSuccess = toastX Toasty.Defaults.Success
 
+toastSuccessIf : Bool -> String -> String -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
+toastSuccessIf b = case b of
+                       True -> toastX Toasty.Defaults.Success
+                       False -> (\_ _ m -> m)
+
 toastError : String -> String -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
 toastError = toastX Toasty.Defaults.Error
 
@@ -406,13 +411,17 @@ gotMedia model meds =
                     current = c
                }
 
+isJust : Maybe a -> Bool
+isJust = Maybe.withDefault False << Maybe.map (always True)
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
         SomeMedia result ->
             case result of
                 Ok meds -> (gotMedia model meds, Cmd.none)
-                        |> toastSuccess "Loaded" ("Loaded " ++ (F.comma (List.length meds)) ++ " media items.")
+                         |> toastSuccessIf (isJust model.media)
+                            "Loaded" ("Loaded " ++ (F.comma (List.length meds)) ++ " media items.")
 
                 Err x ->
                     ({model | httpError = Just x}, Cmd.none)
