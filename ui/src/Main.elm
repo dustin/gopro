@@ -390,27 +390,29 @@ toastSuccess = toastX Toasty.Defaults.Success
 toastError : String -> String -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
 toastError = toastX Toasty.Defaults.Error
 
+gotMedia : Model -> List Medium -> Model
+gotMedia (Model model) meds =
+    let z = model.zone
+        cameras = Set.fromList (List.map .camera_model meds)
+        types = Set.fromList (List.map (\m -> mediaTypeStr m.media_type) meds)
+        years = Set.fromList <| List.map (Time.toYear z << .captured_at) meds
+        c = case model.current of
+                (Nothing, x) -> (Nothing, x)
+                (Just m, x) -> (List.head (List.filter (\mn -> mn.id == m.id) meds), x)
+    in
+        filter (Model {model | media = Just (Media meds (Set.toList cameras) (Set.toList types) years []),
+                           camerasChecked = cameras,
+                           typesChecked = types,
+                           current = c
+                      })
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg (Model model) =
     case msg of
         SomeMedia result ->
             case result of
-                Ok meds ->
-                    let z = model.zone
-                        cameras = Set.fromList (List.map .camera_model meds)
-                        types = Set.fromList (List.map (\m -> mediaTypeStr m.media_type) meds)
-                        years = Set.fromList <| List.map (Time.toYear z << .captured_at) meds
-                        c = case model.current of
-                                (Nothing, x) -> (Nothing, x)
-                                (Just m, x) -> (List.head (List.filter (\mn -> mn.id == m.id) meds), x)
-                    in
-                    (filter (Model {model | media = Just (Media meds (Set.toList cameras) (Set.toList types) years []),
-                                            camerasChecked = cameras,
-                                            typesChecked = types,
-                                            current = c
-                                   }), Cmd.none) |> toastSuccess "Loaded" ("Loaded " ++
-                                                                               (F.comma (List.length meds)) ++
-                                                                               " media items.")
+                Ok meds -> (gotMedia (Model model) meds, Cmd.none)
+                        |> toastSuccess "Loaded" ("Loaded " ++ (F.comma (List.length meds)) ++ " media items.")
 
                 Err x ->
                     (Model {model | httpError = Just x}, Cmd.none)

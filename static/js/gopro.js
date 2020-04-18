@@ -8940,10 +8940,6 @@ var $author$project$Main$BackendResponse = F2(
 var $author$project$Main$FirstTime = function (a) {
 	return {$: 4, a: a};
 };
-var $author$project$Main$Media = F5(
-	function (media, cameras, types, years, filty) {
-		return {cc: cameras, aU: filty, N: media, c8: types, de: years};
-	});
 var $author$project$Main$Reauth = 0;
 var $author$project$Main$ReloadMedia = {$: 9};
 var $author$project$Main$SomeDLOpts = function (a) {
@@ -9275,6 +9271,10 @@ var $waratuman$time_extra$Time$Extra$fromIso8601Date = F2(
 			return $elm$core$Maybe$Nothing;
 		}
 	});
+var $author$project$Main$Media = F5(
+	function (media, cameras, types, years, filty) {
+		return {cc: cameras, aU: filty, N: media, c8: types, de: years};
+	});
 var $elm$core$Set$fromList = function (list) {
 	return A3($elm$core$List$foldl, $elm$core$Set$insert, $elm$core$Set$empty, list);
 };
@@ -9287,6 +9287,71 @@ var $elm$core$List$head = function (list) {
 		return $elm$core$Maybe$Nothing;
 	}
 };
+var $author$project$Main$gotMedia = F2(
+	function (_v0, meds) {
+		var model = _v0;
+		var z = model.R;
+		var years = $elm$core$Set$fromList(
+			A2(
+				$elm$core$List$map,
+				A2(
+					$elm$core$Basics$composeL,
+					$elm$time$Time$toYear(z),
+					function ($) {
+						return $.K;
+					}),
+				meds));
+		var types = $elm$core$Set$fromList(
+			A2(
+				$elm$core$List$map,
+				function (m) {
+					return $author$project$Media$mediaTypeStr(m.bL);
+				},
+				meds));
+		var cameras = $elm$core$Set$fromList(
+			A2(
+				$elm$core$List$map,
+				function ($) {
+					return $.bw;
+				},
+				meds));
+		var c = function () {
+			var _v1 = model.V;
+			if (_v1.a.$ === 1) {
+				var _v2 = _v1.a;
+				var x = _v1.b;
+				return _Utils_Tuple2($elm$core$Maybe$Nothing, x);
+			} else {
+				var m = _v1.a.a;
+				var x = _v1.b;
+				return _Utils_Tuple2(
+					$elm$core$List$head(
+						A2(
+							$elm$core$List$filter,
+							function (mn) {
+								return _Utils_eq(mn.ah, m.ah);
+							},
+							meds)),
+					x);
+			}
+		}();
+		return $author$project$Main$filter(
+			_Utils_update(
+				model,
+				{
+					at: cameras,
+					V: c,
+					N: $elm$core$Maybe$Just(
+						A5(
+							$author$project$Main$Media,
+							meds,
+							$elm$core$Set$toList(cameras),
+							$elm$core$Set$toList(types),
+							years,
+							_List_Nil)),
+					aM: types
+				}));
+	});
 var $author$project$ScreenOverlay$hide = function (_v0) {
 	var styles = _v0.b;
 	return A2($author$project$ScreenOverlay$ScreenOverlay, 1, styles);
@@ -9788,73 +9853,13 @@ var $author$project$Main$update = F2(
 				var result = msg.a;
 				if (!result.$) {
 					var meds = result.a;
-					var z = model.R;
-					var years = $elm$core$Set$fromList(
-						A2(
-							$elm$core$List$map,
-							A2(
-								$elm$core$Basics$composeL,
-								$elm$time$Time$toYear(z),
-								function ($) {
-									return $.K;
-								}),
-							meds));
-					var types = $elm$core$Set$fromList(
-						A2(
-							$elm$core$List$map,
-							function (m) {
-								return $author$project$Media$mediaTypeStr(m.bL);
-							},
-							meds));
-					var cameras = $elm$core$Set$fromList(
-						A2(
-							$elm$core$List$map,
-							function ($) {
-								return $.bw;
-							},
-							meds));
-					var c = function () {
-						var _v3 = model.V;
-						if (_v3.a.$ === 1) {
-							var _v4 = _v3.a;
-							var x = _v3.b;
-							return _Utils_Tuple2($elm$core$Maybe$Nothing, x);
-						} else {
-							var m = _v3.a.a;
-							var x = _v3.b;
-							return _Utils_Tuple2(
-								$elm$core$List$head(
-									A2(
-										$elm$core$List$filter,
-										function (mn) {
-											return _Utils_eq(mn.ah, m.ah);
-										},
-										meds)),
-								x);
-						}
-					}();
 					return A3(
 						$author$project$Main$toastSuccess,
 						'Loaded',
 						'Loaded ' + ($author$project$Formats$comma(
 							$elm$core$List$length(meds)) + ' media items.'),
 						_Utils_Tuple2(
-							$author$project$Main$filter(
-								_Utils_update(
-									model,
-									{
-										at: cameras,
-										V: c,
-										N: $elm$core$Maybe$Just(
-											A5(
-												$author$project$Main$Media,
-												meds,
-												$elm$core$Set$toList(cameras),
-												$elm$core$Set$toList(types),
-												years,
-												_List_Nil)),
-										aM: types
-									})),
+							A2($author$project$Main$gotMedia, model, meds),
 							$elm$core$Platform$Cmd$none));
 				} else {
 					var x = result.a;
@@ -9888,8 +9893,8 @@ var $author$project$Main$update = F2(
 				}
 			case 1:
 				var result = msg.a;
-				var _v6 = model.V;
-				var m = _v6.a;
+				var _v4 = model.V;
+				var m = _v4.a;
 				return _Utils_Tuple2(
 					_Utils_update(
 						model,
@@ -9973,7 +9978,7 @@ var $author$project$Main$update = F2(
 							P: '/api/media'
 						}));
 			case 11:
-				var _v7 = msg.a;
+				var _v5 = msg.a;
 				var result = msg.b;
 				if (!result.$) {
 					return A3(
@@ -9990,7 +9995,7 @@ var $author$project$Main$update = F2(
 						_Utils_Tuple2(model, $elm$core$Platform$Cmd$none));
 				}
 			case 10:
-				var _v9 = msg.a;
+				var _v7 = msg.a;
 				return _Utils_Tuple2(
 					model,
 					$elm$http$Http$post(
@@ -10011,9 +10016,9 @@ var $author$project$Main$update = F2(
 					$author$project$Main$unlockScroll($elm$core$Maybe$Nothing));
 			case 7:
 				var submsg = msg.a;
-				var _v10 = A4($pablen$toasty$Toasty$update, $author$project$Main$toastConfig, $author$project$Main$ToastyMsg, submsg, model);
-				var m = _v10.a;
-				var a = _v10.b;
+				var _v8 = A4($pablen$toasty$Toasty$update, $author$project$Main$toastConfig, $author$project$Main$ToastyMsg, submsg, model);
+				var m = _v8.a;
+				var a = _v8.b;
 				return _Utils_Tuple2(m, a);
 			case 17:
 				var state = msg.a;
@@ -10071,10 +10076,10 @@ var $author$project$Main$update = F2(
 				var b = $elm$core$String$fromInt(y) + '-01-01T00:00:00';
 				var eb = A2($waratuman$time_extra$Time$Extra$fromIso8601Date, model.R, b);
 				var nst = function () {
-					var _v11 = _Utils_Tuple2(eb, et);
-					if ((!_v11.a.$) && (!_v11.b.$)) {
-						var l = _v11.a.a;
-						var h = _v11.b.a;
+					var _v9 = _Utils_Tuple2(eb, et);
+					if ((!_v9.a.$) && (!_v9.b.$)) {
+						var l = _v9.a.a;
+						var h = _v9.b.a;
 						return A2(
 							$allo_media$elm_daterange_picker$DateRangePicker$setRange,
 							$elm$core$Maybe$Just(
