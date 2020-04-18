@@ -61,7 +61,7 @@ type alias Media =
     , filty : List Medium
     }
 
-type Model = Model
+type alias Model =
     { httpError : Maybe Http.Error
     , zone  : Time.Zone
     , overlay : ScreenOverlay.ScreenOverlay
@@ -74,12 +74,13 @@ type Model = Model
     , areasChecked : Set.Set String
     , media : Maybe Media
     , areas : List Area
-    , filters : List (Model -> Medium -> Bool)
     }
 
+allFilters : List (Model -> Medium -> Bool)
+allFilters = [dateFilter, camFilter, typeFilter, momentFilter, areaFilter]
+
 emptyState : Model
-emptyState = Model
-             { httpError = Nothing
+emptyState = { httpError = Nothing
              , zone = Time.utc
              , overlay = ScreenOverlay.initOverlay
              , toasties = Toasty.initialState
@@ -93,7 +94,7 @@ emptyState = Model
              , areasChecked = Set.empty
              , media = Nothing
              , areas = []
-             , filters = [dateFilter, camFilter, typeFilter, momentFilter, areaFilter]}
+             }
 
 type BackendCommand
     = Reauth
@@ -155,7 +156,7 @@ aList checked things class rep msg =
                         ) things)
 
 renderMediaList : Media -> Model -> Html Msg
-renderMediaList ms (Model model) =
+renderMediaList ms model =
     let z = model.zone
         groupies = groupWhile (\a b -> F.day z a.captured_at == F.day z b.captured_at) ms.filty
         totalSize = List.foldl (\x o -> x.file_size + o) 0
@@ -200,12 +201,12 @@ renderMediaList ms (Model model) =
              (mediaHTML z groupies)]
 
 view : Model -> Html Msg
-view (Model model) =
+view model =
     case model.httpError of
         Nothing ->
             case model.media of
                 Nothing -> text "Loading..."
-                Just m -> renderMediaList m (Model model)
+                Just m -> renderMediaList m model
         Just x -> pre [] [text ("I was unable to load the media: " ++ F.httpErr x)]
 
 
@@ -311,22 +312,22 @@ init _ =
   )
 
 filter : Model -> Model
-filter (Model model) =
+filter model =
     case model.media of
-        Nothing -> Model model
+        Nothing -> model
         Just ms ->
             let z = model.zone
-                filty = List.filter (\m -> List.all (\f -> f (Model model) m) model.filters) ms.media in
-            Model { model | media = Just { ms | filty = filty }}
+                filty = List.filter (\m -> List.all (\f -> f model m) allFilters) ms.media in
+            { model | media = Just { ms | filty = filty }}
 
 camFilter : Model -> Medium -> Bool
-camFilter (Model model) m = Set.member m.camera_model model.camerasChecked
+camFilter model m = Set.member m.camera_model model.camerasChecked
 
 typeFilter : Model -> Medium -> Bool
-typeFilter (Model model) m = Set.member (mediaTypeStr m.media_type) model.typesChecked
+typeFilter model m = Set.member (mediaTypeStr m.media_type) model.typesChecked
 
 dateFilter : Model -> Medium -> Bool
-dateFilter (Model model) m =
+dateFilter model m =
     let mr = Picker.getRange model.datePicker
         lte a b = Time.posixToMillis a <= Time.posixToMillis b
     in
@@ -335,10 +336,10 @@ dateFilter (Model model) m =
         Just r -> lte (beginsAt r) m.captured_at && lte m.captured_at (endsAt r)
 
 momentFilter : Model -> Medium -> Bool
-momentFilter (Model model) m = m.moments_count > 0 || (not model.momentsChecked)
+momentFilter model m = m.moments_count > 0 || (not model.momentsChecked)
 
 areaFilter : Model -> Medium -> Bool
-areaFilter (Model model) m =
+areaFilter model m =
     if Set.isEmpty model.areasChecked then True
     else
         let areas = List.filter (\a -> Set.member a.name model.areasChecked) model.areas in
@@ -378,8 +379,7 @@ myRanges zone today =
     ]
 
 addToast : Toasty.Defaults.Toast -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
-addToast toast ( Model model, cmd ) =
-    let (m, a) = Toasty.addToast toastConfig ToastyMsg toast ( model, cmd ) in (Model m, a)
+addToast toast = Toasty.addToast toastConfig ToastyMsg toast
 
 toastX : (String -> String -> Toasty.Defaults.Toast) -> String -> String -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
 toastX f m t = addToast (f m t)
@@ -391,7 +391,7 @@ toastError : String -> String -> ( Model, Cmd Msg ) -> ( Model, Cmd Msg )
 toastError = toastX Toasty.Defaults.Error
 
 gotMedia : Model -> List Medium -> Model
-gotMedia (Model model) meds =
+gotMedia model meds =
     let z = model.zone
         cameras = Set.fromList (List.map .camera_model meds)
         types = Set.fromList (List.map (\m -> mediaTypeStr m.media_type) meds)
@@ -400,35 +400,35 @@ gotMedia (Model model) meds =
                 (Nothing, x) -> (Nothing, x)
                 (Just m, x) -> (List.head (List.filter (\mn -> mn.id == m.id) meds), x)
     in
-        filter (Model {model | media = Just (Media meds (Set.toList cameras) (Set.toList types) years []),
-                           camerasChecked = cameras,
-                           typesChecked = types,
-                           current = c
-                      })
+        filter {model | media = Just (Media meds (Set.toList cameras) (Set.toList types) years []),
+                    camerasChecked = cameras,
+                    typesChecked = types,
+                    current = c
+               }
 
 update : Msg -> Model -> (Model, Cmd Msg)
-update msg (Model model) =
+update msg model =
     case msg of
         SomeMedia result ->
             case result of
-                Ok meds -> (gotMedia (Model model) meds, Cmd.none)
+                Ok meds -> (gotMedia model meds, Cmd.none)
                         |> toastSuccess "Loaded" ("Loaded " ++ (F.comma (List.length meds)) ++ " media items.")
 
                 Err x ->
-                    (Model {model | httpError = Just x}, Cmd.none)
+                    ({model | httpError = Just x}, Cmd.none)
 
         SomeAreas result ->
             case result of
                 Ok areas ->
-                    (filter (Model { model | areas = areas }), Cmd.none)
+                    (filter ({ model | areas = areas }), Cmd.none)
                 Err x ->
-                    (Model {model | httpError = Just x}, Cmd.none)
+                    ({model | httpError = Just x}, Cmd.none)
 
         SomeDLOpts result -> let (m, _) = model.current in
-                             (Model {model | current = (m, Just result)}, Cmd.none)
+                             ({model | current = (m, Just result)}, Cmd.none)
 
         FirstTime t ->
-            (Model model,
+            (model,
                  let sevenDays = TE.addDays -7 t
                      recond = Picker.reconfigure (\c -> { c | predefinedRanges = myRanges }) model.datePicker
                      rangedPicker = Picker.setRange (Just (Range.create model.zone sevenDays t)) recond
@@ -436,13 +436,13 @@ update msg (Model model) =
                  Picker.now PickerChanged rangedPicker)
 
         CurrentTime t ->
-            (Model model, Picker.now PickerChanged model.datePicker)
+            (model, Picker.now PickerChanged model.datePicker)
 
         ZoneHere z ->
-            (Model {model | zone = z}, Task.perform FirstTime Time.now)
+            ({model | zone = z}, Task.perform FirstTime Time.now)
 
         OpenOverlay m ->
-            (Model { model | overlay = ScreenOverlay.show model.overlay, current = (Just m, Nothing) },
+            ({ model | overlay = ScreenOverlay.show model.overlay, current = (Just m, Nothing) },
              Cmd.batch [lockScroll Nothing,
                         Http.get
                             { url = "/api/retrieve2/" ++ m.id
@@ -450,11 +450,11 @@ update msg (Model model) =
                             }])
 
         RefreshMedium mid ->
-            (Model model, Http.post { url = "/api/refresh/" ++ mid
-                                    , body = Http.emptyBody
-                                    , expect = Http.expectWhatever (always ReloadMedia) })
+            (model, Http.post { url = "/api/refresh/" ++ mid
+                              , body = Http.emptyBody
+                              , expect = Http.expectWhatever (always ReloadMedia) })
 
-        ReloadMedia -> (Model model,
+        ReloadMedia -> (model,
                         Http.get
                             { url = "/api/media"
                             , expect = Http.expectJson SomeMedia mediaListDecoder
@@ -462,37 +462,36 @@ update msg (Model model) =
 
         BackendResponse Reauth result ->
             case result of
-                Ok () -> (Model model, Cmd.none) |> toastSuccess "Reauthed" ""
-                Err x -> (Model model, Cmd.none) |> toastError "Reauth failure" (F.httpErr x)
+                Ok () -> (model, Cmd.none) |> toastSuccess "Reauthed" ""
+                Err x -> (model, Cmd.none) |> toastError "Reauth failure" (F.httpErr x)
 
-        BackendCmd Reauth -> (Model model, Http.post { url = "/api/reauth"
-                                                     , body = Http.emptyBody
-                                                     , expect = Http.expectWhatever (BackendResponse Reauth) })
+        BackendCmd Reauth -> (model, Http.post { url = "/api/reauth"
+                                               , body = Http.emptyBody
+                                               , expect = Http.expectWhatever (BackendResponse Reauth) })
 
         CloseOverlay ->
-            (Model { model | overlay = ScreenOverlay.hide model.overlay,
-                             current = (Nothing, Nothing) }, unlockScroll Nothing )
+            ({ model | overlay = ScreenOverlay.hide model.overlay,
+                   current = (Nothing, Nothing) }, unlockScroll Nothing )
 
-        ToastyMsg submsg -> let (m, a) = Toasty.update toastConfig ToastyMsg submsg model
-                            in (Model m, a)
+        ToastyMsg submsg -> Toasty.update toastConfig ToastyMsg submsg model
 
         PickerChanged state ->
-            ( filter (Model { model | datePicker = state } ), Cmd.none )
+            ( filter ({ model | datePicker = state } ), Cmd.none )
 
         CheckedCam c checked ->
-            (filter (Model { model | camerasChecked = addOrRemove checked c model.camerasChecked }),
+            (filter ({ model | camerasChecked = addOrRemove checked c model.camerasChecked }),
              Cmd.none)
 
         CheckedType t checked ->
-            (filter (Model { model | typesChecked = addOrRemove checked t model.typesChecked }),
+            (filter ({ model | typesChecked = addOrRemove checked t model.typesChecked }),
              Cmd.none)
 
         CheckedArea t checked ->
-            (filter (Model { model | areasChecked = addOrRemove checked t model.areasChecked }),
+            (filter ({ model | areasChecked = addOrRemove checked t model.areasChecked }),
              Cmd.none)
 
         CheckedMoments checked ->
-            (filter (Model { model | momentsChecked = checked }), Cmd.none)
+            (filter ({ model | momentsChecked = checked }), Cmd.none)
 
         YearClicked y -> let b = String.fromInt y ++ "-01-01T00:00:00"
                              e = String.fromInt y ++ "-12-31T23:59:59"
@@ -503,13 +502,13 @@ update msg (Model model) =
                                            Picker.setRange (Just (Range.create model.zone l h)) model.datePicker
                                        _ -> model.datePicker
                          in
-                             (filter (Model {model | datePicker = nst}), Cmd.none)
+                             (filter ({model | datePicker = nst}), Cmd.none)
 
 subscriptions : Model -> Sub Msg
-subscriptions (Model model) = Sub.batch [
-                               Picker.subscriptions PickerChanged model.datePicker,
-                               Time.every 60000 CurrentTime
-                              ]
+subscriptions model = Sub.batch [
+                       Picker.subscriptions PickerChanged model.datePicker,
+                       Time.every 60000 CurrentTime
+                      ]
 
 
 main = Browser.element
