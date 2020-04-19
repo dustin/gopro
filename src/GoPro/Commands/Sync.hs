@@ -31,6 +31,7 @@ import           System.Directory       (createDirectoryIfMissing,
 import           System.FilePath.Posix  ((</>))
 
 import           GoPro.Commands
+import           GoPro.Commands.Backup  (runStoreMeta)
 import           GoPro.DB
 import           GoPro.Plus.Media
 import           GoPro.Resolve
@@ -177,3 +178,12 @@ runWaitForUploads = whileM_ inProgress (sleep 15)
     when x Medium{_medium_ready_to_view} = x == _medium_ready_to_view
     sleep = liftIO . threadDelay . seconds
     seconds = (* 1000000)
+
+runFullSync :: GoPro ()
+runFullSync = do
+  runWaitForUploads
+  runFetch Incremental
+  runGetMeta
+  runGrokTel
+  runGetMoments
+  runStoreMeta
