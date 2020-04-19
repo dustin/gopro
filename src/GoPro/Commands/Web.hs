@@ -1,42 +1,60 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications, BlockArguments    #-}
 
 module GoPro.Commands.Web where
 
-import           Control.Applicative           ((<|>))
+import           Control.Applicative            ((<|>))
+import           Control.Concurrent             (threadDelay)
 import           Control.Lens
-import           Control.Monad.IO.Class        (MonadIO (..))
-import           Control.Monad.Reader          (ask, asks, lift, local)
-import qualified Data.Aeson                    as J
-import           Data.Aeson.Lens               (_Object)
-import           Data.Cache                    (insert)
-import qualified Data.HashMap.Strict           as HM
-import qualified Data.Map.Strict               as Map
-import           Data.String                   (fromString)
-import qualified Data.Text                     as T
-import qualified Data.Text.Lazy                as LT
-import qualified Data.Vector                   as V
-import           Network.HTTP.Types.Status     (noContent204)
-import qualified Network.Wai.Middleware.Gzip   as GZ
-import           Network.Wai.Middleware.Static (addBase, noDots, staticPolicy,
-                                                (>->))
-import           System.FilePath.Posix         ((</>))
-import           UnliftIO                      (async)
-import           Web.Scotty.Trans              (ScottyT, file, get, json,
-                                                middleware, param, post, raw,
-                                                scottyT, setHeader, status)
+import           Control.Monad                  (forever)
+import           Control.Monad.IO.Class         (MonadIO (..))
+import           Control.Monad.Reader           (ask, asks, lift, local)
+import qualified Data.Aeson                     as J
+import           Data.Aeson.Lens                (_Object)
+import           Data.Cache                     (insert)
+import qualified Data.HashMap.Strict            as HM
+import qualified Data.Map.Strict                as Map
+import           Data.String                    (fromString)
+import qualified Data.Text                      as T
+import qualified Data.Text.Lazy                 as LT
+import qualified Data.Vector                    as V
+import           Network.HTTP.Types.Status      (noContent204)
+import qualified Network.Wai.Handler.Warp       as Warp
+import qualified Network.Wai.Handler.WebSockets as WaiWS
+import qualified Network.Wai.Middleware.Gzip    as GZ
+import           Network.Wai.Middleware.Static  (addBase, noDots, staticPolicy,
+                                                 (>->))
+import qualified Network.WebSockets             as WS
+import           System.FilePath.Posix          ((</>))
+import           UnliftIO                       (async)
+import           Web.Scotty.Trans               (ScottyT, file, get, json,
+                                                 middleware, param, post, raw,
+                                                 scottyAppT, setHeader, status)
 
 import           GoPro.AuthDB
 import           GoPro.Commands
-import           GoPro.Commands.Sync           (runFullSync)
+import           GoPro.Commands.Sync            (runFullSync)
 import           GoPro.DB
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
 import           GoPro.Resolve
 
 runServer :: GoPro ()
-runServer = ask >>= \x -> scottyT 8008 (runIO x) application
+runServer = do
+  env <- ask
+  let settings = Warp.setPort 8008 Warp.defaultSettings
+  app <- scottyAppT (runIO env) application
+  liftIO $ Warp.runSettings settings $ WaiWS.websocketsOr WS.defaultConnectionOptions (wsapp env) app
+
   where
+    wsapp :: Env -> WS.ServerApp
+    wsapp _env pending = do
+      conn <- WS.acceptRequest pending
+      WS.withPingThread conn 30 (pure ()) $ forever do
+        WS.sendTextData conn $ ("loop data" :: T.Text)
+        threadDelay 1000000
+
     application :: ScottyT LT.Text GoPro ()
     application = do
       let staticPath = "static"
