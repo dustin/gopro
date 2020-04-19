@@ -52,8 +52,8 @@ data Env = Env
 gpBucket :: Env -> BucketName
 gpBucket Env{gpConfig} = BucketName (Map.findWithDefault "" "bucket" gpConfig)
 
-newtype EnvM a = EnvM
-  { runEnvM :: ReaderT Env IO a
+newtype GoPro a = GoPro
+  { runGoPro :: ReaderT Env IO a
   } deriving (Applicative, Functor, Monad, MonadIO, MonadUnliftIO,
               MonadCatch, MonadThrow, MonadMask, MonadReader Env, MonadFail)
 
@@ -64,16 +64,14 @@ instance (Monad m, MonadLogger m, MonadIO m, MonadReader Env m) => HasGoProAuth 
 instance (Monad m, MonadReader Env m) => HasGoProDB m where
   goproDB = asks dbConn
 
-instance MonadLogger EnvM where
+instance MonadLogger GoPro where
   monadLoggerLog loc src lvl msg = asks envLogger >>= \l -> liftIO $ l loc src lvl (toLogStr msg)
 
-type GoPro = ReaderT Env (LoggingT IO)
+instance MonadPlus GoPro where
+  mzero = error "GoPro zero"
 
-instance MonadPlus (LoggingT IO) where
-  mzero = lift mzero
-
-instance Alternative (LoggingT IO) where
-  empty = lift empty
+instance Alternative GoPro where
+  empty = mzero
   a <|> b = a `catch` \(SomeException _) -> b
 
 mapConcurrentlyLimited :: (MonadMask m, MonadUnliftIO m, Traversable f, Foldable f)
@@ -96,5 +94,5 @@ logDbg = logDebugN
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
-runIO :: Env -> EnvM a -> IO a
-runIO e m = runReaderT (runEnvM m) e
+runIO :: Env -> GoPro a -> IO a
+runIO e m = runReaderT (runGoPro m) e

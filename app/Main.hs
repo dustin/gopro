@@ -12,7 +12,7 @@ import           Control.Monad.Catch    (bracket_)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Logger   (LogLevel (..), MonadLoggerIO (..),
                                          filterLogger, runStderrLoggingT)
-import           Control.Monad.Reader   (ReaderT (..), asks, runReaderT)
+import           Control.Monad.Reader   (asks)
 import           Data.Cache             (newCache)
 import           Data.List              (intercalate)
 import           Data.Maybe             (fromMaybe)
@@ -120,7 +120,7 @@ main = do
       runStderrLoggingT . logfilt $ do
         l <- askLoggerIO
         let o' = o{optArgv = tail optArgv}
-        runReaderT (run (head optArgv)) (Env o' db cfg cache l)
+        liftIO $ runIO (Env o' db cfg cache l) (run (head optArgv))
 
         where
           logfilt = filterLogger (\_ -> flip (if optVerbose then (>=) else (>)) LevelDebug)

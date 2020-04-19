@@ -6,8 +6,7 @@ module GoPro.Commands.Web where
 import           Control.Applicative           ((<|>))
 import           Control.Lens
 import           Control.Monad.IO.Class        (MonadIO (..))
-import           Control.Monad.Logger          (runLoggingT)
-import           Control.Monad.Reader          (ask, asks, lift, runReaderT)
+import           Control.Monad.Reader          (ask, asks, lift, local)
 import qualified Data.Aeson                    as J
 import           Data.Aeson.Lens               (_Object)
 import           Data.Cache                    (insert)
@@ -37,7 +36,7 @@ import           GoPro.Resolve
 runServer :: GoPro ()
 runServer = ask >>= \x -> scottyT 8008 (runIO x) application
   where
-    application :: ScottyT LT.Text EnvM ()
+    application :: ScottyT LT.Text GoPro ()
     application = do
       let staticPath = "static"
       middleware $ GZ.gzip GZ.def {GZ.gzipFiles = GZ.GzipCompress}
@@ -60,10 +59,10 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
                    ) ms
 
       post "/api/sync" $ do
-        notlog <- lift $ notificationLogger "web sync"
-        env <- lift ask
-        liftIO $ (runLoggingT (runReaderT runFullSync env) notlog)
-        lift $ addNotification NotificationReload "" ""
+        lift $ do
+          notlog <- notificationLogger "web sync"
+          local (\e -> e{envLogger=notlog}) runFullSync
+          addNotification NotificationReload "" ""
         status noContent204
 
       post "/api/refresh/:id" $ do

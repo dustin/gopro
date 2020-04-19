@@ -29,18 +29,18 @@ runFixup = do
   liftIO $ withStatement db query (runIO env . needful)
 
     where
-      needful :: Statement -> EnvM ()
+      needful :: Statement -> GoPro ()
       needful st = do
         cnum <- liftIO $ columnCount st
         cols <- mapM (liftIO . columnName st) [0 .. pred cnum]
         process cols
           where
-            process :: [T.Text] -> EnvM ()
+            process :: [T.Text] -> GoPro ()
             process cols = do
               r <- liftIO (nextRow st :: IO (Maybe [SQLData]))
               logDbg $ tshow r
               maybe (pure ()) (\rs -> store (zip cols rs) >> process cols) r
-            store :: [(T.Text, SQLData)] -> EnvM ()
+            store :: [(T.Text, SQLData)] -> GoPro ()
             store stuff = do
               mid <- case lookup "media_id" stuff of
                        (Just (SQLText m)) -> pure m
