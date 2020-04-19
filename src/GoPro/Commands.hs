@@ -9,6 +9,7 @@ module GoPro.Commands where
 
 import           Control.Applicative     (Alternative (..), (<|>))
 import           Control.Concurrent.QSem (newQSem, signalQSem, waitQSem)
+import           Control.Concurrent.STM  (TChan)
 import           Control.Monad           (MonadPlus (..), mzero)
 import           Control.Monad.Catch     (MonadCatch (..), MonadMask (..),
                                           MonadThrow (..), SomeException (..),
@@ -30,6 +31,7 @@ import           UnliftIO                (MonadUnliftIO (..), mapConcurrently)
 
 import           GoPro.AuthDB
 import           GoPro.DB                (HasGoProDB (..))
+import           GoPro.Notification
 import           GoPro.Plus.Auth
 
 data Options = Options
@@ -46,6 +48,7 @@ data Env = Env
     , dbConn     :: Connection
     , gpConfig   :: Map T.Text T.Text
     , authCache  :: Cache () AuthInfo
+    , noteChan   :: TChan Notification
     , envLoggers :: [Loc -> LogSource -> LogLevel -> LogStr -> IO ()]
     }
 

@@ -11,7 +11,7 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  metaBlobTODO, insertMetaBlob, selectMetaBlob, clearMetaBlob,
                  metaTODO, insertMeta, selectMeta,
                  Area(..), area_id, area_name, area_nw, area_se, selectAreas,
-                 NotificationType(..), Notification(..), addNotification, getNotifications, notificationLogger,
+                 addNotification, getNotifications, notificationLogger,
                  HasGoProDB(..),
                  initTables, loadConfig) where
 
@@ -26,18 +26,15 @@ import           Data.Aeson                       (FromJSON (..), ToJSON (..),
                                                    fieldLabelModifier,
                                                    genericToEncoding)
 import qualified Data.Aeson                       as J
-import           Data.Aeson.Types                 (typeMismatch)
 import qualified Data.ByteString                  as BS
 import qualified Data.ByteString.Char8            as BC
 import qualified Data.ByteString.Lazy             as BL
-import           Data.Char                        (toLower, toUpper)
 import           Data.Coerce                      (coerce)
 import           Data.Map.Strict                  (Map)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromJust)
 import           Data.String                      (fromString)
 import           Data.Text                        (Text)
-import qualified Data.Text                        as T
 import qualified Data.Text.Encoding               as TE
 import           Data.Typeable                    (Typeable)
 import           Database.SQLite.Simple           hiding (bind, close)
@@ -47,6 +44,7 @@ import           Database.SQLite.Simple.ToField
 import           Generics.Deriving.Base           (Generic)
 import           Text.RawString.QQ                (r)
 
+import           GoPro.Notification
 import           GoPro.Plus.Media                 (Medium (..), MediumID,
                                                    MediumType (..), Moment (..),
                                                    ReadyToViewType (..))
@@ -322,36 +320,11 @@ momentsTODO = liftIO . coerce . sel =<< goproDB
                           where m.moments_count != ifnull(moco, 0) ;
                          |]
 
-data NotificationType = NotificationInfo
-    | NotificationError
-    | NotificationReload
-    deriving (Show, Read)
-
-instance ToJSON NotificationType where
-  toJSON = J.String . T.pack . fmap toLower . drop 12 . show
-
 instance ToField NotificationType where
   toField = jsonToField
 
 instance FromField NotificationType where
   fromField = jsonFromField "notification type"
-
-instance FromJSON NotificationType where
-  parseJSON (J.String s) = pure . read . trans . T.unpack $ s
-    where trans (x:xs) = "Notification" <> (toUpper x : xs)
-          trans []     = error "empty notification type"
-  parseJSON invalid      = typeMismatch "Response" invalid
-
-data Notification = Notification
-    { _note_id      :: Integer
-    , _note_type    :: NotificationType
-    , _note_title   :: Text
-    , _note_message :: Text
-    }
-    deriving (Show, Generic)
-
-instance ToJSON Notification where
-  toEncoding = genericToEncoding defaultOptions { fieldLabelModifier = drop 6}
 
 instance FromRow Notification where
   fromRow = do

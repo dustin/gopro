@@ -71,6 +71,7 @@ dependencies:
 - amazonka-sqs
 - monad-loops
 - zlib
+- stm
 
 library:
   source-dirs: src

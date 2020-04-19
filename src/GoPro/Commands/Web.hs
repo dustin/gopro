@@ -6,7 +6,8 @@
 module GoPro.Commands.Web where
 
 import           Control.Applicative            ((<|>))
-import           Control.Concurrent             (threadDelay)
+import           Control.Concurrent.STM         (atomically, dupTChan,
+                                                 readTChan)
 import           Control.Lens
 import           Control.Monad                  (forever)
 import           Control.Monad.IO.Class         (MonadIO (..))
@@ -37,6 +38,7 @@ import           GoPro.AuthDB
 import           GoPro.Commands
 import           GoPro.Commands.Sync            (runFullSync)
 import           GoPro.DB
+import           GoPro.Notification
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
 import           GoPro.Resolve
@@ -50,11 +52,12 @@ runServer = do
 
   where
     wsapp :: Env -> WS.ServerApp
-    wsapp _env pending = do
+    wsapp Env{noteChan} pending = do
+      ch <- atomically $ dupTChan noteChan
       conn <- WS.acceptRequest pending
       WS.withPingThread conn 30 (pure ()) $ forever do
-        WS.sendTextData conn $ ("loop data" :: T.Text)
-        threadDelay 1000000
+        note <- atomically $ readTChan ch
+        WS.sendTextData conn $ J.encode note
 
     application :: ScottyT LT.Text GoPro ()
     application = do

@@ -116,8 +116,10 @@ main = do
       initTables db
       cfg <- loadConfig db
       cache <- newCache (Just (TimeSpec 60 0))
+      tc <- mkLogChannel
       let o' = o{optArgv = tail optArgv}
-      liftIO $ runIO (Env o' db cfg cache [baseLogger minLvl]) (run (head optArgv))
+          notlog = notificationChanLogger tc
+      liftIO $ runIO (Env o' db cfg cache tc [baseLogger minLvl, notlog]) (run (head optArgv))
 
         where
           minLvl = if optVerbose then LevelDebug else LevelInfo
