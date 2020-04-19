@@ -56,9 +56,8 @@ runServer = do
     wsapp Env{noteChan} pending = do
       ch <- atomically $ dupTChan noteChan
       conn <- WS.acceptRequest pending
-      WS.withPingThread conn 30 (pure ()) $ forever do
-        note <- atomically $ readTChan ch
-        WS.sendTextData conn $ J.encode note
+      WS.withPingThread conn 30 (pure ()) $
+        forever (WS.sendTextData conn . J.encode =<< (atomically . readTChan) ch)
 
     application :: ScottyT LT.Text GoPro ()
     application = do
