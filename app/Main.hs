@@ -7,17 +7,14 @@
 
 module Main where
 
-import           Control.Monad          (unless, when)
+import           Control.Monad          (unless)
 import           Control.Monad.Catch    (bracket_)
 import           Control.Monad.IO.Class (MonadIO (..))
-import           Control.Monad.Logger   (Loc (..), LogLevel (..), LogSource,
-                                         LogStr, fromLogStr)
+import           Control.Monad.Logger   (LogLevel (..))
 import           Control.Monad.Reader   (asks)
-import qualified Data.ByteString.Char8  as C8
 import           Data.Cache             (newCache)
 import           Data.List              (intercalate)
 import           Data.Maybe             (fromMaybe)
-import           Data.String            (fromString)
 import qualified Data.Text              as T
 import           Database.SQLite.Simple (withConnection)
 import           Options.Applicative    (Parser, argument, auto, execParser,
@@ -26,7 +23,6 @@ import           Options.Applicative    (Parser, argument, auto, execParser,
                                          showDefault, some, str, strOption,
                                          switch, value, (<**>))
 import           System.Clock           (TimeSpec (..))
-import           System.IO              (stderr)
 import           System.IO              (hFlush, hGetEcho, hSetEcho, stdin,
                                          stdout)
 
@@ -38,6 +34,7 @@ import           GoPro.Commands.Sync
 import           GoPro.Commands.Upload
 import           GoPro.Commands.Web
 import           GoPro.DB
+import           GoPro.Logging
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
 
@@ -105,17 +102,6 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
       putStrLn $ "Unknown command: " <> c
       putStrLn "Try one of these:"
       putStrLn $ "    " <> intercalate "\n    " (map fst cmds)
-
-baseLogger :: LogLevel -> Loc -> LogSource -> LogLevel -> LogStr -> IO ()
-baseLogger minLvl _ _ lvl s = when (lvl >= minLvl) $ C8.hPutStrLn stderr (fromLogStr ls)
-  where
-    ls = prefix <> ": " <> s
-    prefix = case lvl of
-               LevelDebug   -> "D"
-               LevelInfo    -> "I"
-               LevelWarn    -> "W"
-               LevelError   -> "E"
-               LevelOther x -> fromString . T.unpack $ x
 
 main :: IO ()
 main = do
