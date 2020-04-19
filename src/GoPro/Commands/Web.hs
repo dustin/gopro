@@ -21,6 +21,7 @@ import qualified Network.Wai.Middleware.Gzip   as GZ
 import           Network.Wai.Middleware.Static (addBase, noDots, staticPolicy,
                                                 (>->))
 import           System.FilePath.Posix         ((</>))
+import           UnliftIO                      (async)
 import           Web.Scotty.Trans              (ScottyT, file, get, json,
                                                 middleware, param, post, raw,
                                                 scottyT, setHeader, status)
@@ -59,7 +60,7 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
                    ) ms
 
       post "/api/sync" $ do
-        lift $ do
+        _ <- lift . async $ do
           notlog <- notificationLogger "web sync"
           local (\e -> e{envLoggers=notlog:envLoggers e}) runFullSync
           addNotification NotificationReload "" ""
