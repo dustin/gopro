@@ -86,6 +86,8 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
         imgid <- param "id"
         json @J.Value =<< lift (retrieve imgid)
 
+      get "/api/notifications" (lift getNotifications >>= json)
+
       get "/api/retrieve2/:id" $ do
         imgid <- param "id"
         fi <- _fileStuff <$> lift (retrieve imgid)

@@ -26,6 +26,31 @@ import Formats as F
 port lockScroll : Maybe String -> Cmd msg
 port unlockScroll : Maybe String -> Cmd msg
 
+type NotificationType = NotificationInfo | NotificationReload | NotificationUnknown
+
+notificationTypeStr t = case t of
+                            NotificationInfo -> "info"
+                            NotificationReload -> "reload"
+                            NotificationUnknown -> "unknown"
+
+strNotificationType s = case s of
+                            "info" -> NotificationInfo
+                            "reload" -> NotificationReload
+                            _ -> NotificationUnknown
+
+type alias Notification =
+    { typ : NotificationType
+    , title : String
+    , msg : String
+    }
+
+notificationListDecoder : Decoder (List Notification)
+notificationListDecoder =
+    Decode.list (Decode.map3 Notification
+                     (Decode.map strNotificationType <| Decode.field "type" string)
+                     (Decode.field "title" string)
+                     (Decode.field "message" string))
+
 type alias DLOpt =
     { url : String
     , name : String
@@ -103,6 +128,7 @@ type Msg
   = SomeMedia (Result Http.Error (List Medium))
   | SomeDLOpts (Result Http.Error DLOpts)
   | SomeAreas (Result Http.Error (List Area))
+  | SomeNotifications (Result Http.Error (List Notification))
   | ZoneHere Time.Zone
   | FirstTime Time.Posix
   | CurrentTime Time.Posix
@@ -414,6 +440,32 @@ gotMedia model meds =
 isJust : Maybe a -> Bool
 isJust = Maybe.withDefault False << Maybe.map (always True)
 
+pollNotifications : Cmd Msg
+pollNotifications =
+    Http.get
+        { url = "/api/notifications"
+        , expect = Http.expectJson SomeNotifications notificationListDecoder
+        }
+
+reload : Cmd Msg
+reload =
+    Http.get
+        { url = "/api/media"
+        , expect = Http.expectJson SomeMedia mediaListDecoder
+        }
+
+doNotifications : Model -> List Notification -> ( Model, Cmd Msg )
+doNotifications model =
+    let reload_ (m, a) =
+            (m, Cmd.batch [a, reload])
+        doNote n m =
+            case n.typ of
+                NotificationInfo -> toastSuccess n.title n.msg m
+                NotificationReload -> reload_ m
+                NotificationUnknown-> toastError "Unhandled Notification" (n.msg) m
+    in
+        List.foldr doNote (model, Cmd.none)
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
@@ -436,6 +488,11 @@ update msg model =
         SomeDLOpts result -> let (m, _) = model.current in
                              ({model | current = (m, Just result)}, Cmd.none)
 
+        SomeNotifications result ->
+            case result of
+                Ok notes -> doNotifications model notes
+                Err x -> (model, Cmd.none) |> toastError "Poll Failure" (F.httpErr x)
+
         FirstTime t ->
             (model,
                  let sevenDays = TE.addDays -7 t
@@ -445,7 +502,7 @@ update msg model =
                  Picker.now PickerChanged rangedPicker)
 
         CurrentTime t ->
-            (model, Picker.now PickerChanged model.datePicker)
+            (model, Cmd.batch [ Picker.now PickerChanged model.datePicker, pollNotifications ])
 
         ZoneHere z ->
             ({model | zone = z}, Task.perform FirstTime Time.now)
@@ -463,11 +520,7 @@ update msg model =
                               , body = Http.emptyBody
                               , expect = Http.expectWhatever (always ReloadMedia) })
 
-        ReloadMedia -> (model,
-                        Http.get
-                            { url = "/api/media"
-                            , expect = Http.expectJson SomeMedia mediaListDecoder
-                            })
+        ReloadMedia -> (model, reload)
 
         BackendResponse Reauth result ->
             case result of
@@ -516,7 +569,7 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions model = Sub.batch [
                        Picker.subscriptions PickerChanged model.datePicker,
-                       Time.every 60000 CurrentTime
+                       Time.every 1000 CurrentTime
                       ]
 
 
