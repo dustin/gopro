@@ -24,12 +24,12 @@ baseLogger minLvl _ _ lvl s = when (lvl >= minLvl) $ C8.hPutStrLn stderr (fromLo
                LevelError   -> "E"
                LevelOther x -> fromString . T.unpack $ x
 
-notificationChanLogger :: TChan Notification -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
-notificationChanLogger ch _ _ lvl str = case lvl of
-                                          LevelDebug -> pure ()
-                                          LevelInfo  -> note NotificationInfo
-                                          _          -> note NotificationError
-  where note t = atomically $ writeTChan ch (Notification 0 t "GoPro" lstr)
+notificationLogger :: TChan Notification -> (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
+notificationLogger ch _ _ lvl str = case lvl of
+                                      LevelDebug -> pure ()
+                                      LevelInfo  -> note NotificationInfo
+                                      _          -> note NotificationError
+  where note t = atomically $ writeTChan ch (Notification t "GoPro" lstr)
         lstr = TE.decodeUtf8 $ fromLogStr str
 
 mkLogChannel :: IO (TChan Notification)

@@ -11,7 +11,7 @@ import           Control.Concurrent.STM         (atomically, dupTChan,
 import           Control.Lens
 import           Control.Monad                  (forever)
 import           Control.Monad.IO.Class         (MonadIO (..))
-import           Control.Monad.Reader           (ask, asks, lift, local)
+import           Control.Monad.Reader           (ask, asks, lift)
 import qualified Data.Aeson                     as J
 import           Data.Aeson.Lens                (_Object)
 import           Data.Cache                     (insert)
@@ -48,6 +48,7 @@ runServer = do
   env <- ask
   let settings = Warp.setPort 8008 Warp.defaultSettings
   app <- scottyAppT (runIO env) application
+  logInfo "Starting web server"
   liftIO $ Warp.runSettings settings $ WaiWS.websocketsOr WS.defaultConnectionOptions (wsapp env) app
 
   where
@@ -83,9 +84,8 @@ runServer = do
 
       post "/api/sync" do
         _ <- lift . async $ do
-          notlog <- notificationLogger "web sync"
-          local (\e -> e{envLoggers=notlog:envLoggers e}) runFullSync
-          addNotification NotificationReload "" ""
+          runFullSync
+          sendNotification (Notification NotificationReload "" "")
         status noContent204
 
       post "/api/refresh/:id" do
@@ -117,8 +117,6 @@ runServer = do
       get "/api/retrieve/:id" do
         imgid <- param "id"
         json @J.Value =<< lift (retrieve imgid)
-
-      get "/api/notifications" (lift getNotifications >>= json)
 
       get "/api/retrieve2/:id" do
         imgid <- param "id"

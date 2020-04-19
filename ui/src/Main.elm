@@ -444,13 +444,6 @@ gotMedia model meds =
 isJust : Maybe a -> Bool
 isJust = Maybe.withDefault False << Maybe.map (always True)
 
-pollNotifications : Cmd Msg
-pollNotifications =
-    Http.get
-        { url = "/api/notifications"
-        , expect = Http.expectJson SomeNotifications notificationListDecoder
-        }
-
 reload : Cmd Msg
 reload =
     Http.get
@@ -507,7 +500,7 @@ update msg model =
                  Picker.now PickerChanged rangedPicker)
 
         CurrentTime t ->
-            (model, Cmd.batch [ Picker.now PickerChanged model.datePicker, pollNotifications ])
+            (model, Cmd.batch [ Picker.now PickerChanged model.datePicker ])
 
         ZoneHere z ->
             ({model | zone = z}, Task.perform FirstTime Time.now)

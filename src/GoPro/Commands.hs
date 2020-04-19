@@ -9,7 +9,7 @@ module GoPro.Commands where
 
 import           Control.Applicative     (Alternative (..), (<|>))
 import           Control.Concurrent.QSem (newQSem, signalQSem, waitQSem)
-import           Control.Concurrent.STM  (TChan)
+import           Control.Concurrent.STM  (TChan, atomically, writeTChan)
 import           Control.Monad           (MonadPlus (..), mzero)
 import           Control.Monad.Catch     (MonadCatch (..), MonadMask (..),
                                           MonadThrow (..), SomeException (..),
@@ -99,3 +99,6 @@ tshow = T.pack . show
 
 runIO :: Env -> GoPro a -> IO a
 runIO e m = runReaderT (runGoPro m) e
+
+sendNotification :: Notification -> GoPro ()
+sendNotification note = asks noteChan >>= \ch -> liftIO . atomically . writeTChan ch $ note

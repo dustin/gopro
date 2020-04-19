@@ -118,7 +118,7 @@ main = do
       cache <- newCache (Just (TimeSpec 60 0))
       tc <- mkLogChannel
       let o' = o{optArgv = tail optArgv}
-          notlog = notificationChanLogger tc
+          notlog = notificationLogger tc
       liftIO $ runIO (Env o' db cfg cache tc [baseLogger minLvl, notlog]) (run (head optArgv))
 
         where

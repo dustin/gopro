@@ -11,23 +11,18 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  metaBlobTODO, insertMetaBlob, selectMetaBlob, clearMetaBlob,
                  metaTODO, insertMeta, selectMeta,
                  Area(..), area_id, area_name, area_nw, area_se, selectAreas,
-                 addNotification, getNotifications, notificationLogger,
                  HasGoProDB(..),
                  initTables, loadConfig) where
 
 import           Control.Applicative              (liftA2)
 import           Control.Lens
 import           Control.Monad.IO.Class           (MonadIO (..))
-import           Control.Monad.Logger             (Loc (..), LogLevel (..),
-                                                   LogSource, LogStr,
-                                                   fromLogStr)
 import           Data.Aeson                       (FromJSON (..), ToJSON (..),
                                                    defaultOptions,
                                                    fieldLabelModifier,
                                                    genericToEncoding)
 import qualified Data.Aeson                       as J
 import qualified Data.ByteString                  as BS
-import qualified Data.ByteString.Char8            as BC
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Coerce                      (coerce)
 import           Data.Map.Strict                  (Map)
@@ -44,7 +39,6 @@ import           Database.SQLite.Simple.ToField
 import           Generics.Deriving.Base           (Generic)
 import           Text.RawString.QQ                (r)
 
-import           GoPro.Notification
 import           GoPro.Plus.Media                 (Medium (..), MediumID,
                                                    MediumType (..), Moment (..),
                                                    ReadyToViewType (..))
@@ -72,7 +66,8 @@ initQueries = [
   (1, "create index if not exists moments_by_medium on moments(media_id)"),
   (2, "create table if not exists config (key, value)"),
   (2, "insert into config values ('bucket', 'gopro.west.spy.net')"),
-  (3, "create table if not exists notifications (id integer primary key autoincrement, type text, title text, message text)")]
+  (3, "create table if not exists notifications (id integer primary key autoincrement, type text, title text, message text)"),
+  (4, "drop table if exists notifications")]
 
 initTables :: Connection -> IO ()
 initTables db = do
@@ -319,40 +314,3 @@ momentsTODO = liftIO . coerce . sel =<< goproDB
                            on (m. media_id = mo.media_id)
                           where m.moments_count != ifnull(moco, 0) ;
                          |]
-
-instance ToField NotificationType where
-  toField = jsonToField
-
-instance FromField NotificationType where
-  fromField = jsonFromField "notification type"
-
-instance FromRow Notification where
-  fromRow = do
-    _note_id <- field
-    _note_type <- field
-    _note_title <- field
-    _note_message <- field
-    pure Notification{..}
-
-notificationLogger :: (HasGoProDB m, MonadIO m) => Text -> m (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
-notificationLogger title = l <$> goproDB
-  where
-    l :: Connection -> Loc -> LogSource -> LogLevel -> LogStr -> IO ()
-    l db _ _ lvl str = case lvl of
-                         LevelDebug -> pure ()
-                         LevelInfo  -> note NotificationInfo
-                         _          -> note NotificationError
-      where note t = execute db "insert into notifications (type, title, message) values (?, ?, ?)" (t, title, lstr)
-            lstr = BC.unpack $ fromLogStr str
-
-addNotification :: (HasGoProDB m, MonadIO m) => NotificationType -> Text -> Text -> m ()
-addNotification t tl m = liftIO . up =<< goproDB
-  where up db = execute db "insert into notifications (type, title, message) values (?, ?, ?)" (t, tl, m)
-
-getNotifications :: (HasGoProDB m, MonadIO m) => m [Notification]
-getNotifications = liftIO . sel =<< goproDB
-  where
-    sel db = do
-      notes <- query_ db "select id, type, title, message from notifications"
-      executeMany db "delete from notifications where id = ?" (Only . _note_id <$> notes)
-      pure notes

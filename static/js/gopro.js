@@ -4402,19 +4402,19 @@ var _Http_toTask = F3(function(router, toTask, request)
 	return _Scheduler_binding(function(callback)
 	{
 		function done(response) {
-			callback(toTask(request.W.a(response)));
+			callback(toTask(request.ah.a(response)));
 		}
 
 		var xhr = new XMLHttpRequest();
 		xhr.addEventListener('error', function() { done($elm$http$Http$NetworkError_); });
 		xhr.addEventListener('timeout', function() { done($elm$http$Http$Timeout_); });
-		xhr.addEventListener('load', function() { done(_Http_toResponse(request.W.b, xhr)); });
+		xhr.addEventListener('load', function() { done(_Http_toResponse(request.ah.b, xhr)); });
 		$elm$core$Maybe$isJust(request.c5) && _Http_track(router, xhr, request.c5.a);
 
 		try {
-			xhr.open(request.dK, request.G, true);
+			xhr.open(request.dK, request.K, true);
 		} catch (e) {
-			return done($elm$http$Http$BadUrl_(request.G));
+			return done($elm$http$Http$BadUrl_(request.K));
 		}
 
 		_Http_configureRequest(xhr, request);
@@ -4436,7 +4436,7 @@ function _Http_configureRequest(xhr, request)
 		xhr.setRequestHeader(headers.a.a, headers.a.b);
 	}
 	xhr.timeout = request.d9.a || 0;
-	xhr.responseType = request.W.d;
+	xhr.responseType = request.ah.d;
 	xhr.withCredentials = request.di;
 }
 
@@ -4458,7 +4458,7 @@ function _Http_toResponse(toBody, xhr)
 function _Http_toMetadata(xhr)
 {
 	return {
-		G: xhr.responseURL,
+		K: xhr.responseURL,
 		d4: xhr.status,
 		d5: xhr.statusText,
 		cs: _Http_parseHeaders(xhr.getAllResponseHeaders())
@@ -6114,7 +6114,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$Helpers$weekdayToString = f
 			return 'Sa';
 	}
 };
-var $allo_media$elm_daterange_picker$DateRangePicker$defaultConfig = {dj: true, bv: true, bz: '', bK: '', bh: $allo_media$elm_daterange_picker$DateRangePicker$Helpers$monthToString, dP: 'N/A', dW: $allo_media$elm_daterange_picker$DateRangePicker$defaultPredefinedRanges, ad: false, bt: $allo_media$elm_daterange_picker$DateRangePicker$Helpers$weekdayToString, bu: 0, L: $elm$time$Time$utc};
+var $allo_media$elm_daterange_picker$DateRangePicker$defaultConfig = {dj: true, bv: true, bz: '', bK: '', bh: $allo_media$elm_daterange_picker$DateRangePicker$Helpers$monthToString, dP: 'N/A', dW: $allo_media$elm_daterange_picker$DateRangePicker$defaultPredefinedRanges, ac: false, bt: $allo_media$elm_daterange_picker$DateRangePicker$Helpers$weekdayToString, bu: 0, L: $elm$time$Time$utc};
 var $elm$core$Set$Set_elm_builtin = $elm$core$Basics$identity;
 var $elm$core$Dict$RBEmpty_elm_builtin = {$: -2};
 var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
@@ -6268,8 +6268,8 @@ var $allo_media$elm_daterange_picker$DateRangePicker$init = F2(
 			P: selected,
 			aU: false,
 			aY: $elm$core$Maybe$Nothing,
-			H: leftCal,
-			J: false,
+			G: leftCal,
+			I: false,
 			E: rightCal,
 			s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(selected),
 			F: $waratuman$time_extra$Time$Extra$epoch
@@ -6310,8 +6310,8 @@ var $pablen$toasty$Toasty$initialState = A2(
 	$elm$random$Random$initialSeed(0));
 var $author$project$Main$emptyState = {
 	aR: _List_Nil,
+	af: $elm$core$Set$empty,
 	ag: $elm$core$Set$empty,
-	ah: $elm$core$Set$empty,
 	P: _Utils_Tuple2($elm$core$Maybe$Nothing, $elm$core$Maybe$Nothing),
 	B: function () {
 		var cfg = $allo_media$elm_daterange_picker$DateRangePicker$defaultConfig;
@@ -7075,12 +7075,12 @@ var $elm$http$Http$cmdMap = F2(
 				{
 					di: r.di,
 					bx: r.bx,
-					W: A2(_Http_mapExpect, func, r.W),
+					ah: A2(_Http_mapExpect, func, r.ah),
 					cs: r.cs,
 					dK: r.dK,
 					d9: r.d9,
 					c5: r.c5,
-					G: r.G
+					K: r.K
 				});
 		}
 	});
@@ -7103,11 +7103,11 @@ var $elm$http$Http$subscription = _Platform_leaf('Http');
 var $elm$http$Http$request = function (r) {
 	return $elm$http$Http$command(
 		$elm$http$Http$Request(
-			{di: false, bx: r.bx, W: r.W, cs: r.cs, dK: r.dK, d9: r.d9, c5: r.c5, G: r.G}));
+			{di: false, bx: r.bx, ah: r.ah, cs: r.cs, dK: r.dK, d9: r.d9, c5: r.c5, K: r.K}));
 };
 var $elm$http$Http$get = function (r) {
 	return $elm$http$Http$request(
-		{bx: $elm$http$Http$emptyBody, W: r.W, cs: _List_Nil, dK: 'GET', d9: $elm$core$Maybe$Nothing, c5: $elm$core$Maybe$Nothing, G: r.G});
+		{bx: $elm$http$Http$emptyBody, ah: r.ah, cs: _List_Nil, dK: 'GET', d9: $elm$core$Maybe$Nothing, c5: $elm$core$Maybe$Nothing, K: r.K});
 };
 var $elm$time$Time$Name = function (a) {
 	return {$: 0, a: a};
@@ -8158,16 +8158,16 @@ var $author$project$Main$init = function (_v0) {
 				[
 					$elm$http$Http$get(
 					{
-						W: A2($elm$http$Http$expectJson, $author$project$Main$SomeMedia, $author$project$Media$mediaListDecoder),
-						G: '/api/media'
+						ah: A2($elm$http$Http$expectJson, $author$project$Main$SomeMedia, $author$project$Media$mediaListDecoder),
+						K: '/api/media'
 					}),
 					$elm$http$Http$get(
 					{
-						W: A2(
+						ah: A2(
 							$elm$http$Http$expectJson,
 							$author$project$Main$SomeAreas,
 							$elm$json$Json$Decode$list($author$project$Geo$areaDecoder)),
-						G: '/api/areas'
+						K: '/api/areas'
 					}),
 					A2($elm$core$Task$perform, $author$project$Main$ZoneHere, $elm$time$Time$here)
 				])));
@@ -8456,7 +8456,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$Step$next = F3(
 	});
 var $allo_media$elm_daterange_picker$DateRangePicker$update = F2(
 	function (msg, internal) {
-		var leftCal = internal.H;
+		var leftCal = internal.G;
 		var rightCal = internal.E;
 		var step = internal.s;
 		switch (msg.$) {
@@ -8469,8 +8469,8 @@ var $allo_media$elm_daterange_picker$DateRangePicker$update = F2(
 					internal,
 					{
 						P: dateRange,
-						H: newLeftCal,
-						J: false,
+						G: newLeftCal,
+						I: false,
 						E: newRightCal,
 						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(dateRange)
 					});
@@ -8479,14 +8479,14 @@ var $allo_media$elm_daterange_picker$DateRangePicker$update = F2(
 					internal,
 					{
 						P: $elm$core$Maybe$Nothing,
-						J: false,
+						I: false,
 						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe($elm$core$Maybe$Nothing)
 					});
 			case 2:
 				return _Utils_update(
 					internal,
 					{
-						J: false,
+						I: false,
 						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(internal.P)
 					});
 			case 3:
@@ -8506,7 +8506,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$update = F2(
 				return _Utils_update(
 					internal,
 					{
-						H: rightCal,
+						G: rightCal,
 						E: A2($allo_media$elm_daterange_picker$DateRangePicker$Helpers$startOfNextMonth, internal.e.L, rightCal)
 					});
 			case 5:
@@ -8517,7 +8517,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$update = F2(
 				var newRightCal = _v3.b;
 				return _Utils_update(
 					internal,
-					{H: newLeftCal, J: true, E: newRightCal});
+					{G: newLeftCal, I: true, E: newRightCal});
 			case 8:
 				var picked = msg.a;
 				return _Utils_update(
@@ -8529,7 +8529,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$update = F2(
 				return _Utils_update(
 					internal,
 					{
-						H: A2($allo_media$elm_daterange_picker$DateRangePicker$Helpers$startOfPreviousMonth, internal.e.L, leftCal),
+						G: A2($allo_media$elm_daterange_picker$DateRangePicker$Helpers$startOfPreviousMonth, internal.e.L, leftCal),
 						E: leftCal
 					});
 			default:
@@ -8544,7 +8544,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$update = F2(
 				return _Utils_update(
 					internal,
 					{
-						H: newLeftCal,
+						G: newLeftCal,
 						E: newRightCal,
 						s: $allo_media$elm_daterange_picker$DateRangePicker$Step$fromMaybe(
 							$elm$core$Maybe$Just(dateRange))
@@ -8746,7 +8746,7 @@ var $elm$browser$Browser$Events$onMouseUp = A2($elm$browser$Browser$Events$on, 0
 var $allo_media$elm_daterange_picker$DateRangePicker$subscriptions = F2(
 	function (toMsg, _v0) {
 		var internal = _v0;
-		return (internal.J && (!internal.e.ad)) ? $elm$browser$Browser$Events$onMouseUp(
+		return (internal.I && (!internal.e.ac)) ? $elm$browser$Browser$Events$onMouseUp(
 			$elm$json$Json$Decode$succeed(
 				A3($allo_media$elm_daterange_picker$DateRangePicker$handleEvent, toMsg, $allo_media$elm_daterange_picker$DateRangePicker$Close, internal))) : $elm$core$Platform$Sub$none;
 	});
@@ -8858,7 +8858,7 @@ var $author$project$Main$DLOpts = F2(
 	});
 var $author$project$Main$DLOpt = F5(
 	function (url, name, desc, width, height) {
-		return {ck: desc, bH: height, dN: name, G: url, b2: width};
+		return {ck: desc, bH: height, dN: name, K: url, b2: width};
 	});
 var $elm$json$Json$Decode$map5 = _Json_map5;
 var $author$project$Main$dloptDecoder = $elm$json$Json$Decode$list(
@@ -8889,8 +8889,8 @@ var $author$project$Main$dloptsDecoder = A2(
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $author$project$Main$reload = $elm$http$Http$get(
 	{
-		W: A2($elm$http$Http$expectJson, $author$project$Main$SomeMedia, $author$project$Media$mediaListDecoder),
-		G: '/api/media'
+		ah: A2($elm$http$Http$expectJson, $author$project$Main$SomeMedia, $author$project$Media$mediaListDecoder),
+		K: '/api/media'
 	});
 var $pablen$toasty$Toasty$Defaults$Error = F2(
 	function (a, b) {
@@ -9259,13 +9259,13 @@ var $elm$core$Set$member = F2(
 	});
 var $author$project$Main$areaFilter = F2(
 	function (model, m) {
-		if ($elm$core$Set$isEmpty(model.ag)) {
+		if ($elm$core$Set$isEmpty(model.af)) {
 			return true;
 		} else {
 			var areas = A2(
 				$elm$core$List$filter,
 				function (a) {
-					return A2($elm$core$Set$member, a.dN, model.ag);
+					return A2($elm$core$Set$member, a.dN, model.af);
 				},
 				model.aR);
 			var _v0 = $author$project$Media$mediaPoint(m);
@@ -9282,7 +9282,7 @@ var $author$project$Main$areaFilter = F2(
 	});
 var $author$project$Main$camFilter = F2(
 	function (model, m) {
-		return A2($elm$core$Set$member, m.by, model.ah);
+		return A2($elm$core$Set$member, m.by, model.ag);
 	});
 var $allo_media$elm_daterange_picker$DateRangePicker$getRange = function (_v0) {
 	var current = _v0.P;
@@ -9592,7 +9592,7 @@ var $author$project$Main$gotMedia = F2(
 			_Utils_update(
 				model,
 				{
-					ah: cameras,
+					ag: cameras,
 					P: c,
 					D: $elm$core$Maybe$Just(
 						A5(
@@ -9745,7 +9745,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$setToday = F2(
 		var newRightCal = _v1.b;
 		return _Utils_update(
 			internal,
-			{H: newLeftCal, E: newRightCal, F: today});
+			{G: newLeftCal, E: newRightCal, F: today});
 	});
 var $allo_media$elm_daterange_picker$DateRangePicker$nowTask = F2(
 	function (config, selected) {
@@ -9768,47 +9768,9 @@ var $allo_media$elm_daterange_picker$DateRangePicker$now = F2(
 			toMsg,
 			A2($allo_media$elm_daterange_picker$DateRangePicker$nowTask, internal.e, internal.P));
 	});
-var $author$project$Main$SomeNotifications = function (a) {
-	return {$: 3, a: a};
-};
-var $author$project$Main$Notification = F3(
-	function (typ, title, msg) {
-		return {bi: msg, bZ: title, c9: typ};
-	});
-var $author$project$Main$NotificationError = 1;
-var $author$project$Main$NotificationInfo = 0;
-var $author$project$Main$NotificationReload = 2;
-var $author$project$Main$NotificationUnknown = 3;
-var $author$project$Main$strNotificationType = function (s) {
-	switch (s) {
-		case 'info':
-			return 0;
-		case 'error':
-			return 1;
-		case 'reload':
-			return 2;
-		default:
-			return 3;
-	}
-};
-var $author$project$Main$notificationListDecoder = $elm$json$Json$Decode$list(
-	A4(
-		$elm$json$Json$Decode$map3,
-		$author$project$Main$Notification,
-		A2(
-			$elm$json$Json$Decode$map,
-			$author$project$Main$strNotificationType,
-			A2($elm$json$Json$Decode$field, 'type', $elm$json$Json$Decode$string)),
-		A2($elm$json$Json$Decode$field, 'title', $elm$json$Json$Decode$string),
-		A2($elm$json$Json$Decode$field, 'message', $elm$json$Json$Decode$string)));
-var $author$project$Main$pollNotifications = $elm$http$Http$get(
-	{
-		W: A2($elm$http$Http$expectJson, $author$project$Main$SomeNotifications, $author$project$Main$notificationListDecoder),
-		G: '/api/notifications'
-	});
 var $elm$http$Http$post = function (r) {
 	return $elm$http$Http$request(
-		{bx: r.bx, W: r.W, cs: _List_Nil, dK: 'POST', d9: $elm$core$Maybe$Nothing, c5: $elm$core$Maybe$Nothing, G: r.G});
+		{bx: r.bx, ah: r.ah, cs: _List_Nil, dK: 'POST', d9: $elm$core$Maybe$Nothing, c5: $elm$core$Maybe$Nothing, K: r.K});
 };
 var $allo_media$elm_daterange_picker$DateRangePicker$reconfigure = F2(
 	function (updater, _v0) {
@@ -10013,8 +9975,7 @@ var $author$project$Main$update = F2(
 					$elm$core$Platform$Cmd$batch(
 						_List_fromArray(
 							[
-								A2($allo_media$elm_daterange_picker$DateRangePicker$now, $author$project$Main$PickerChanged, model.B),
-								$author$project$Main$pollNotifications
+								A2($allo_media$elm_daterange_picker$DateRangePicker$now, $author$project$Main$PickerChanged, model.B)
 							])));
 			case 4:
 				var z = msg.a;
@@ -10040,8 +10001,8 @@ var $author$project$Main$update = F2(
 								$author$project$Main$lockScroll($elm$core$Maybe$Nothing),
 								$elm$http$Http$get(
 								{
-									W: A2($elm$http$Http$expectJson, $author$project$Main$SomeDLOpts, $author$project$Main$dloptsDecoder),
-									G: '/api/retrieve2/' + m.ak
+									ah: A2($elm$http$Http$expectJson, $author$project$Main$SomeDLOpts, $author$project$Main$dloptsDecoder),
+									K: '/api/retrieve2/' + m.ak
 								})
 							])));
 			case 9:
@@ -10051,9 +10012,9 @@ var $author$project$Main$update = F2(
 					$elm$http$Http$post(
 						{
 							bx: $elm$http$Http$emptyBody,
-							W: $elm$http$Http$expectWhatever(
+							ah: $elm$http$Http$expectWhatever(
 								$elm$core$Basics$always($author$project$Main$ReloadMedia)),
-							G: '/api/refresh/' + mid
+							K: '/api/refresh/' + mid
 						}));
 			case 10:
 				return _Utils_Tuple2(model, $author$project$Main$reload);
@@ -10101,9 +10062,9 @@ var $author$project$Main$update = F2(
 						$elm$http$Http$post(
 							{
 								bx: $elm$http$Http$emptyBody,
-								W: $elm$http$Http$expectWhatever(
+								ah: $elm$http$Http$expectWhatever(
 									$author$project$Main$BackendResponse(0)),
-								G: '/api/reauth'
+								K: '/api/reauth'
 							}));
 				} else {
 					var _v10 = msg.a;
@@ -10112,9 +10073,9 @@ var $author$project$Main$update = F2(
 						$elm$http$Http$post(
 							{
 								bx: $elm$http$Http$emptyBody,
-								W: $elm$http$Http$expectWhatever(
+								ah: $elm$http$Http$expectWhatever(
 									$author$project$Main$BackendResponse(1)),
-								G: '/api/sync'
+								K: '/api/sync'
 							}));
 				}
 			case 13:
@@ -10145,7 +10106,7 @@ var $author$project$Main$update = F2(
 						_Utils_update(
 							model,
 							{
-								ah: A3($author$project$Main$addOrRemove, checked, c, model.ah)
+								ag: A3($author$project$Main$addOrRemove, checked, c, model.ag)
 							})),
 					$elm$core$Platform$Cmd$none);
 			case 15:
@@ -10167,7 +10128,7 @@ var $author$project$Main$update = F2(
 						_Utils_update(
 							model,
 							{
-								ag: A3($author$project$Main$addOrRemove, checked, t, model.ag)
+								af: A3($author$project$Main$addOrRemove, checked, t, model.af)
 							})),
 					$elm$core$Platform$Cmd$none);
 			case 16:
@@ -11030,13 +10991,13 @@ var $rtfeldman$elm_css$Css$Internal$lengthConverter = F3(
 			u: 0,
 			a$: 0,
 			aE: 0,
-			_: 0,
+			Z: 0,
 			aF: 0,
 			aG: 0,
 			al: 0,
 			am: 0,
 			Q: 0,
-			aa: numericValue,
+			_: numericValue,
 			aL: 0,
 			aN: unitLabel,
 			a8: units,
@@ -11051,7 +11012,7 @@ var $rtfeldman$elm_css$Css$relative = {a3: 0, S: 'relative'};
 var $rtfeldman$elm_css$Css$RemUnits = 0;
 var $rtfeldman$elm_css$Css$rem = A2($rtfeldman$elm_css$Css$Internal$lengthConverter, 0, 'rem');
 var $rtfeldman$elm_css$Css$UnitlessInteger = 0;
-var $rtfeldman$elm_css$Css$zero = {a$: 0, aE: 0, _: 0, aF: 0, aG: 0, al: 0, am: 0, dQ: 0, aa: 0, bl: 0, aN: '', a8: 0, S: '0'};
+var $rtfeldman$elm_css$Css$zero = {a$: 0, aE: 0, Z: 0, aF: 0, aG: 0, al: 0, am: 0, dQ: 0, _: 0, bl: 0, aN: '', a8: 0, S: '0'};
 var $author$project$ScreenOverlay$contentStyle = function (onScreen) {
 	return $rtfeldman$elm_css$Css$batch(
 		_List_fromArray(
@@ -12656,13 +12617,13 @@ var $rtfeldman$elm_css$Css$focus = $rtfeldman$elm_css$Css$pseudoClass('focus');
 var $rtfeldman$elm_css$Css$hover = $rtfeldman$elm_css$Css$pseudoClass('hover');
 var $rtfeldman$elm_css$Css$int = function (val) {
 	return {
-		Z: 0,
+		Y: 0,
 		bf: 0,
 		am: 0,
 		Q: 0,
 		dQ: 0,
 		bj: 0,
-		aa: val,
+		_: val,
 		aN: '',
 		a8: 0,
 		S: $elm$core$String$fromInt(val)
@@ -12899,7 +12860,7 @@ var $author$project$ScreenOverlay$extractOverrideStyles = function (override) {
 		return styles;
 	}
 };
-var $rtfeldman$elm_css$Css$auto = {dh: 0, c: 0, aA: 0, bf: 0, dD: 0, aE: 0, _: 0, Q: 0, aH: 0, K: 0, bq: 0, aM: 0, z: 0, S: 'auto'};
+var $rtfeldman$elm_css$Css$auto = {dh: 0, c: 0, aA: 0, bf: 0, dD: 0, aE: 0, Z: 0, Q: 0, aH: 0, J: 0, bq: 0, aM: 0, z: 0, S: 'auto'};
 var $rtfeldman$elm_css$Css$height = $rtfeldman$elm_css$Css$prop1('height');
 var $rtfeldman$elm_css$Css$overflowX = $rtfeldman$elm_css$Css$prop1('overflow-x');
 var $rtfeldman$elm_css$Css$padding4 = $rtfeldman$elm_css$Css$prop4('padding');
@@ -13606,7 +13567,7 @@ var $author$project$Main$renderIcon = F2(
 						$elm$html$Html$source,
 						_List_fromArray(
 							[
-								$elm$html$Html$Attributes$src(v.G),
+								$elm$html$Html$Attributes$src(v.K),
 								$elm$html$Html$Attributes$type_('video/mp4')
 							]),
 						_List_Nil)
@@ -13936,7 +13897,7 @@ var $author$project$Main$renderOverlay = F2(
 																$elm$html$Html$a,
 																_List_fromArray(
 																	[
-																		$elm$html$Html$Attributes$href(d.G),
+																		$elm$html$Html$Attributes$href(d.K),
 																		$elm$html$Html$Attributes$title(d.ck)
 																	]),
 																_List_fromArray(
@@ -14597,7 +14558,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$panel = F2(
 					_List_fromArray(
 						[
 							_Utils_Tuple2('EDRP__body', true),
-							_Utils_Tuple2('EDRP__body--sticky', internal.e.ad)
+							_Utils_Tuple2('EDRP__body--sticky', internal.e.ac)
 						])),
 					onMouseUp(
 					A3($allo_media$elm_daterange_picker$DateRangePicker$handleEvent, toMsg, $allo_media$elm_daterange_picker$DateRangePicker$NoOp, internal))
@@ -14619,7 +14580,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$panel = F2(
 								{
 									cM: $elm$core$Maybe$Just(
 										A3($allo_media$elm_daterange_picker$DateRangePicker$handleEvent, toMsg, $allo_media$elm_daterange_picker$DateRangePicker$Prev, internal)),
-									bX: internal.H
+									bX: internal.G
 								})),
 							$allo_media$elm_daterange_picker$DateRangePicker$Calendar$view(
 							_Utils_update(
@@ -14665,7 +14626,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$panel = F2(
 								]),
 							_List_fromArray(
 								[
-									(!internal.e.ad) ? A2(
+									(!internal.e.ac) ? A2(
 									$elm$html$Html$button,
 									_List_fromArray(
 										[
@@ -14751,7 +14712,7 @@ var $allo_media$elm_daterange_picker$DateRangePicker$view = F2(
 							$elm$html$Html$Attributes$readonly(true)
 						]),
 					_List_Nil),
-					(internal.e.ad || internal.J) ? A2($allo_media$elm_daterange_picker$DateRangePicker$panel, toMsg, internal) : $elm$html$Html$text('')
+					(internal.e.ac || internal.I) ? A2($allo_media$elm_daterange_picker$DateRangePicker$panel, toMsg, internal) : $elm$html$Html$text('')
 				]));
 	});
 var $pablen$toasty$Toasty$itemContainer = F4(
@@ -14995,7 +14956,7 @@ var $author$project$Main$renderMediaList = F2(
 												$elm$core$Set$toList(ms.dg))))),
 									A5(
 									$author$project$Main$aList,
-									model.ag,
+									model.af,
 									$elm$core$Set$toList(
 										$elm$core$Set$fromList(
 											A2(
@@ -15007,7 +14968,7 @@ var $author$project$Main$renderMediaList = F2(
 									'areas',
 									$elm$core$Basics$identity,
 									$author$project$Main$CheckedArea),
-									A5($author$project$Main$aList, model.ah, ms.cf, 'cameras', $elm$core$Basics$identity, $author$project$Main$CheckedCam),
+									A5($author$project$Main$aList, model.ag, ms.cf, 'cameras', $elm$core$Basics$identity, $author$project$Main$CheckedCam),
 									A5($author$project$Main$aList, model.at, ms.da, 'types', $elm$core$Basics$identity, $author$project$Main$CheckedType),
 									A2(
 									$elm$html$Html$div,

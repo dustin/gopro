@@ -26,8 +26,7 @@ instance FromJSON NotificationType where
   parseJSON invalid      = typeMismatch "Response" invalid
 
 data Notification = Notification
-    { _note_id      :: Integer
-    , _note_type    :: NotificationType
+    { _note_type    :: NotificationType
     , _note_title   :: Text
     , _note_message :: Text
     }
