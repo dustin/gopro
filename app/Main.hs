@@ -7,15 +7,17 @@
 
 module Main where
 
-import           Control.Monad          (unless)
+import           Control.Monad          (unless, when)
 import           Control.Monad.Catch    (bracket_)
 import           Control.Monad.IO.Class (MonadIO (..))
-import           Control.Monad.Logger   (LogLevel (..), MonadLoggerIO (..),
-                                         filterLogger, runStderrLoggingT)
+import           Control.Monad.Logger   (Loc (..), LogLevel (..), LogSource,
+                                         LogStr, fromLogStr)
 import           Control.Monad.Reader   (asks)
+import qualified Data.ByteString.Char8  as C8
 import           Data.Cache             (newCache)
 import           Data.List              (intercalate)
 import           Data.Maybe             (fromMaybe)
+import           Data.String            (fromString)
 import qualified Data.Text              as T
 import           Database.SQLite.Simple (withConnection)
 import           Options.Applicative    (Parser, argument, auto, execParser,
@@ -24,6 +26,7 @@ import           Options.Applicative    (Parser, argument, auto, execParser,
                                          showDefault, some, str, strOption,
                                          switch, value, (<**>))
 import           System.Clock           (TimeSpec (..))
+import           System.IO              (stderr)
 import           System.IO              (hFlush, hGetEcho, hSetEcho, stdin,
                                          stdout)
 
@@ -103,6 +106,17 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
       putStrLn "Try one of these:"
       putStrLn $ "    " <> intercalate "\n    " (map fst cmds)
 
+baseLogger :: LogLevel -> Loc -> LogSource -> LogLevel -> LogStr -> IO ()
+baseLogger minLvl _ _ lvl s = when (lvl >= minLvl) $ C8.hPutStrLn stderr (fromLogStr ls)
+  where
+    ls = prefix <> ": " <> s
+    prefix = case lvl of
+               LevelDebug   -> "D"
+               LevelInfo    -> "I"
+               LevelWarn    -> "W"
+               LevelError   -> "E"
+               LevelOther x -> fromString . T.unpack $ x
+
 main :: IO ()
 main = do
   o@Options{..} <- execParser opts
@@ -116,11 +130,8 @@ main = do
       initTables db
       cfg <- loadConfig db
       cache <- newCache (Just (TimeSpec 60 0))
-
-      runStderrLoggingT . logfilt $ do
-        l <- askLoggerIO
-        let o' = o{optArgv = tail optArgv}
-        liftIO $ runIO (Env o' db cfg cache [l]) (run (head optArgv))
+      let o' = o{optArgv = tail optArgv}
+      liftIO $ runIO (Env o' db cfg cache [baseLogger minLvl]) (run (head optArgv))
 
         where
-          logfilt = filterLogger (\_ -> flip (if optVerbose then (>=) else (>)) LevelDebug)
+          minLvl = if optVerbose then LevelDebug else LevelInfo
