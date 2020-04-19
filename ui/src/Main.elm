@@ -207,7 +207,7 @@ renderMediaList ms model =
                          text ").",
                          a [ onClick ReloadMedia ] [ text "↺" ],
                          a [ onClick (BackendCmd Reauth) ] [ text "🔒" ],
-                         a [ onClick (BackendCmd FullSync) ] [ text "Sync" ],
+                         a [ onClick (BackendCmd FullSync) ] [ text "🔃" ],
                          div [ H.class "datepick" ]
                              ([ Picker.view PickerChanged model.datePicker,
                                     div [ H.class "year" ] [ text "Quick year picker:" ] ]
