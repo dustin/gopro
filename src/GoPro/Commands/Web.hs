@@ -61,7 +61,7 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
       post "/api/sync" $ do
         lift $ do
           notlog <- notificationLogger "web sync"
-          local (\e -> e{envLogger=notlog}) runFullSync
+          local (\e -> e{envLoggers=notlog:envLoggers e}) runFullSync
           addNotification NotificationReload "" ""
         status noContent204
 

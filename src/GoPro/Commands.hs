@@ -16,10 +16,10 @@ import           Control.Monad.Catch     (MonadCatch (..), MonadMask (..),
 import           Control.Monad.Fail      (MonadFail (..))
 import           Control.Monad.IO.Class  (MonadIO (..))
 import           Control.Monad.Logger    (Loc (..), LogLevel (..), LogSource,
-                                          LogStr, LoggingT, MonadLogger (..),
+                                          LogStr, MonadLogger (..),
                                           ToLogStr (..), logDebugN, logErrorN,
                                           logInfoN, monadLoggerLog)
-import           Control.Monad.Reader    (MonadReader, ReaderT (..), asks, lift)
+import           Control.Monad.Reader    (MonadReader, ReaderT (..), asks)
 import           Data.Cache              (Cache (..), fetchWithCache)
 import           Data.Map.Strict         (Map)
 import qualified Data.Map.Strict         as Map
@@ -42,11 +42,11 @@ data Options = Options
     }
 
 data Env = Env
-    { gpOptions :: Options
-    , dbConn    :: Connection
-    , gpConfig  :: Map T.Text T.Text
-    , authCache :: Cache () AuthInfo
-    , envLogger :: Loc -> LogSource -> LogLevel -> LogStr -> IO ()
+    { gpOptions  :: Options
+    , dbConn     :: Connection
+    , gpConfig   :: Map T.Text T.Text
+    , authCache  :: Cache () AuthInfo
+    , envLoggers :: [Loc -> LogSource -> LogLevel -> LogStr -> IO ()]
     }
 
 gpBucket :: Env -> BucketName
@@ -65,7 +65,7 @@ instance (Monad m, MonadReader Env m) => HasGoProDB m where
   goproDB = asks dbConn
 
 instance MonadLogger GoPro where
-  monadLoggerLog loc src lvl msg = asks envLogger >>= \l -> liftIO $ l loc src lvl (toLogStr msg)
+  monadLoggerLog loc src lvl msg = mapM_ (\l -> liftIO $ l loc src lvl (toLogStr msg)) =<< asks envLoggers
 
 instance MonadPlus GoPro where
   mzero = error "GoPro zero"

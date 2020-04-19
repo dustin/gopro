@@ -120,7 +120,7 @@ main = do
       runStderrLoggingT . logfilt $ do
         l <- askLoggerIO
         let o' = o{optArgv = tail optArgv}
-        liftIO $ runIO (Env o' db cfg cache l) (run (head optArgv))
+        liftIO $ runIO (Env o' db cfg cache [l]) (run (head optArgv))
 
         where
           logfilt = filterLogger (\_ -> flip (if optVerbose then (>=) else (>)) LevelDebug)
