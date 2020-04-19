@@ -11,13 +11,16 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  metaBlobTODO, insertMetaBlob, selectMetaBlob, clearMetaBlob,
                  metaTODO, insertMeta, selectMeta,
                  Area(..), area_id, area_name, area_nw, area_se, selectAreas,
-                 NotificationType(..), Notification(..), addNotification, getNotifications,
+                 NotificationType(..), Notification(..), addNotification, getNotifications, notificationLogger,
                  HasGoProDB(..),
                  initTables, loadConfig) where
 
 import           Control.Applicative              (liftA2)
 import           Control.Lens
 import           Control.Monad.IO.Class           (MonadIO (..))
+import           Control.Monad.Logger             (Loc (..), LogLevel (..),
+                                                   LogSource, LogStr,
+                                                   fromLogStr)
 import           Data.Aeson                       (FromJSON (..), ToJSON (..),
                                                    defaultOptions,
                                                    fieldLabelModifier,
@@ -25,6 +28,7 @@ import           Data.Aeson                       (FromJSON (..), ToJSON (..),
 import qualified Data.Aeson                       as J
 import           Data.Aeson.Types                 (typeMismatch)
 import qualified Data.ByteString                  as BS
+import qualified Data.ByteString.Char8            as BC
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Char                        (toLower, toUpper)
 import           Data.Coerce                      (coerce)
@@ -319,6 +323,7 @@ momentsTODO = liftIO . coerce . sel =<< goproDB
                          |]
 
 data NotificationType = NotificationInfo
+    | NotificationError
     | NotificationReload
     deriving (Show, Read)
 
@@ -356,7 +361,18 @@ instance FromRow Notification where
     _note_message <- field
     pure Notification{..}
 
-addNotification :: (HasGoProDB m, MonadIO m) => Text -> Text -> Text -> m ()
+notificationLogger :: (HasGoProDB m, MonadIO m) => Text -> m (Loc -> LogSource -> LogLevel -> LogStr -> IO ())
+notificationLogger title = l <$> goproDB
+  where
+    l :: Connection -> Loc -> LogSource -> LogLevel -> LogStr -> IO ()
+    l db _ _ lvl str = case lvl of
+                         LevelDebug -> pure ()
+                         LevelInfo  -> note NotificationInfo
+                         _          -> note NotificationError
+      where note t = execute db "insert into notifications (type, title, message) values (?, ?, ?)" (t, title, lstr)
+            lstr = BC.unpack $ fromLogStr str
+
+addNotification :: (HasGoProDB m, MonadIO m) => NotificationType -> Text -> Text -> m ()
 addNotification t tl m = liftIO . up =<< goproDB
   where up db = execute db "insert into notifications (type, title, message) values (?, ?, ?)" (t, tl, m)
 

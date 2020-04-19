@@ -26,15 +26,17 @@ import Formats as F
 port lockScroll : Maybe String -> Cmd msg
 port unlockScroll : Maybe String -> Cmd msg
 
-type NotificationType = NotificationInfo | NotificationReload | NotificationUnknown
+type NotificationType = NotificationInfo | NotificationError | NotificationReload | NotificationUnknown
 
 notificationTypeStr t = case t of
                             NotificationInfo -> "info"
+                            NotificationError -> "error"
                             NotificationReload -> "reload"
                             NotificationUnknown -> "unknown"
 
 strNotificationType s = case s of
                             "info" -> NotificationInfo
+                            "error" -> NotificationError
                             "reload" -> NotificationReload
                             _ -> NotificationUnknown
 
@@ -123,6 +125,7 @@ emptyState = { httpError = Nothing
 
 type BackendCommand
     = Reauth
+    | FullSync
 
 type Msg
   = SomeMedia (Result Http.Error (List Medium))
@@ -204,6 +207,7 @@ renderMediaList ms model =
                          text ").",
                          a [ onClick ReloadMedia ] [ text "↺" ],
                          a [ onClick (BackendCmd Reauth) ] [ text "🔒" ],
+                         a [ onClick (BackendCmd FullSync) ] [ text "Sync" ],
                          div [ H.class "datepick" ]
                              ([ Picker.view PickerChanged model.datePicker,
                                     div [ H.class "year" ] [ text "Quick year picker:" ] ]
@@ -461,6 +465,7 @@ doNotifications model =
         doNote n m =
             case n.typ of
                 NotificationInfo -> toastSuccess n.title n.msg m
+                NotificationError -> toastError n.title n.msg m
                 NotificationReload -> reload_ m
                 NotificationUnknown-> toastError "Unhandled Notification" (n.msg) m
     in
@@ -527,9 +532,18 @@ update msg model =
                 Ok () -> (model, Cmd.none) |> toastSuccess "Reauthed" ""
                 Err x -> (model, Cmd.none) |> toastError "Reauth failure" (F.httpErr x)
 
+        BackendResponse FullSync result ->
+            case result of
+                Ok () -> (model, Cmd.none) |> toastSuccess "Sync Started" ""
+                Err x -> (model, Cmd.none) |> toastError "Sync failure" (F.httpErr x)
+
         BackendCmd Reauth -> (model, Http.post { url = "/api/reauth"
                                                , body = Http.emptyBody
                                                , expect = Http.expectWhatever (BackendResponse Reauth) })
+
+        BackendCmd FullSync -> (model, Http.post { url = "/api/sync"
+                                      , body = Http.emptyBody
+                                      , expect = Http.expectWhatever (BackendResponse FullSync)})
 
         CloseOverlay ->
             ({ model | overlay = ScreenOverlay.hide model.overlay,

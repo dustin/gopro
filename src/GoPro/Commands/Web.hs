@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE TypeApplications #-}
 
 module GoPro.Commands.Web where
@@ -5,7 +6,8 @@ module GoPro.Commands.Web where
 import           Control.Applicative           ((<|>))
 import           Control.Lens
 import           Control.Monad.IO.Class        (MonadIO (..))
-import           Control.Monad.Reader          (ask, asks, lift)
+import           Control.Monad.Logger          (runLoggingT)
+import           Control.Monad.Reader          (ask, asks, lift, runReaderT)
 import qualified Data.Aeson                    as J
 import           Data.Aeson.Lens               (_Object)
 import           Data.Cache                    (insert)
@@ -26,6 +28,7 @@ import           Web.Scotty.Trans              (ScottyT, file, get, json,
 
 import           GoPro.AuthDB
 import           GoPro.Commands
+import           GoPro.Commands.Sync           (runFullSync)
 import           GoPro.DB
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
@@ -55,6 +58,13 @@ runServer = ask >>= \x -> scottyT 8008 (runIO x) application
                                       j & _Object . at "camera_model" .~ (J.String .fromString <$> cam)
                                         & _Object . at "meta_data" ?~ J.toJSON g
                    ) ms
+
+      post "/api/sync" $ do
+        notlog <- lift $ notificationLogger "web sync"
+        env <- lift ask
+        liftIO $ (runLoggingT (runReaderT runFullSync env) notlog)
+        lift $ addNotification NotificationReload "" ""
+        status noContent204
 
       post "/api/refresh/:id" $ do
         imgid <- param "id"
