@@ -1,6 +1,7 @@
+{-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications, BlockArguments    #-}
+{-# LANGUAGE TypeApplications    #-}
 
 module GoPro.Commands.Web where
 
@@ -61,11 +62,11 @@ runServer = do
       middleware $ GZ.gzip GZ.def {GZ.gzipFiles = GZ.GzipCompress}
       middleware $ staticPolicy (noDots >-> addBase staticPath)
 
-      get "/" $ do
+      get "/" do
         setHeader "Content-Type" "text/html"
         file $ staticPath </> "index.html"
 
-      get "/api/media" $ do
+      get "/api/media" do
         ms <- lift loadMedia
         gs <- lift selectMeta
         json $ map (\m@Medium{..} ->
@@ -77,22 +78,22 @@ runServer = do
                                         & _Object . at "meta_data" ?~ J.toJSON g
                    ) ms
 
-      post "/api/sync" $ do
+      post "/api/sync" do
         _ <- lift . async $ do
           notlog <- notificationLogger "web sync"
           local (\e -> e{envLoggers=notlog:envLoggers e}) runFullSync
           addNotification NotificationReload "" ""
         status noContent204
 
-      post "/api/refresh/:id" $ do
+      post "/api/refresh/:id" do
         imgid <- param "id"
         lift . logInfo $ "Refreshing " <> imgid
         m <- lift (medium imgid)
         lift (storeMedia [MediaRow m mempty])
         status noContent204
 
-      post "/api/reauth" $ do
-        lift $ do
+      post "/api/reauth" do
+        lift do
           db <- asks dbConn
           res <- refreshAuth =<< loadAuth db
           -- Replace the DB value
@@ -103,20 +104,20 @@ runServer = do
           logInfo "Refreshed auth"
         status noContent204
 
-      get "/thumb/:id" $ do
+      get "/thumb/:id" do
         setHeader "Content-Type" "image/jpeg"
         setHeader "Cache-Control" "max-age=86400"
         raw =<< lift . loadThumbnail =<< param "id"
 
       get "/api/areas" (lift selectAreas >>= json)
 
-      get "/api/retrieve/:id" $ do
+      get "/api/retrieve/:id" do
         imgid <- param "id"
         json @J.Value =<< lift (retrieve imgid)
 
       get "/api/notifications" (lift getNotifications >>= json)
 
-      get "/api/retrieve2/:id" $ do
+      get "/api/retrieve2/:id" do
         imgid <- param "id"
         fi <- _fileStuff <$> lift (retrieve imgid)
         json (encd fi)
