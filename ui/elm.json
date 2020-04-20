@@ -9,6 +9,8 @@
             "NoRedInk/elm-json-decode-pipeline": "1.0.0",
             "allo-media/elm-daterange-picker": "4.0.2",
             "basti1302/elm-human-readable-filesize": "1.2.0",
+            "billstclair/elm-port-funnel": "1.2.0",
+            "billstclair/elm-websocket-client": "4.1.0",
             "elm/browser": "1.0.2",
             "elm/core": "1.0.5",
             "elm/html": "1.0.0",
@@ -23,6 +25,7 @@
             "waratuman/time-extra": "1.1.0"
         },
         "indirect": {
+            "Janiczek/cmd-extra": "1.1.0",
             "Skinney/murmur3": "2.0.8",
             "elm/bytes": "1.0.8",
             "elm/file": "1.0.5",

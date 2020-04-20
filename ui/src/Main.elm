@@ -6,7 +6,8 @@ import Html.Attributes as H
 import Html.Events exposing (onClick, onCheck)
 import Html.Lazy exposing (lazy)
 import Http
-import Json.Decode as Decode exposing (Decoder, int, string)
+import Json.Decode as Decode exposing (decodeString, Decoder, int, string)
+import Json.Encode exposing (Value)
 import Task
 import Filesize
 import Time
@@ -22,9 +23,52 @@ import Geo exposing (..)
 import List.Extra exposing (groupWhile, minimumBy, maximumBy)
 import Media exposing (..)
 import Formats as F
+import PortFunnel.WebSocket as WebSocket exposing (Response(..))
+import PortFunnels exposing (FunnelDict, Handler(..), State)
 
 port lockScroll : Maybe String -> Cmd msg
 port unlockScroll : Maybe String -> Cmd msg
+
+socketHandler : Response -> State -> Model -> ( Model, Cmd Msg )
+socketHandler response state mdl =
+    let
+        model = { mdl | wsState = state }
+    in
+    case response of
+        WebSocket.MessageReceivedResponse { message } ->
+            case decodeString notificationDecoder message of
+                Ok n -> doNotifications model [n]
+                Err err -> (model, Cmd.none) |> toastError "WebSocket" (Decode.errorToString err)
+
+        WebSocket.ConnectedResponse r -> (model, Cmd.none)
+
+        WebSocket.ClosedResponse { code, wasClean, expected } -> (model, Cmd.none)
+
+        WebSocket.ErrorResponse error -> (model, Cmd.none)
+
+        _ ->
+            case WebSocket.reconnectedResponses response of
+                [] ->
+                    (model, Cmd.none)
+
+                [ ReconnectedResponse r ] -> (model, Cmd.none)
+
+                list -> (model, Cmd.none)
+
+funnelDict : FunnelDict Model Msg
+funnelDict =
+    PortFunnels.makeFunnelDict [ WebSocketHandler socketHandler ] getCmdPort
+
+
+{-| Get a possibly simulated output port.
+-}
+getCmdPort : String -> Model -> (Value -> Cmd Msg)
+getCmdPort moduleName model =
+    PortFunnels.getCmdPort Process moduleName False
+
+sendWS : Model -> WebSocket.Message -> Cmd Msg
+sendWS model message =
+    WebSocket.send (getCmdPort WebSocket.moduleName model) message
 
 type NotificationType = NotificationInfo | NotificationError | NotificationReload | NotificationUnknown
 
@@ -46,12 +90,12 @@ type alias Notification =
     , msg : String
     }
 
-notificationListDecoder : Decoder (List Notification)
-notificationListDecoder =
-    Decode.list (Decode.map3 Notification
-                     (Decode.map strNotificationType <| Decode.field "type" string)
-                     (Decode.field "title" string)
-                     (Decode.field "message" string))
+notificationDecoder : Decoder Notification
+notificationDecoder =
+    Decode.map3 Notification
+        (Decode.map strNotificationType <| Decode.field "type" string)
+        (Decode.field "title" string)
+        (Decode.field "message" string)
 
 type alias DLOpt =
     { url : String
@@ -101,6 +145,7 @@ type alias Model =
     , areasChecked : Set.Set String
     , media : Maybe Media
     , areas : List Area
+    , wsState : State
     }
 
 allFilters : List (Model -> Medium -> Bool)
@@ -121,6 +166,7 @@ emptyState = { httpError = Nothing
              , areasChecked = Set.empty
              , media = Nothing
              , areas = []
+             , wsState = PortFunnels.initialState
              }
 
 type BackendCommand
@@ -148,6 +194,8 @@ type Msg
   | CheckedArea String Bool
   | PickerChanged Picker.State
   | YearClicked Int
+  | Process Value
+  | Connected WebSocket.Message
 
 mediumHTML : Time.Zone -> Medium -> Html Msg
 mediumHTML z m = div [ H.class "medium", onClick (OpenOverlay m) ] [
@@ -328,8 +376,8 @@ renderOverlay z (mm, mdls) =
 
 
 init : () -> (Model, Cmd Msg)
-init _ =
-  ( emptyState
+init _ = let model = emptyState in
+  ( model
   , Cmd.batch [Http.get
                    { url = "/api/media"
                    , expect = Http.expectJson SomeMedia mediaListDecoder
@@ -338,7 +386,9 @@ init _ =
                    { url = "/api/areas"
                    , expect = Http.expectJson SomeAreas (Decode.list areaDecoder)
                    },
-                   Task.perform ZoneHere Time.here]
+                   Task.perform ZoneHere Time.here,
+                   WebSocket.makeOpen "ws://localhost:8008/" |> sendWS model
+              ]
   )
 
 filter : Model -> Model
@@ -573,12 +623,22 @@ update msg model =
                          in
                              (filter ({model | datePicker = nst}), Cmd.none)
 
+        Process value ->
+            case
+                PortFunnels.processValue funnelDict value model.wsState model
+            of
+                Err error -> (model, Cmd.none) -- error?
+
+                Ok res -> res
+
+        Connected _ -> (model, Cmd.none) -- do I care?
+
 subscriptions : Model -> Sub Msg
 subscriptions model = Sub.batch [
                        Picker.subscriptions PickerChanged model.datePicker,
-                       Time.every 1000 CurrentTime
+                       Time.every 1000 CurrentTime,
+                       PortFunnels.subscriptions Process model
                       ]
-
 
 main = Browser.element
     { init = init
