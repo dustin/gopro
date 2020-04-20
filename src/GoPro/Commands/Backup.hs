@@ -2,7 +2,7 @@ module GoPro.Commands.Backup (runBackup, runStoreMeta) where
 
 
 import           Control.Lens
-import           Control.Monad           (void, when)
+import           Control.Monad           (unless, void, when)
 import           Control.Monad.Reader    (asks)
 import           Control.Monad.Trans.AWS (Region (..), send)
 import qualified Data.Aeson              as J
@@ -57,7 +57,7 @@ runStoreMeta = do
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
   logDbg $ "local: " <> (pack.show.fmap fst) local
   let todo = filter ((`Set.notMember` have) . fst) local
-  logInfo $ "todo: " <> (pack.show.fmap fst) todo
+  unless (null todo) .logInfo $ "storemeta todo: " <> (pack.show.fmap fst) todo
 
   c <- asks (optUploadConcurrency . gpOptions)
   _ <- mapConcurrentlyLimited c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict blob)) todo
