@@ -85,6 +85,7 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
     cmds = [("auth", runAuth),
             ("reauth", runReauth),
             ("sync", runFullSync),
+            ("refresh", runRefresh),
             ("fetch", runFetch Incremental),
             ("upload", runUploadFiles),
             ("uploadmulti", runUploadMultipart),

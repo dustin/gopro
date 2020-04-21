@@ -182,6 +182,16 @@ runWaitForUploads = whileM_ inProgress (sleep 15)
     sleep = liftIO . threadDelay . seconds
     seconds = (* 1000000)
 
+refreshMedia :: [MediumID] -> GoPro ()
+refreshMedia mids = do
+  c <- asks (optDownloadConcurrency . gpOptions)
+  storeMedia =<< mapConcurrentlyLimited c getUpdate mids
+
+  where getUpdate mid = MediaRow <$> medium mid <*> pure mempty <*> (J.encode <$> fetchVariantsSansURLs mid)
+
+runRefresh :: GoPro ()
+runRefresh = refreshMedia . fmap T.pack =<< asks (optArgv . gpOptions)
+
 runFullSync :: GoPro ()
 runFullSync = do
   runWaitForUploads

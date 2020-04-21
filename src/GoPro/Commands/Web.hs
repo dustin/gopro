@@ -36,7 +36,7 @@ import           Web.Scotty.Trans               (ScottyT, file, get, json,
 
 import           GoPro.AuthDB
 import           GoPro.Commands
-import           GoPro.Commands.Sync            (runFullSync)
+import           GoPro.Commands.Sync            (refreshMedia, runFullSync)
 import           GoPro.DB
 import           GoPro.Notification
 import           GoPro.Plus.Auth
@@ -90,9 +90,7 @@ runServer = do
       post "/api/refresh/:id" do
         imgid <- param "id"
         lift . logInfo $ "Refreshing " <> imgid
-        m <- lift (medium imgid)
-        v <- lift (J.encode <$> fetchVariantsSansURLs imgid)
-        lift (storeMedia [MediaRow m mempty v])
+        lift (refreshMedia [imgid])
         status noContent204
 
       post "/api/reauth" do
