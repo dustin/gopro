@@ -183,11 +183,18 @@ runWaitForUploads = whileM_ inProgress (sleep 15)
     seconds = (* 1000000)
 
 refreshMedia :: [MediumID] -> GoPro ()
-refreshMedia mids = do
-  c <- asks (optDownloadConcurrency . gpOptions)
-  storeMedia =<< mapConcurrentlyLimited c getUpdate mids
+refreshMedia = mapM_ refreshSome . chunksOf 100
+  where
+    one mid = do
+      logDbg $ "Refreshing " <> mid
+      MediaRow <$> medium mid <*> pure mempty <*> (J.encode <$> fetchVariantsSansURLs mid)
 
-  where getUpdate mid = MediaRow <$> medium mid <*> pure mempty <*> (J.encode <$> fetchVariantsSansURLs mid)
+    refreshSome mids = do
+      c <- asks (optDownloadConcurrency . gpOptions)
+      logInfo $ "Processing batch of " <> tshow (length mids)
+      n <- mapConcurrentlyLimited c one mids
+      logDbg $ "Storing " <> tshow (length n)
+      storeMedia n
 
 runRefresh :: GoPro ()
 runRefresh = refreshMedia . fmap T.pack =<< asks (optArgv . gpOptions)
