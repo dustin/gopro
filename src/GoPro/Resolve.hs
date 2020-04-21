@@ -1,5 +1,4 @@
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module GoPro.Resolve where
 
@@ -86,6 +85,4 @@ summarizeEXIF ex = MDSummary {
   }
 
 fetchVariantsSansURLs :: (HasGoProAuth m, MonadIO m) => MediumID -> m (Maybe Value)
-fetchVariantsSansURLs mid = do
-  j :: Maybe Value <- retrieve mid
-  pure $ (_Just . deep  values . _Object %~ sans "url" . sans "head" . sans "heads" . sans "urls") j
+fetchVariantsSansURLs = fmap (_Just . deep  values . _Object %~ sans "url" . sans "head" . sans "heads" . sans "urls") . retrieve
