@@ -6,7 +6,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
-                 MediaRow(..), row_media, row_thumbnail,
+                 MediaRow(..), row_media, row_thumbnail, row_variants,
                  storeMoments, loadMoments, momentsTODO,
                  metaBlobTODO, insertMetaBlob, selectMetaBlob, clearMetaBlob,
                  metaTODO, insertMeta, selectMeta,
@@ -67,7 +67,8 @@ initQueries = [
   (2, "create table if not exists config (key, value)"),
   (2, "insert into config values ('bucket', 'gopro.west.spy.net')"),
   (3, "create table if not exists notifications (id integer primary key autoincrement, type text, title text, message text)"),
-  (4, "drop table if exists notifications")]
+  (4, "drop table if exists notifications"),
+  (5, "alter table media add column variants blob")]
 
 initTables :: Connection -> IO ()
 initTables db = do
@@ -82,17 +83,19 @@ loadConfig db = Map.fromList <$> query_ db "select key, value from config"
 upsertMediaStatement :: Query
 upsertMediaStatement = [r|insert into media (media_id, camera_model, captured_at, created_at,
                                              file_size, moments_count, source_duration, media_type,
-                                             width, height, ready_to_view, thumbnail)
-                                      values(?,?,?,?,?,?,?,?,?,?,?,?)
+                                             width, height, ready_to_view, thumbnail, variants)
+                                      values(?,?,?,?,?,?,?,?,?,?,?,?,?)
                             on conflict (media_id)
                                do update
                                  set moments_count = excluded.moments_count,
-                                     ready_to_view = excluded.ready_to_view
+                                     ready_to_view = excluded.ready_to_view,
+                                     variants = excluded.variants
                               |]
 
 data MediaRow = MediaRow
     { _row_media     :: Medium
     , _row_thumbnail :: BL.ByteString
+    , _row_variants  :: BL.ByteString
     }
 
 makeLenses ''MediaRow
@@ -121,7 +124,7 @@ instance FromField MediumType where
   fromField = jsonFromField "medium type"
 
 instance ToRow MediaRow where
-  toRow (MediaRow Medium{..} thumbnail) = [
+  toRow (MediaRow Medium{..} thumbnail vars) = [
     toField _medium_id,
     toField _medium_camera_model,
     toField _medium_captured_at,
@@ -133,7 +136,8 @@ instance ToRow MediaRow where
     toField _medium_width,
     toField _medium_height,
     toField _medium_ready_to_view,
-    toField thumbnail
+    toField thumbnail,
+    toField vars
     ]
 
 storeMedia :: (HasGoProDB m, MonadIO m) => [MediaRow] -> m ()

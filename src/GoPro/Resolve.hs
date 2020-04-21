@@ -1,10 +1,13 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module GoPro.Resolve where
 
 import           Control.Lens           hiding ((.=))
-import           Data.Aeson             (FromJSON (..), ToJSON (..), object,
-                                         (.=))
+import           Control.Monad.IO.Class (MonadIO (..))
+import           Data.Aeson             (FromJSON (..), ToJSON (..), Value (..),
+                                         object, (.=))
+import           Data.Aeson.Lens
 import qualified Data.ByteString        as BS
 import           Data.Map.Strict        (Map)
 import qualified Data.Map.Strict        as Map
@@ -17,17 +20,20 @@ import qualified Graphics.HsExif        as E
 
 import           GoPro.DEVC
 import           GoPro.GPMF             (parseGPMF)
+import           GoPro.Plus.Auth        (HasGoProAuth)
+import           GoPro.Plus.Media       (MediumID, retrieve)
 
-data MDSummary = MDSummary {
-  _cameraModel  :: String,
-  _capturedTime :: Maybe UTCTime,
-  _lat          :: Maybe Double,
-  _lon          :: Maybe Double,
-  _maxSpeed2d   :: Maybe Double,
-  _maxSpeed3d   :: Maybe Double,
-  _maxFaces     :: Int,
-  _mainScene    :: Maybe (Location, Float)
-  } deriving (Generic, Show)
+data MDSummary = MDSummary
+    { _cameraModel  :: String
+    , _capturedTime :: Maybe UTCTime
+    , _lat          :: Maybe Double
+    , _lon          :: Maybe Double
+    , _maxSpeed2d   :: Maybe Double
+    , _maxSpeed3d   :: Maybe Double
+    , _maxFaces     :: Int
+    , _mainScene    :: Maybe (Location, Float)
+    }
+    deriving (Generic, Show)
 
 instance ToJSON MDSummary where
   toJSON MDSummary{..} = object ["camera" .= _cameraModel,
@@ -78,3 +84,8 @@ summarizeEXIF ex = MDSummary {
   _maxFaces = 0,
   _mainScene = Nothing
   }
+
+fetchVariantsSansURLs :: (HasGoProAuth m, MonadIO m) => MediumID -> m (Maybe Value)
+fetchVariantsSansURLs mid = do
+  j :: Maybe Value <- retrieve mid
+  pure $ (_Just . deep  values . _Object %~ sans "url" . sans "head" . sans "heads" . sans "urls") j

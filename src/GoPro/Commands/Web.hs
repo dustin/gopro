@@ -91,7 +91,8 @@ runServer = do
         imgid <- param "id"
         lift . logInfo $ "Refreshing " <> imgid
         m <- lift (medium imgid)
-        lift (storeMedia [MediaRow m mempty])
+        v <- lift (J.encode <$> fetchVariantsSansURLs imgid)
+        lift (storeMedia [MediaRow m mempty v])
         status noContent204
 
       post "/api/reauth" do

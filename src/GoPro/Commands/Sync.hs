@@ -1,6 +1,7 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE LambdaCase       #-}
-{-# LANGUAGE TupleSections    #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 
 module GoPro.Commands.Sync where
 
@@ -14,6 +15,7 @@ import           Control.Monad.Loops    (whileM_)
 import           Control.Monad.Reader   (asks)
 import           Control.Retry          (RetryStatus (..), exponentialBackoff,
                                          limitRetries, recoverAll)
+import qualified Data.Aeson             as J
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BL
 import           Data.Foldable          (asum)
@@ -49,13 +51,14 @@ runFetch stype = do
   unless (null ms) $ logDbg $ "new items: " <> tshow (ms ^.. folded . medium_id)
   mapM_ storeSome $ chunksOf 100 ms
 
-    where resolve m = MediaRow m <$> fetchThumbnail m
+    where resolve m = MediaRow m <$> fetchThumbnail m <*> (J.encode <$> fetchVariantsSansURLs (_medium_id m))
           todo seen = filter (\m -> notSeen m && wanted m) <$> listWhile (listPred stype)
             where
               notSeen = (`Set.notMember` seen) . _medium_id
               listPred Incremental = all notSeen
               listPred Full        = const True
               wanted Medium{..} = isJust _medium_file_size && _medium_ready_to_view == ViewReady
+
           storeSome l = do
             logInfo $ "Storing batch of " <> tshow (length l)
             c <- asks (optDownloadConcurrency . gpOptions)
