@@ -86,7 +86,6 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
             ("reauth", runReauth),
             ("sync", runFullSync),
             ("refresh", runRefresh),
-            ("fetch", runFetch Incremental),
             ("upload", runUploadFiles),
             ("uploadmulti", runUploadMultipart),
             ("resumeupload", runResumeUpload),
@@ -94,10 +93,7 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
             ("cleanup", runCleanup),
             ("fixup", runFixup),
             ("serve", runServer),
-            ("getmeta", runGetMeta),
-            ("groktel", runGrokTel),
             ("wait", runWaitForUploads),
-            ("storemeta", runStoreMeta),
             ("backup", runBackup)]
     unknown = do
       putStrLn $ "Unknown command: " <> c
