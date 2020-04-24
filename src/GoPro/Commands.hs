@@ -77,7 +77,7 @@ instance Alternative GoPro where
   empty = mzero
   a <|> b = a `catch` \(SomeException _) -> b
 
-mapConcurrentlyLimited :: (MonadMask m, MonadUnliftIO m, Traversable f, Foldable f)
+mapConcurrentlyLimited :: (MonadMask m, MonadUnliftIO m, Traversable f)
                        => Int
                        -> (a -> m b)
                        -> f a
