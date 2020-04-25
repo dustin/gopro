@@ -40,11 +40,12 @@ jobs:
       run: |
         stack --no-terminal test --bench --no-run-benchmarks
         stack install
-        cp $HOME/.local/bin/gopro .
-        tar cvf - gopro static | gzip -9v > gopro.tar.gz
+        mkdir dist
+        cp $HOME/.local/bin/gopro dist
+        cp -r static dist
 
     - name: Store Artifact
       uses: actions/upload-artifact@v1
       with:
-        name: gopro-${{ matrix.os }}.tar.gz
-        path: gopro.tar.gz
+        name: gopro-${{ matrix.os }}
+        path: dist
