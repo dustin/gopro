@@ -40,7 +40,7 @@ jobs:
       run: |
         stack --no-terminal test --bench --no-run-benchmarks
         stack install
-        cp /home/runner/.local/bin/gopro .
+        cp $HOME/.local/bin/gopro .
         tar cvf - gopro static | gzip -9v > gopro.tar.gz
 
     - name: Store Artifact
