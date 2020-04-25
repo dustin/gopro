@@ -39,11 +39,12 @@ jobs:
     - name: Build & Test
       run: |
         stack --no-terminal test --bench --no-run-benchmarks
-        stack install
 
     - name: Store Artifact
       uses: actions/upload-artifact@v1
+      run: |
+        stack install
+        gzip -9v /home/runner/.local/bin/gopro
       with:
-        name: gopro-${{ matrix.os }}
-        path: /home/runner/.local/bin/gopro
-
+        name: gopro-${{ matrix.os }}.gz
+        path: /home/runner/.local/bin/gopro.gz
