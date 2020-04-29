@@ -10250,7 +10250,7 @@ var $author$project$Main$subscriptions = function (model) {
 		_List_fromArray(
 			[
 				A2($allo_media$elm_daterange_picker$DateRangePicker$subscriptions, $author$project$Main$PickerChanged, model.I),
-				A2($elm$time$Time$every, 1000, $author$project$Main$CurrentTime),
+				A2($elm$time$Time$every, 300000, $author$project$Main$CurrentTime),
 				A2($author$project$PortFunnels$subscriptions, $author$project$Main$Process, model)
 			]));
 };

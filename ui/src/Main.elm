@@ -636,7 +636,7 @@ update msg model =
 subscriptions : Model -> Sub Msg
 subscriptions model = Sub.batch [
                        Picker.subscriptions PickerChanged model.datePicker,
-                       Time.every 1000 CurrentTime,
+                       Time.every 300000 CurrentTime,
                        PortFunnels.subscriptions Process model
                       ]
 
