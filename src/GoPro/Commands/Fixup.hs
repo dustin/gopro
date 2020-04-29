@@ -11,8 +11,7 @@ import           Data.Scientific        (fromFloatDigits)
 import           Data.String            (fromString)
 import qualified Data.Text              as T
 import qualified Data.Text.Encoding     as TE
-import           Database.SQLite.Simple (SQLData (..), Statement, columnCount,
-                                         columnName, nextRow, withStatement)
+import           Database.SQLite.Simple (SQLData (..), Statement, columnCount, columnName, nextRow, withStatement)
 import           Prelude                hiding (fail)
 
 import           GoPro.Commands
@@ -32,7 +31,7 @@ runFixup = do
       needful :: Statement -> GoPro ()
       needful st = do
         cnum <- liftIO $ columnCount st
-        cols <- mapM (liftIO . columnName st) [0 .. pred cnum]
+        cols <- traverse (liftIO . columnName st) [0 .. pred cnum]
         process cols
           where
             process :: [T.Text] -> GoPro ()
@@ -44,7 +43,7 @@ runFixup = do
             store stuff = do
               mid <- case lookup "media_id" stuff of
                        (Just (SQLText m)) -> pure m
-                       _ -> fail "no media_id found in result set"
+                       _                  -> fail "no media_id found in result set"
               logInfo $ "Fixing " <> tshow mid
               (J.Object rawm) <- medium mid
               let v = foldr up rawm (filter (\(k,_) -> k /= "media_id") stuff)
