@@ -1,16 +1,15 @@
 module GoPro.Commands.Fixup where
 
+import           Control.Lens
 import           Control.Monad          (when)
 import           Control.Monad.Fail     (MonadFail (..))
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Reader   (ask, asks)
 import qualified Data.Aeson             as J
-import qualified Data.ByteString.Lazy   as BL
-import qualified Data.HashMap.Strict    as HM
+import           Data.Aeson.Lens
 import           Data.Scientific        (fromFloatDigits)
 import           Data.String            (fromString)
 import qualified Data.Text              as T
-import qualified Data.Text.Encoding     as TE
 import           Database.SQLite.Simple (SQLData (..), Statement, columnCount, columnName, nextRow, withStatement)
 import           Prelude                hiding (fail)
 
@@ -45,12 +44,10 @@ runFixup = do
                        (Just (SQLText m)) -> pure m
                        _                  -> fail "no media_id found in result set"
               logInfo $ "Fixing " <> tshow mid
-              (J.Object rawm) <- medium mid
-              let v = foldr up rawm (filter (\(k,_) -> k /= "media_id") stuff)
-              logDbg $ TE.decodeUtf8 . BL.toStrict . J.encode $ v
-              putMedium mid (J.Object v)
-            up (name, SQLInteger i) = HM.insert name (J.Number (fromIntegral i))
-            up (name, SQLFloat i)   = HM.insert name  (J.Number (fromFloatDigits i))
-            up (name, SQLText i)    = HM.insert name (J.String i)
-            up (name, SQLNull)      = HM.insert name J.Null
+              updateMedium (\j -> foldr up j (filter (\(k,_) -> k /= "media_id") stuff)) mid
+            up :: (T.Text, SQLData) -> J.Value -> J.Value
+            up (name, SQLInteger i) = _Object . at name ?~ (J.Number (fromIntegral i))
+            up (name, SQLFloat i)   = _Object . at name ?~ (J.Number (fromFloatDigits i))
+            up (name, SQLText i)    = _Object . at name ?~ (J.String i)
+            up (name, SQLNull)      = _Object . at name ?~ J.Null
             up (_,    SQLBlob _)    = error "can't do blobs"
