@@ -1,9 +1,8 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralisedNewtypeDeriving #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Main where
 
@@ -17,14 +16,11 @@ import           Data.List              (intercalate)
 import           Data.Maybe             (fromMaybe)
 import qualified Data.Text              as T
 import           Database.SQLite.Simple (withConnection)
-import           Options.Applicative    (Parser, argument, auto, execParser,
-                                         fullDesc, help, helper, info, long,
-                                         metavar, option, progDesc, short,
-                                         showDefault, some, str, strOption,
-                                         switch, value, (<**>))
+import           Options.Applicative    (Parser, argument, auto, execParser, fullDesc, help, helper, info, long,
+                                         metavar, option, progDesc, short, showDefault, some, str, strOption, switch,
+                                         value, (<**>))
 import           System.Clock           (TimeSpec (..))
-import           System.IO              (hFlush, hGetEcho, hSetEcho, stdin,
-                                         stdout)
+import           System.IO              (hFlush, hGetEcho, hSetEcho, stdin, stdout)
 
 import           GoPro.AuthDB
 import           GoPro.Commands

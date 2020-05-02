@@ -46,8 +46,8 @@ runFixup = do
               logInfo $ "Fixing " <> tshow mid
               updateMedium (\j -> foldr up j (filter (\(k,_) -> k /= "media_id") stuff)) mid
             up :: (T.Text, SQLData) -> J.Value -> J.Value
-            up (name, SQLInteger i) = _Object . at name ?~ (J.Number (fromIntegral i))
-            up (name, SQLFloat i)   = _Object . at name ?~ (J.Number (fromFloatDigits i))
-            up (name, SQLText i)    = _Object . at name ?~ (J.String i)
+            up (name, SQLInteger i) = _Object . at name ?~ J.Number (fromIntegral i)
+            up (name, SQLFloat i)   = _Object . at name ?~ J.Number (fromFloatDigits i)
+            up (name, SQLText i)    = _Object . at name ?~ J.String i
             up (name, SQLNull)      = _Object . at name ?~ J.Null
             up (_,    SQLBlob _)    = error "can't do blobs"
