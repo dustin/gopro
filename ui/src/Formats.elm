@@ -1,7 +1,8 @@
-module Formats exposing (comma, millis, time, day, httpErr)
+module Formats exposing (comma, millis, time, day, bytes, httpErr)
 
 import Time
 import List.Extra exposing (groupWhile, unfoldr)
+import Filesize
 import Http
 
 comma : Int -> String
@@ -48,3 +49,11 @@ httpErr e = case e of
                 Http.NetworkError -> "network error"
                 Http.BadStatus i -> "bad status: " ++ String.fromInt i
                 Http.BadBody b -> "bad body: " ++ b
+
+bytes : Int -> String
+bytes n = let cfg = Filesize.defaultSettings
+              decies = if n > 1000000000000 then 3
+                       else if n < 1000000000 then 0
+                       else 2
+          in
+              Filesize.formatWith {cfg | decimalPlaces=decies} n

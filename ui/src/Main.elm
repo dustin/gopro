@@ -9,7 +9,6 @@ import Http
 import Json.Decode as Decode exposing (decodeString, Decoder, int, string)
 import Json.Encode exposing (Value)
 import Task
-import Filesize
 import Time
 import Set
 import Dict
@@ -247,11 +246,11 @@ renderMediaList ms model =
              [ div [ ] [ text "Showing ",
                          text (F.comma (List.length ms.filty)),
                          text " (",
-                         text (Filesize.format <| totalSize ms.filty),
+                         text (F.bytes <| totalSize ms.filty),
                          text ") out of ",
                          text (F.comma (List.length ms.media)),
                          text " items (",
-                         text (Filesize.format <| totalSize ms.media),
+                         text (F.bytes <| totalSize ms.media),
                          text ").",
                          a [ onClick ReloadMedia ] [ text "↺" ],
                          a [ onClick (BackendCmd Reauth) ] [ text "🔒" ],
@@ -348,7 +347,7 @@ renderOverlay z (mm, mdls) =
                         , dts "Dims"
                         , dd [] [text (String.fromInt m.width ++ "x" ++ String.fromInt m.height)]
                         , dts "Size"
-                        , dd [ H.title (F.comma m.file_size) ] [text <| Filesize.format m.file_size ]
+                        , dd [ H.title (F.comma m.file_size) ] [text <| F.bytes m.file_size ]
                         , dts "Type"
                         , dd [] [ text (mediaTypeStr m.media_type) ]
                         , dts "Ready State"
