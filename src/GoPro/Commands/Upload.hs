@@ -58,14 +58,14 @@ runUploadMultipart = do
 
 runResumeUpload :: GoPro ()
 runResumeUpload = do
-  (mids:upids:dids:parts:filename:todos) <- asks (optArgv . gpOptions)
+  (mids:upids:dids:parts:filename:finisheds) <- asks (optArgv . gpOptions)
   let part = read parts
       did = T.pack dids
-      todo = read <$> todos
+      finished = read <$> finisheds
   fsize <- fromIntegral . fileSize <$> (liftIO . getFileStatus) filename
   resumeUpload [filename] (T.pack mids) $ do
     Upload{..} <- getUpload (T.pack upids) did part fsize
-    let chunks = filter (\UploadPart{..} -> _uploadPart `notElem` todo) _uploadParts
+    let chunks = filter (\UploadPart{..} -> _uploadPart `notElem` finished) _uploadParts
     c <- asks (optUploadConcurrency . gpOptions)
     _ <- mapConcurrentlyLimited c (uc filename) chunks
     completeUpload _uploadID did part (fromIntegral fsize)
