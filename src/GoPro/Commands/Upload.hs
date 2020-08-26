@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module GoPro.Commands.Upload (
-  runUploadFiles, runUploadMultipart, runResumeUpload
+  runUploadFiles, runUploadMultipart
   ) where
 
 import           Control.Monad.IO.Class (MonadIO (..))
@@ -22,7 +22,10 @@ uc fp mid up@UploadPart{..} = do
   logDbg . T.pack $ "Finished part " <> show _uploadPart <> " of " <> fp
 
 runUploadFiles :: GoPro ()
-runUploadFiles = goproDB >>= \db -> mapM_ (upload db) =<< asks (optArgv . gpOptions)
+runUploadFiles = do
+  db <- goproDB
+  mapM_ (upload db) =<< asks (optArgv . gpOptions)
+  runResumeUpload
 
   where
     upload db fp = runUpload [fp] $ do
@@ -31,13 +34,8 @@ runUploadFiles = goproDB >>= \db -> mapM_ (upload db) =<< asks (optArgv . gpOpti
       did <- createSource 1
       fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
       up@Upload{..} <- createUpload did 1 (fromInteger fsize)
-      logInfo $ "Uploading " <> tshow fp <> " (" <> tshow fsize <> " bytes) as " <> mid <> ": did=" <> did <> ", upid=" <> _uploadID
+      logInfo $ "Creating upload " <> tshow fp <> " (" <> tshow fsize <> " bytes) as " <> mid <> ": did=" <> did <> ", upid=" <> _uploadID
       liftIO . withDB db $ storeUpload fp mid up did 1
-      c <- asks (optUploadConcurrency . gpOptions)
-      _ <- mapConcurrentlyLimited c (uc fp mid) _uploadParts
-      completeUpload _uploadID did 1 fsize
-      markAvailable did
-      liftIO . withDB db $ completedUpload mid
 
 runUploadMultipart :: GoPro ()
 runUploadMultipart = do
@@ -68,9 +66,9 @@ runResumeUpload = mapM_ up =<< listPartialUploads
       resumeUpload [_pu_filename] _pu_medium_id $ do
         Upload{..} <- getUpload _pu_upid _pu_did part fsize
         let chunks = filter (\UploadPart{..} -> _uploadPart `elem` _pu_parts) _uploadParts
-        logInfo $ mconcat ["Resuming ", tshow _pu_filename, " (", tshow fsize, " bytes) as ",
+        logInfo $ mconcat ["Uploading ", tshow _pu_filename, " (", tshow fsize, " bytes) as ",
                            _pu_medium_id, ": did=", _pu_did <> ", upid=", _uploadID,
-                           ", remaining parts=", tshow (length chunks)]
+                           ", parts=", tshow (length chunks)]
         c <- asks (optUploadConcurrency . gpOptions)
         _ <- mapConcurrentlyLimited c (uc _pu_filename _pu_medium_id) chunks
         completeUpload _uploadID _pu_did part (fromIntegral fsize)
