@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -12,14 +13,14 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  metaTODO, insertMeta, selectMeta,
                  Area(..), area_id, area_name, area_nw, area_se, selectAreas,
                  HasGoProDB(..),
-                 initTables, loadConfig) where
+                 storeUpload, completedUploadPart, completedUpload, listPartialUploads, PartialUpload(..),
+                 initTables, loadConfig, withDB) where
 
 import           Control.Applicative              (liftA2)
 import           Control.Lens
 import           Control.Monad.IO.Class           (MonadIO (..))
-import           Data.Aeson                       (FromJSON (..), ToJSON (..),
-                                                   defaultOptions,
-                                                   fieldLabelModifier,
+import           Control.Monad.Reader             (ReaderT (..), ask, runReaderT)
+import           Data.Aeson                       (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
                                                    genericToEncoding)
 import qualified Data.Aeson                       as J
 import qualified Data.ByteString                  as BS
@@ -39,13 +40,18 @@ import           Database.SQLite.Simple.ToField
 import           Generics.Deriving.Base           (Generic)
 import           Text.RawString.QQ                (r)
 
-import           GoPro.Plus.Media                 (Medium (..), MediumID,
-                                                   MediumType (..), Moment (..),
+import           GoPro.Plus.Media                 (Medium (..), MediumID, MediumType (..), Moment (..),
                                                    ReadyToViewType (..))
+import           GoPro.Plus.Upload                (DerivativeID, Upload (..), UploadID, UploadPart (..))
 import           GoPro.Resolve                    (MDSummary (..))
 
 class Monad m => HasGoProDB m where
   goproDB :: m Connection
+
+instance {-# OVERLAPPING #-} Monad m => HasGoProDB (ReaderT Connection m) where goproDB = ask
+
+withDB :: Connection -> ReaderT Connection m a -> m a
+withDB = flip runReaderT
 
 initQueries :: [(Int, Query)]
 initQueries = [
@@ -68,7 +74,10 @@ initQueries = [
   (2, "insert into config values ('bucket', 'gopro.west.spy.net')"),
   (3, "create table if not exists notifications (id integer primary key autoincrement, type text, title text, message text)"),
   (4, "drop table if exists notifications"),
-  (5, "alter table media add column variants blob")]
+  (5, "alter table media add column variants blob"),
+  (6, "create table if not exists uploads (filename, media_id, upid, did, partnum)"),
+  (6, "create table if not exists upload_parts (media_id, part)")
+  ]
 
 initTables :: Connection -> IO ()
 initTables db = do
@@ -115,7 +124,7 @@ jsonFromField :: (Typeable j, FromJSON j) => String -> Field -> Ok j
 jsonFromField lbl f =
   case fieldData f of
     (SQLText t) -> Ok . fromJust . J.decode . BL.fromStrict . TE.encodeUtf8 $ ("\"" <> t <> "\"")
-    _ -> returnError ConversionFailed f ("invalid type for " <>  lbl)
+    _           -> returnError ConversionFailed f ("invalid type for " <>  lbl)
 
 instance FromField ReadyToViewType where
   fromField = jsonFromField "ready to view"
@@ -318,3 +327,51 @@ momentsTODO = liftIO . coerce . sel =<< goproDB
                            on (m. media_id = mo.media_id)
                           where m.moments_count != ifnull(moco, 0) ;
                          |]
+
+storeUpload :: (HasGoProDB m, MonadIO m) => FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> m ()
+storeUpload fp mid Upload{..} did partnum = liftIO . ins =<< goproDB
+  where
+    ins db = do
+      execute db "insert into uploads (filename, media_id, upid, did, partnum) values (?,?,?,?,?)" (
+        fp, mid, _uploadID, did, partnum)
+      let vals = [(mid, _uploadPart) | UploadPart{..} <- _uploadParts]
+      executeMany db "insert into upload_parts (media_id, part) values (?,?)" vals
+
+completedUploadPart :: (HasGoProDB m, MonadIO m) => MediumID -> Integer -> m ()
+completedUploadPart mid i = liftIO . up =<< goproDB
+  where up db = execute db "delete from upload_parts where media_id = ? and part = ?" (mid, i)
+
+completedUpload :: (HasGoProDB m, MonadIO m) => MediumID -> m ()
+completedUpload mid = liftIO . up =<< goproDB
+  where up db = execute db "delete from uploads where media_id = ?" (Only mid)
+
+data PartialUpload = PartialUpload
+  { _pu_filename  :: FilePath
+  , _pu_medium_id :: MediumID
+  , _pu_upid      :: UploadID
+  , _pu_did       :: DerivativeID
+  , _pu_partnum   :: Integer
+  , _pu_parts     :: [Integer]
+  }
+
+instance Semigroup PartialUpload where
+  a <> b = a{_pu_parts=_pu_parts a <> _pu_parts b}
+
+instance FromRow PartialUpload where
+  fromRow =
+    PartialUpload <$> field -- fileName
+    <*> field -- media_id
+    <*> field -- upid
+    <*> field -- did
+    <*> field -- partnum
+    <*> fmap (:[]) field
+
+listPartialUploads :: (HasGoProDB m, MonadIO m) => m [PartialUpload]
+listPartialUploads = liftIO . sel =<< goproDB
+  where
+    sel db =
+      Map.elems . Map.fromListWith (<>) . fmap (\p -> (_pu_medium_id p, p))
+      <$> query_ db [r|
+                      select u.filename, u.media_id, u.upid, u.did, u.partnum, p.part
+                      from uploads as u join upload_parts as p on (u.media_id = p.media_id)
+                      |]
