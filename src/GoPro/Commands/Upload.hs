@@ -62,6 +62,7 @@ runResumeUpload = mapM_ upAll =<< listPartialUploads
     upAll [] = pure ()
 
     upAll xs@(PartialUpload{..}:_) = do
+      logInfo $ "Uploading " <> tshow _pu_medium_id <> " in " <> (tshow $ length xs) <> " segments"
       mapM_ up xs
       logInfo $ "Finished uploading " <> tshow _pu_medium_id
       resumeUpload [_pu_filename] _pu_medium_id $ markAvailable _pu_did

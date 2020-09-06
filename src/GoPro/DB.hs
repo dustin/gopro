@@ -371,8 +371,8 @@ listPartialUploads :: (HasGoProDB m, MonadIO m) => m [[PartialUpload]]
 listPartialUploads = liftIO . sel =<< goproDB
   where
     sel db =
-      Map.elems . fmap Map.elems . Map.fromListWith (<>) . fmap (\p -> (_pu_medium_id p,
-                                                                          Map.singleton (_pu_partnum p) p))
+      Map.elems . fmap Map.elems . Map.fromListWith (Map.unionWith (<>)) . fmap (\p -> (_pu_medium_id p,
+                                                                                        Map.singleton (_pu_partnum p) p))
              <$> query_ db [r|
                              select u.filename, u.media_id, u.upid, u.did, u.partnum, p.part
                              from uploads as u join upload_parts as p on (u.media_id = p.media_id
