@@ -23,8 +23,14 @@ uc fp mid partnum up@UploadPart{..} = do
 
 runUploadFiles :: GoPro ()
 runUploadFiles = do
+  -- Exclude any commandline params for files that are already being
+  -- uploaded.  This prevents duplicate uploads if you just hit
+  -- up-enter, but it also prevents one from uploading a file if it's
+  -- already included in a multipart upload.
+  queued <- listQueuedFiles
+  todo <- filter (`notElem` queued) <$> asks (optArgv . gpOptions)
   db <- goproDB
-  mapM_ (upload db) =<< asks (optArgv . gpOptions)
+  mapM_ (upload db) todo
   runResumeUpload
 
   where

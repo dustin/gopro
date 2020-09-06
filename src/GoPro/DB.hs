@@ -14,6 +14,7 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  Area(..), area_id, area_name, area_nw, area_se, selectAreas,
                  HasGoProDB(..),
                  storeUpload, completedUploadPart, completedUpload, listPartialUploads, PartialUpload(..),
+                 listQueuedFiles,
                  initTables, loadConfig, withDB) where
 
 import           Control.Applicative              (liftA2)
@@ -378,3 +379,9 @@ listPartialUploads = liftIO . sel =<< goproDB
                              from uploads as u join upload_parts as p on (u.media_id = p.media_id
                                                                           and u.partnum = p.partnum)
                              |]
+
+listQueuedFiles :: (HasGoProDB m, MonadIO m) => m [FilePath]
+listQueuedFiles = liftIO . coerce . sel =<< goproDB
+  where
+    sel :: Connection -> IO [Only FilePath]
+    sel db = query_ db "select filename from uploads"
