@@ -50,7 +50,7 @@ runUploadMultipart = do
     mapM_ (\(fp,n) -> do
               fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
               up@(Upload{..}) <- createUpload did n (fromInteger fsize)
-              logInfo $ mconcat ["Uploading ", tshow fp, " as ", mid, " part ", tshow n,
+              logInfo $ mconcat ["Creating part ", tshow fp, " as ", mid, " part ", tshow n,
                                  ": did=", did, ", upid=", _uploadID]
               liftIO . withDB db $ storeUpload fp mid up did (fromIntegral n)
           ) $ zip fps [1..]
