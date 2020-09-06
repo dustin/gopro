@@ -74,8 +74,8 @@ runResumeUpload = mapM_ upAll =<< listPartialUploads
         Upload{..} <- getUpload _pu_upid _pu_did part fsize
         let chunks = filter (\UploadPart{..} -> _uploadPart `elem` _pu_parts) _uploadParts
         logInfo $ mconcat ["Uploading ", tshow _pu_filename, " (", tshow fsize, " bytes) as ",
-                           _pu_medium_id, ": did=", _pu_did <> ", upid=", _uploadID,
-                           ", parts=", tshow (length chunks)]
+                           _pu_medium_id, ":", tshow part, ": did=",
+                           _pu_did, ", upid=", _uploadID, ", parts=", tshow (length chunks)]
         c <- asks (optUploadConcurrency . gpOptions)
         _ <- mapConcurrentlyLimited c (uc _pu_filename _pu_medium_id _pu_partnum) chunks
         completeUpload _uploadID _pu_did part (fromIntegral fsize)
