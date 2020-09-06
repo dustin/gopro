@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module GoPro.Commands.Upload (
-  runUploadFiles, runUploadMultipart
+  runUploadFiles, runCreateMultipart
   ) where
 
 import           Control.Monad.IO.Class (MonadIO (..))
@@ -44,8 +44,8 @@ runUploadFiles = do
                          mid, ": did=", did, ", upid=", _uploadID]
       liftIO . withDB db $ storeUpload fp mid up did 1
 
-runUploadMultipart :: GoPro ()
-runUploadMultipart = do
+runCreateMultipart :: GoPro ()
+runCreateMultipart = do
   (typ:fps) <- asks (optArgv . gpOptions)
   db <- goproDB
   runUpload fps $ do
@@ -60,7 +60,7 @@ runUploadMultipart = do
                                  ": did=", did, ", upid=", _uploadID]
               liftIO . withDB db $ storeUpload fp mid up did (fromIntegral n)
           ) $ zip fps [1..]
-  runResumeUpload
+    logInfo $ "Multipart upload created.  Use the 'upload' command to complete the upload."
 
 runResumeUpload :: GoPro ()
 runResumeUpload = mapM_ upAll =<< listPartialUploads

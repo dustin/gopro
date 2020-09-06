@@ -83,7 +83,7 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
             ("sync", runFullSync),
             ("refresh", runRefresh),
             ("upload", runUploadFiles),
-            ("uploadmulti", runUploadMultipart),
+            ("createmulti", runCreateMultipart),
             ("fetchall", runFetch Full),
             ("cleanup", runCleanup),
             ("fixup", runFixup),
