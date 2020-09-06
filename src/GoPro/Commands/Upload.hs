@@ -14,11 +14,11 @@ import           GoPro.DB
 import           GoPro.Plus.Media       (MediumID)
 import           GoPro.Plus.Upload
 
-uc :: FilePath -> MediumID -> UploadPart -> Uploader GoPro ()
-uc fp mid up@UploadPart{..} = do
+uc :: FilePath -> MediumID -> Integer -> UploadPart -> Uploader GoPro ()
+uc fp mid partnum up@UploadPart{..} = do
   logDbg . T.pack $ "Uploading part " <> show _uploadPart <> " of " <> fp
   uploadChunk fp up
-  completedUploadPart mid _uploadPart
+  completedUploadPart mid _uploadPart partnum
   logDbg . T.pack $ "Finished part " <> show _uploadPart <> " of " <> fp
 
 runUploadFiles :: GoPro ()
@@ -34,32 +34,38 @@ runUploadFiles = do
       did <- createSource 1
       fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
       up@Upload{..} <- createUpload did 1 (fromInteger fsize)
-      logInfo $ "Creating upload " <> tshow fp <> " (" <> tshow fsize <> " bytes) as " <> mid <> ": did=" <> did <> ", upid=" <> _uploadID
+      logInfo $ mconcat ["Creating upload ", tshow fp, " (", tshow fsize, " bytes) as ",
+                         mid, ": did=", did, ", upid=", _uploadID]
       liftIO . withDB db $ storeUpload fp mid up did 1
 
 runUploadMultipart :: GoPro ()
 runUploadMultipart = do
   (typ:fps) <- asks (optArgv . gpOptions)
+  db <- goproDB
   runUpload fps $ do
     setMediumType (read typ)
     setLogAction (logError . T.pack)
     mid <- createMedium
-
     did <- createSource (length fps)
-    c <- asks (optUploadConcurrency . gpOptions)
-    _ <- mapConcurrentlyLimited c (\(fp,n) -> do
+    mapM_ (\(fp,n) -> do
               fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
-              Upload{..} <- createUpload did n (fromInteger fsize)
+              up@(Upload{..}) <- createUpload did n (fromInteger fsize)
               logInfo $ mconcat ["Uploading ", tshow fp, " as ", mid, " part ", tshow n,
                                  ": did=", did, ", upid=", _uploadID]
-              _ <- mapConcurrentlyLimited 2 (uc fp mid) _uploadParts
-              completeUpload _uploadID did n fsize
+              liftIO . withDB db $ storeUpload fp mid up did (fromIntegral n)
           ) $ zip fps [1..]
-    markAvailable did
+  runResumeUpload
 
 runResumeUpload :: GoPro ()
-runResumeUpload = mapM_ up =<< listPartialUploads
+runResumeUpload = mapM_ upAll =<< listPartialUploads
   where
+    upAll [] = pure ()
+
+    upAll xs@(PartialUpload{..}:_) = do
+      mapM_ up xs
+      logInfo $ "Finished uploading " <> tshow _pu_medium_id
+      resumeUpload [_pu_filename] _pu_medium_id $ markAvailable _pu_did
+
     up PartialUpload{..} = do
       let part = fromIntegral _pu_partnum
       fsize <- fromIntegral . fileSize <$> (liftIO . getFileStatus) _pu_filename
@@ -70,7 +76,6 @@ runResumeUpload = mapM_ up =<< listPartialUploads
                            _pu_medium_id, ": did=", _pu_did <> ", upid=", _uploadID,
                            ", parts=", tshow (length chunks)]
         c <- asks (optUploadConcurrency . gpOptions)
-        _ <- mapConcurrentlyLimited c (uc _pu_filename _pu_medium_id) chunks
+        _ <- mapConcurrentlyLimited c (uc _pu_filename _pu_medium_id _pu_partnum) chunks
         completeUpload _uploadID _pu_did part (fromIntegral fsize)
-        markAvailable _pu_did
-      completedUpload _pu_medium_id
+      completedUpload _pu_medium_id _pu_partnum

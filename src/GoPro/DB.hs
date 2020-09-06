@@ -76,7 +76,8 @@ initQueries = [
   (4, "drop table if exists notifications"),
   (5, "alter table media add column variants blob"),
   (6, "create table if not exists uploads (filename, media_id, upid, did, partnum)"),
-  (6, "create table if not exists upload_parts (media_id, part)")
+  (6, "create table if not exists upload_parts (media_id, part)"),
+  (7, "alter table upload_parts add column partnum")
   ]
 
 initTables :: Connection -> IO ()
@@ -334,16 +335,16 @@ storeUpload fp mid Upload{..} did partnum = liftIO . ins =<< goproDB
     ins db = do
       execute db "insert into uploads (filename, media_id, upid, did, partnum) values (?,?,?,?,?)" (
         fp, mid, _uploadID, did, partnum)
-      let vals = [(mid, _uploadPart) | UploadPart{..} <- _uploadParts]
-      executeMany db "insert into upload_parts (media_id, part) values (?,?)" vals
+      let vals = [(mid, _uploadPart, partnum) | UploadPart{..} <- _uploadParts]
+      executeMany db "insert into upload_parts (media_id, part, partnum) values (?,?,?)" vals
 
-completedUploadPart :: (HasGoProDB m, MonadIO m) => MediumID -> Integer -> m ()
-completedUploadPart mid i = liftIO . up =<< goproDB
-  where up db = execute db "delete from upload_parts where media_id = ? and part = ?" (mid, i)
+completedUploadPart :: (HasGoProDB m, MonadIO m) => MediumID -> Integer -> Integer -> m ()
+completedUploadPart mid i p = liftIO . up =<< goproDB
+  where up db = execute db "delete from upload_parts where media_id = ? and part = ? and partnum = ?" (mid, i, p)
 
-completedUpload :: (HasGoProDB m, MonadIO m) => MediumID -> m ()
-completedUpload mid = liftIO . up =<< goproDB
-  where up db = execute db "delete from uploads where media_id = ?" (Only mid)
+completedUpload :: (HasGoProDB m, MonadIO m) => MediumID -> Integer -> m ()
+completedUpload mid partnum = liftIO . up =<< goproDB
+  where up db = execute db "delete from uploads where media_id = ? and partnum = ?" (mid, partnum)
 
 data PartialUpload = PartialUpload
   { _pu_filename  :: FilePath
@@ -366,12 +367,14 @@ instance FromRow PartialUpload where
     <*> field -- partnum
     <*> fmap (:[]) field
 
-listPartialUploads :: (HasGoProDB m, MonadIO m) => m [PartialUpload]
+listPartialUploads :: (HasGoProDB m, MonadIO m) => m [[PartialUpload]]
 listPartialUploads = liftIO . sel =<< goproDB
   where
     sel db =
-      Map.elems . Map.fromListWith (<>) . fmap (\p -> (_pu_medium_id p, p))
-      <$> query_ db [r|
-                      select u.filename, u.media_id, u.upid, u.did, u.partnum, p.part
-                      from uploads as u join upload_parts as p on (u.media_id = p.media_id)
-                      |]
+      Map.elems . fmap Map.elems . Map.fromListWith (<>) . fmap (\p -> (_pu_medium_id p,
+                                                                          Map.singleton (_pu_partnum p) p))
+             <$> query_ db [r|
+                             select u.filename, u.media_id, u.upid, u.did, u.partnum, p.part
+                             from uploads as u join upload_parts as p on (u.media_id = p.media_id
+                                                                          and u.partnum = p.partnum)
+                             |]
