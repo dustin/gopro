@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module GoPro.Commands.Upload (
-  runUploadFiles, runCreateMultipart
+  runCreateUploads, runCreateMultipart, runResumeUpload
   ) where
 
 import           Control.Monad.IO.Class (MonadIO (..))
@@ -21,8 +21,8 @@ uc fp mid partnum up@UploadPart{..} = do
   completedUploadPart mid _uploadPart partnum
   logDbg . T.pack $ "Finished part " <> show _uploadPart <> " of " <> fp
 
-runUploadFiles :: GoPro ()
-runUploadFiles = do
+runCreateUploads :: GoPro ()
+runCreateUploads = do
   -- Exclude any commandline params for files that are already being
   -- uploaded.  This prevents duplicate uploads if you just hit
   -- up-enter, but it also prevents one from uploading a file if it's
@@ -31,7 +31,6 @@ runUploadFiles = do
   todo <- filter (`notElem` queued) <$> asks (optArgv . gpOptions)
   db <- goproDB
   mapM_ (upload db) todo
-  runResumeUpload
 
   where
     upload db fp = runUpload [fp] $ do
