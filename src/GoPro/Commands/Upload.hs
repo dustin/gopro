@@ -30,7 +30,8 @@ runCreateUploads = do
   queued <- listQueuedFiles
   todo <- filter (`notElem` queued) <$> asks (optArgv . gpOptions)
   db <- goproDB
-  mapM_ (upload db) todo
+  c <- asks (optUploadConcurrency . gpOptions)
+  mapConcurrentlyLimited_ c (upload db) todo
 
   where
     upload db fp = runUpload [fp] $ do
@@ -52,7 +53,8 @@ runCreateMultipart = do
     setLogAction (logError . T.pack)
     mid <- createMedium
     did <- createSource (length fps)
-    mapM_ (\(fp,n) -> do
+    c <- asks (optUploadConcurrency . gpOptions)
+    mapConcurrentlyLimited_ c (\(fp,n) -> do
               fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
               up@(Upload{..}) <- createUpload did n (fromInteger fsize)
               logInfo $ mconcat ["Creating part ", tshow fp, " as ", mid, " part ", tshow n,

@@ -27,7 +27,7 @@ import qualified Data.Map.Strict         as Map
 import qualified Data.Text               as T
 import           Database.SQLite.Simple  (Connection)
 import           Network.AWS.S3          (BucketName (..))
-import           UnliftIO                (MonadUnliftIO (..), mapConcurrently)
+import           UnliftIO                (MonadUnliftIO (..), mapConcurrently, mapConcurrently_)
 
 import           GoPro.AuthDB
 import           GoPro.DB                (HasGoProDB (..))
@@ -84,6 +84,15 @@ mapConcurrentlyLimited :: (MonadMask m, MonadUnliftIO m, Traversable f)
                        -> m (f b)
 mapConcurrentlyLimited n f l = liftIO (newQSem n) >>= \q -> mapConcurrently (b q) l
   where b q x = bracket_ (liftIO (waitQSem q)) (liftIO (signalQSem q)) (f x)
+
+mapConcurrentlyLimited_ :: (MonadMask m, MonadUnliftIO m, Traversable f)
+                        => Int
+                        -> (a -> m b)
+                        -> f a
+                        -> m ()
+mapConcurrentlyLimited_ n f l = liftIO (newQSem n) >>= \q -> mapConcurrently_ (b q) l
+  where b q x = bracket_ (liftIO (waitQSem q)) (liftIO (signalQSem q)) (f x)
+
 
 logError :: MonadLogger m => T.Text -> m ()
 logError = logErrorN
