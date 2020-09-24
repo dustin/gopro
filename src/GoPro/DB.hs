@@ -27,7 +27,7 @@ import qualified Data.Aeson                       as J
 import qualified Data.ByteString                  as BS
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Coerce                      (coerce)
-import           Data.List                        (groupBy)
+import           Data.List.Extra                  (groupOn)
 import           Data.Map.Strict                  (Map)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromJust)
@@ -372,7 +372,7 @@ listPartialUploads = liftIO . sel =<< goproDB
     sel db = do
       segs <- Map.fromListWith (<>) . fmap (\(mid, p, pn) -> ((mid, p), [pn])) <$>
               query_ db "select media_id, part, partnum from upload_parts"
-      groupBy (\a b -> _pu_medium_id a == _pu_medium_id b) .
+      groupOn _pu_medium_id .
         map (\p@PartialUpload{..} -> p{_pu_parts=Map.findWithDefault [] (_pu_medium_id, _pu_partnum) segs})
         <$> query_ db "select filename, media_id, upid, did, partnum from uploads order by media_id"
 
