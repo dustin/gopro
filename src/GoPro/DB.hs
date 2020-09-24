@@ -27,6 +27,7 @@ import qualified Data.Aeson                       as J
 import qualified Data.ByteString                  as BS
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Coerce                      (coerce)
+import           Data.List                        (groupBy, sortOn)
 import           Data.Map.Strict                  (Map)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromJust)
@@ -356,9 +357,6 @@ data PartialUpload = PartialUpload
   , _pu_parts     :: [Integer]
   }
 
-instance Semigroup PartialUpload where
-  a <> b = a{_pu_parts=_pu_parts a <> _pu_parts b}
-
 instance FromRow PartialUpload where
   fromRow =
     PartialUpload <$> field -- fileName
@@ -366,19 +364,18 @@ instance FromRow PartialUpload where
     <*> field -- upid
     <*> field -- did
     <*> field -- partnum
-    <*> fmap (:[]) field
+    <*> pure []
 
 listPartialUploads :: (HasGoProDB m, MonadIO m) => m [[PartialUpload]]
 listPartialUploads = liftIO . sel =<< goproDB
   where
-    sel db =
-      Map.elems . fmap Map.elems . Map.fromListWith (Map.unionWith (<>)) . fmap (\p -> (_pu_medium_id p,
-                                                                                        Map.singleton (_pu_partnum p) p))
-             <$> query_ db [r|
-                             select u.filename, u.media_id, u.upid, u.did, u.partnum, p.part
-                             from uploads as u join upload_parts as p on (u.media_id = p.media_id
-                                                                          and u.partnum = p.partnum)
-                             |]
+    sel db = do
+      segs <- Map.fromListWith (<>) . fmap (\(mid, p, pn) -> ((mid, p), [pn])) <$>
+              query_ db "select media_id, part, partnum from upload_parts"
+      groupBy (\a b -> _pu_medium_id a == _pu_medium_id b) .
+        sortOn _pu_medium_id .
+        map (\p@PartialUpload{..} -> p{_pu_parts=Map.findWithDefault [] (_pu_medium_id, _pu_partnum) segs})
+        <$> query_ db "select filename, media_id, upid, did, partnum from uploads"
 
 listQueuedFiles :: (HasGoProDB m, MonadIO m) => m [FilePath]
 listQueuedFiles = liftIO . coerce . sel =<< goproDB
