@@ -206,4 +206,6 @@ runFullSync = do
   runGetMeta
   runGrokTel
   runGetMoments
-  runStoreMeta
+  -- If an S3 bucket is configured, make sure all metadata is in the cache.
+  bn <- asks (configItem "bucket")
+  unless (bn == "") runStoreMeta

@@ -24,7 +24,7 @@ type QueueURL = Text
 
 storeDerivative :: QueueURL -> MediumID -> String -> GoPro ()
 storeDerivative qrl mid d = do
-  b <- asks gpBucket
+  b <- s3Bucket
   Just var <- preview (fileStuff . variations . folded . filtered (has (var_label . only d))) <$> retrieve mid
   let u = var ^. var_url
       key = fromString ("derivatives/" <> unpack mid <> "/" <> d <> "." <> (var ^. var_type))

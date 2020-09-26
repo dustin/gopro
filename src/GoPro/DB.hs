@@ -73,7 +73,7 @@ initQueries = [
   (1, "create table if not exists moments (media_id, moment_id integer, timestamp integer)"),
   (1, "create index if not exists moments_by_medium on moments(media_id)"),
   (2, "create table if not exists config (key, value)"),
-  (2, "insert into config values ('bucket', 'gopro.west.spy.net')"),
+  (2, "insert into config values ('bucket', '')"),
   (3, "create table if not exists notifications (id integer primary key autoincrement, type text, title text, message text)"),
   (4, "drop table if exists notifications"),
   (5, "alter table media add column variants blob"),

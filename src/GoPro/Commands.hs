@@ -15,6 +15,7 @@ import           Control.Monad.Catch     (MonadCatch (..), MonadMask (..),
                                           MonadThrow (..), SomeException (..),
                                           bracket_, catch)
 import           Control.Monad.Fail      (MonadFail (..))
+import qualified Data.Map.Strict as Map
 import           Control.Monad.IO.Class  (MonadIO (..))
 import           Control.Monad.Logger    (Loc (..), LogLevel (..), LogSource,
                                           LogStr, MonadLogger (..),
@@ -23,10 +24,8 @@ import           Control.Monad.Logger    (Loc (..), LogLevel (..), LogSource,
 import           Control.Monad.Reader    (MonadReader, ReaderT (..), asks)
 import           Data.Cache              (Cache (..), fetchWithCache)
 import           Data.Map.Strict         (Map)
-import qualified Data.Map.Strict         as Map
 import qualified Data.Text               as T
 import           Database.SQLite.Simple  (Connection)
-import           Network.AWS.S3          (BucketName (..))
 import           UnliftIO                (MonadUnliftIO (..), mapConcurrently, mapConcurrently_)
 
 import           GoPro.AuthDB
@@ -52,8 +51,11 @@ data Env = Env
     , envLoggers :: [Loc -> LogSource -> LogLevel -> LogStr -> IO ()]
     }
 
-gpBucket :: Env -> BucketName
-gpBucket Env{gpConfig} = BucketName (Map.findWithDefault "" "bucket" gpConfig)
+configItem :: T.Text -> Env -> T.Text
+configItem k = configItemDef k ""
+
+configItemDef :: T.Text -> T.Text -> Env -> T.Text
+configItemDef k def Env{gpConfig} = Map.findWithDefault def k gpConfig
 
 newtype GoPro a = GoPro
   { runGoPro :: ReaderT Env IO a

@@ -15,6 +15,7 @@ import           Data.Conduit                 (runConduit, (.|))
 import qualified Data.Conduit.Binary          as CB
 import qualified Data.Conduit.List            as CL
 import           Data.Conduit.Zlib            (ungzip)
+import           Network.AWS.S3          (BucketName (..))
 import           Data.String                  (fromString)
 import           Data.Text                    (Text, isSuffixOf, pack, unpack)
 import           Network.AWS.Data.Body        (RqBody (..), ToHashedBody (..))
@@ -31,8 +32,13 @@ type Derivative = (MediumID, Text)
 inAWS :: (MonadCatch m, MonadUnliftIO m) => Region -> AWST' AWSE.Env (ResourceT m) a -> m a
 inAWS r a = (newEnv Discover <&> set envRegion r) >>= \awsenv -> (runResourceT . runAWST awsenv) a
 
+s3Bucket :: GoPro BucketName
+s3Bucket = do
+  b <- asks (BucketName . configItem "bucket")
+  if b == "" then fail "s3 bucket is not configured" else pure b
+
 allDerivatives :: GoPro [Derivative]
-allDerivatives = asks gpBucket >>= \b -> inAWS Oregon $
+allDerivatives = s3Bucket >>= \b -> inAWS Oregon $
   runConduit $ paginate (listObjectsV2 b & lovPrefix ?~ "derivatives/")
     .| CL.concatMap (view lovrsContents)
     .| CL.map (view (oKey . _ObjectKey))
@@ -45,7 +51,7 @@ allDerivatives = asks gpBucket >>= \b -> inAWS Oregon $
 
 getMetaBlob :: MediumID -> GoPro BL.ByteString
 getMetaBlob mid = do
-  b <- asks gpBucket
+  b <- s3Bucket
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
   logDbg $ "Requesting metablob from S3: " <> tshow key
   inAWS Oregon $ do
@@ -54,13 +60,13 @@ getMetaBlob mid = do
 
 storeMetaBlob :: MediumID -> BL.ByteString -> GoPro ()
 storeMetaBlob mid blob = do
-  b <- asks gpBucket
+  b <- s3Bucket
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
   logInfo $ "Storing metadata blob at " <> tshow key
   inAWS Oregon $ void . send $ putObject b key (Hashed . toHashed . compress $ blob)
 
 listMetaBlobs :: GoPro [MediumID]
-listMetaBlobs = asks gpBucket >>= \b -> inAWS Oregon $
+listMetaBlobs = s3Bucket >>= \b -> inAWS Oregon $
   runConduit $ paginate (listObjectsV2 b & lovPrefix ?~ "metablob/")
     .| CL.concatMap (view lovrsContents)
     .| CL.map (view (oKey . _ObjectKey))
