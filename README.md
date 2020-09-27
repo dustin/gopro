@@ -190,6 +190,24 @@ already been upload (when it hasn't), or if you started an upload you
 don't intend to finish and want to get rid of in-progress stuff, the
 `cleanup` command will delete all of these in-progress things.
 
+### config
+
+The `config` command lets you view and update configuration
+parameters.  It's got three modes of execution.
+
+To list all configuration parameters and their values:
+
+    gopro config
+
+To display the value of the configuration parameter `bucket`:
+
+    gopro config bucket
+
+To set the value of the configuration `parameter` to
+`some.bucket.name`:
+
+    gopro config bucket some.bucket.name
+
 ### wait
 
 The `wait` command just waits for in-progress uploads and (GoPro-side)

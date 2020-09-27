@@ -15,7 +15,7 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  HasGoProDB(..),
                  storeUpload, completedUploadPart, completedUpload, listPartialUploads, PartialUpload(..),
                  listQueuedFiles,
-                 initTables, loadConfig, withDB) where
+                 initTables, loadConfig, updateConfig, withDB) where
 
 import           Control.Applicative              (liftA2)
 import           Control.Lens
@@ -91,6 +91,12 @@ initTables db = do
 
 loadConfig :: Connection -> IO (Map Text Text)
 loadConfig db = Map.fromList <$> query_ db "select key, value from config"
+
+updateConfig :: (HasGoProDB m, MonadIO m) => Map Text Text -> m ()
+updateConfig cfg = liftIO . up =<< goproDB
+  where up db = do
+          execute_ db "delete from config"
+          executeMany db "insert into config (key, value) values (?,?)" (Map.assocs cfg)
 
 upsertMediaStatement :: Query
 upsertMediaStatement = [r|insert into media (media_id, camera_model, captured_at, created_at,
