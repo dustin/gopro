@@ -27,6 +27,7 @@ import qualified Data.Aeson                       as J
 import qualified Data.ByteString                  as BS
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Coerce                      (coerce)
+import           Data.List                        (sortOn)
 import           Data.List.Extra                  (groupOn)
 import           Data.Map.Strict                  (Map)
 import qualified Data.Map.Strict                  as Map
@@ -372,13 +373,15 @@ instance FromRow PartialUpload where
     <*> field -- partnum
     <*> pure []
 
+-- Return in order of least work to do.
 listPartialUploads :: (HasGoProDB m, MonadIO m) => m [[PartialUpload]]
 listPartialUploads = liftIO . sel =<< goproDB
   where
     sel db = do
       segs <- Map.fromListWith (<>) . fmap (\(mid, p, pn) -> ((mid, pn), [p])) <$>
               query_ db "select media_id, part, partnum from upload_parts"
-      groupOn _pu_medium_id .
+      sortOn (maximum . fmap length . fmap _pu_parts) .
+        groupOn _pu_medium_id .
         map (\p@PartialUpload{..} -> p{_pu_parts=Map.findWithDefault [] (_pu_medium_id, _pu_partnum) segs})
         <$> query_ db "select filename, media_id, upid, did, partnum from uploads order by media_id"
 
