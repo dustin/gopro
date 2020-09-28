@@ -6,6 +6,8 @@ module GoPro.Commands.Upload (
 
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Reader   (asks)
+import           Data.Foldable          (fold, foldMap)
+import           Data.Monoid            (Sum (..))
 import qualified Data.Text              as T
 import           System.Posix.Files     (fileSize, getFileStatus)
 
@@ -64,12 +66,24 @@ runCreateMultipart = do
     logInfo $ "Multipart upload created.  Use the 'upload' command to complete the upload."
 
 runResumeUpload :: GoPro ()
-runResumeUpload = mapM_ upAll =<< listPartialUploads
+runResumeUpload = do
+  ups <- listPartialUploads
+  logInfo $ mconcat ["Have ", tshow (length ups), " media items to upload in ",
+                     tshow (sum $ fmap length ups), " parts with a total of ",
+                     tshow (sumOf pu_size ups), " chunks (",
+                     tshow (sumOf pu_mb ups), " MB)"]
+  mapM_ upAll ups
   where
+    pu_size = length . _pu_parts
+    pu_mb = (* 6) . pu_size
+    sumOf :: (a -> Int) -> [[a]] -> Int
+    sumOf f = getSum . fold . foldMap (fmap (Sum . f))
+
     upAll [] = pure ()
 
     upAll xs@(PartialUpload{..}:_) = do
-      logInfo $ "Uploading " <> tshow _pu_medium_id <> " in " <> (tshow $ length xs) <> " segments"
+      logInfo $ mconcat ["Uploading ", tshow _pu_medium_id, " in ", (tshow (sumOf pu_size [xs])),
+                         " chunks (", tshow (sum . fmap pu_mb $ xs), " MB)"]
       mapM_ up xs
       logInfo $ "Finished uploading " <> tshow _pu_medium_id
       resumeUpload [_pu_filename] _pu_medium_id $ markAvailable _pu_did
