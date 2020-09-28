@@ -376,7 +376,7 @@ listPartialUploads :: (HasGoProDB m, MonadIO m) => m [[PartialUpload]]
 listPartialUploads = liftIO . sel =<< goproDB
   where
     sel db = do
-      segs <- Map.fromListWith (<>) . fmap (\(mid, p, pn) -> ((mid, p), [pn])) <$>
+      segs <- Map.fromListWith (<>) . fmap (\(mid, p, pn) -> ((mid, pn), [p])) <$>
               query_ db "select media_id, part, partnum from upload_parts"
       groupOn _pu_medium_id .
         map (\p@PartialUpload{..} -> p{_pu_parts=Map.findWithDefault [] (_pu_medium_id, _pu_partnum) segs})
