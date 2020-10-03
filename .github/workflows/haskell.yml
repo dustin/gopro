@@ -17,9 +17,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Setup Stack
-      uses: mstksg/setup-stack@v1
-
     - name: Cache Key
       id: cache_key
       run: echo ::set-output name=key::$(md5sum stack.yaml | awk '{print $1}')
