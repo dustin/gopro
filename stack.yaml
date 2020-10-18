@@ -43,7 +43,7 @@ packages:
 extra-deps:
 - qsem-0.1.0.0@sha256:c9aa930c3f90936f88addace65d4d114d0730a1e72a7307d9146a355e0564673,720
 - git: https://github.com/dustin/gpmf.git
-  commit: e92f313f0dfb9dbfe9ba9071bf7d571b82b5d502
+  commit: 7ff05184376c0b1f6a58918a898b6cdd70bb8ea0
 - gopro-plus-0.3.1.1
 - hsexif-0.6.1.7
 - amazonka-s3-1.6.1@sha256:9d07240fca59ad5197fb614ce3051e701e4951e6d4625a2dab4a9c17a1900194,6317
