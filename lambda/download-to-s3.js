@@ -2,15 +2,7 @@ const AWS = require('aws-sdk'),
       stream = require('stream'),
       https = require('https');
 
-exports.handler = (event, context, callback) => {
-    console.log("EVENT: \n" + JSON.stringify(event, null, 2));
-
-    if (event.Records.length != 1) {
-        callback ("Error:  Incorrect number of records: " + JSON.stringify(event.Records));
-        return;
-    }
-
-    const req = JSON.parse(event.Records[0].body);
+exports.handler = (req, context, callback) => {
     console.log("req:", req);
     console.log("Fetching", req.src);
 
@@ -34,8 +26,7 @@ exports.handler = (event, context, callback) => {
             if (err) {
                 callback(err);
             } else {
-                callback(null, {statusCode: 200,
-                                body: JSON.stringify('Done!')});
+                callback(null, {statusCode: 200, body: JSON.stringify('Done!')});
             }
         });
 
