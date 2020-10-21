@@ -10,9 +10,8 @@ import qualified Data.ByteString.Lazy    as BL
 import qualified Data.Set                as Set
 import           Data.String             (fromString)
 import           Data.Text               (Text, pack, unpack)
-import qualified Data.Text.Encoding      as TE
+import           Network.AWS.Lambda      (InvocationType (..), iInvocationType, invoke)
 import           Network.AWS.S3          (BucketName (..))
-import           Network.AWS.SQS         (sendMessage)
 import           UnliftIO                (concurrently)
 
 import           GoPro.Commands
@@ -23,16 +22,16 @@ import           GoPro.S3
 type QueueURL = Text
 
 storeDerivative :: QueueURL -> MediumID -> String -> GoPro ()
-storeDerivative qrl mid d = do
+storeDerivative λ mid d = do
   b <- s3Bucket
   Just var <- preview (fileStuff . variations . folded . filtered (has (var_label . only d))) <$> retrieve mid
   let u = var ^. var_url
       key = fromString ("derivatives/" <> unpack mid <> "/" <> d <> "." <> (var ^. var_type))
   logInfo $ "Queueing copy of " <>  mid
-  inAWS Oregon $ void . send $ sendMessage qrl (encodeCopyRequest (pack u) b key)
+  inAWS Oregon . void . send $ invoke λ (encodeCopyRequest (pack u) b key) & iInvocationType ?~ Event
 
       where
-        encodeCopyRequest src (BucketName bname) key = TE.decodeUtf8 (BL.toStrict . J.encode $ jbod)
+        encodeCopyRequest src (BucketName bname) key = BL.toStrict . J.encode $ jbod
           where
             dest = J.Object (mempty & at "bucket" ?~ J.String bname
                               & at "key" ?~ J.String key)
@@ -42,15 +41,15 @@ storeDerivative qrl mid d = do
 runBackup :: GoPro ()
 runBackup = do
   args <- asks (optArgv . gpOptions)
-  when (length args /= 1) $ fail "A SQS URL must be specified"
-  let [qrl] = args
+  when (length args /= 1) $ fail "A lambda function must be specified"
+  let [λ] = args
   have <- Set.fromList . fmap fst <$>  allDerivatives
   logDbg $ "have: " <> (pack . show) have
   want <- Set.fromList <$> loadMediaIDs
   let todo = take 25 $  Set.toList (want `Set.difference` have)
   logDbg $ "todo: " <> (pack.show) todo
   c <- asks (optUploadConcurrency . gpOptions)
-  void $ mapConcurrentlyLimited c (\mid -> storeDerivative (pack qrl) mid "source") todo
+  void $ mapConcurrentlyLimited c (\mid -> storeDerivative (pack λ) mid "source") todo
 
 runStoreMeta :: GoPro ()
 runStoreMeta = do

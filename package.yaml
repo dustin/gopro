@@ -69,6 +69,7 @@ dependencies:
 - amazonka-core
 - amazonka-s3 >= 1.6.1
 - amazonka-sqs
+- amazonka-lambda
 - monad-loops
 - zlib
 - stm
