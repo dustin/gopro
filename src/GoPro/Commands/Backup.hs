@@ -42,13 +42,15 @@ copyMedia λ mid = mapM_ copy =<< (extractSources mid <$> retrieve mid)
                           & at "mid" ?~ J.String mid)
 
 extractSources :: MediumID -> FileInfo -> [(Text, String)]
-extractSources mid fi = foldMap (fmap (first fromString)) [ source, sidecars ]
+extractSources mid fi = foldMap (fmap (first fromString)) [ source, timelapse, sidecars ]
   where
-    source = case fi ^? fileStuff . variations . folded . filtered (has (var_label . only "source")) of
+    avar d = case fi ^? fileStuff . variations . folded . filtered (has (var_label . only d)) of
                Just var ->
-                 [("derivatives/" <> unpack mid <> "/" <> unpack mid <> "-src." <> (var ^. var_type),
-                   var ^. var_url)]
+                 [("derivatives/" <> unpack mid <> "/" <> unpack mid <> "-" <> d <> "." <> (var ^. var_type),
+                    var ^. var_url)]
                Nothing -> []
+    source = avar "source"
+    timelapse = avar "timelapse_video"
     sidecars = fi ^.. fileStuff . sidecar_files . folded . to fromSidecar . folded
       where fromSidecar obj = maybeToList $ do
               lbl <- obj ^? key "label" . _String . to unpack
