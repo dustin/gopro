@@ -44,19 +44,21 @@ copyMedia λ mid = mapM_ copy =<< (extractSources mid <$> retrieve mid)
 extractSources :: MediumID -> FileInfo -> [(Text, String)]
 extractSources mid fi = foldMap (fmap (first fromString)) [ vars, sidecars ]
   where
+    thepair lbl typ url = ("derivatives/" <> unpack mid <> "/" <> unpack mid <> "-" <> lbl <> "." <> typ, url)
     vars = fi ^.. fileStuff . variations . folded . to fromVariation . folded
       where fromVariation v = maybeToList $ do
               lbl <- v ^? var_label
               typ <- v ^? var_type
               url <- v ^? var_url
-              pure ("derivatives/" <> unpack mid <> "/" <> unpack mid <> "-" <> lbl <> "." <> typ, url)
+              pure $ thepair ("var-" <> lbl) typ url
     sidecars = fi ^.. fileStuff . sidecar_files . folded . to fromSidecar . folded
       where fromSidecar obj = maybeToList $ do
-              lbl <- obj ^? key "label" . _String . to unpack
-              typ <- obj ^? key "type" . _String . to unpack
-              url <- obj ^? key "url" . _String . to unpack
-              pure ("derivatives/" <> unpack mid <> "/" <> unpack mid <> "-sidecar-" <> lbl <> "." <> typ,
-                    url)
+              lbl <- obj ^? atKey "label"
+              typ <- obj ^? atKey "type"
+              url <- obj ^? atKey "url"
+              pure $ thepair ("sidecar-" <> lbl) typ url
+
+                where atKey k = key k . _String . to unpack
 
 runBackup :: GoPro ()
 runBackup = do
