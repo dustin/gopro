@@ -38,7 +38,8 @@ copyMedia λ mid = mapM_ copy =<< (extractSources mid <$> retrieve mid)
         dest = J.Object (mempty & at "bucket" ?~ J.String bname
                           & at "key" ?~ J.String k)
         jbod = J.Object (mempty & at "src" ?~ J.String src
-                          & at "dest" ?~ dest)
+                          & at "dest" ?~ dest
+                          & at "mid" ?~ J.String mid)
 
 extractSources :: MediumID -> FileInfo -> [(Text, String)]
 extractSources mid fi = foldMap (fmap (first fromString)) [ source, sidecars ]
