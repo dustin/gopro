@@ -25,7 +25,10 @@ import           GoPro.S3
 type LambdaFunc = Text
 
 copyMedia :: LambdaFunc -> MediumID -> GoPro ()
-copyMedia λ mid = mapM_ copy =<< (extractSources mid <$> retrieve mid)
+copyMedia λ mid = do
+  todo <- extractSources mid <$> retrieve mid
+  mapConcurrentlyLimited_ 5 copy todo
+  queuedCopyToS3 (map (\(k,_) -> (mid, unpack k)) todo)
 
   where
     copy (k, u) = do
@@ -65,11 +68,8 @@ runBackup = do
   args <- asks (optArgv . gpOptions)
   when (length args /= 1) $ fail "A Lambda function name must be specified"
   let [λ] = args
-  have <- Set.fromList . fmap fst <$>  allDerivatives
-  logDbg $ "have: " <> (pack . show) have
-  want <- Set.fromList <$> loadMediaIDs
-  let todo = take 2 $  Set.toList (want `Set.difference` have)
-  logDbg $ "todo: " <> (pack.show) todo
+  todo <- take 5 <$> listToCopyToS3
+  logDbg $ "todo: " <> tshow todo
   c <- asks (optUploadConcurrency . gpOptions)
   void $ mapConcurrentlyLimited c (\mid -> copyMedia (pack λ) mid) todo
 

@@ -15,6 +15,7 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  HasGoProDB(..),
                  storeUpload, completedUploadPart, completedUpload, listPartialUploads, PartialUpload(..),
                  listQueuedFiles,
+                 listToCopyToS3, queuedCopyToS3, markS3CopyComplete,
                  initTables, loadConfig, updateConfig, withDB) where
 
 import           Control.Applicative              (liftA2)
@@ -80,7 +81,8 @@ initQueries = [
   (5, "alter table media add column variants blob"),
   (6, "create table if not exists uploads (filename, media_id, upid, did, partnum)"),
   (6, "create table if not exists upload_parts (media_id, part)"),
-  (7, "alter table upload_parts add column partnum")
+  (7, "alter table upload_parts add column partnum"),
+  (8, "create table if not exists s3backup (media_id, filename, status, response)")
   ]
 
 initTables :: Connection -> IO ()
@@ -390,3 +392,17 @@ listQueuedFiles = liftIO . coerce . sel =<< goproDB
   where
     sel :: Connection -> IO [Only FilePath]
     sel db = query_ db "select filename from uploads"
+
+listToCopyToS3 :: (HasGoProDB m, MonadIO m) => m [MediumID]
+listToCopyToS3 = coerce <$> (liftIO . sel =<< goproDB)
+  where
+    sel :: Connection -> IO [Only MediumID]
+    sel db = query_ db "select media_id from media where media_id not in (select distinct media_id from s3backup)"
+
+queuedCopyToS3 :: (HasGoProDB m, MonadIO m) => [(MediumID, String)] -> m ()
+queuedCopyToS3 stuff = liftIO . ins =<< goproDB
+  where ins db = executeMany db "insert into s3backup (media_id, filename) values (?,?)" stuff
+
+markS3CopyComplete :: (HasGoProDB m, MonadIO m) => String -> Bool -> BS.ByteString -> m ()
+markS3CopyComplete = undefined
+
