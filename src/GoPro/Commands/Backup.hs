@@ -45,7 +45,7 @@ extractSources mid fi = foldMap (fmap (first fromString)) [ source, sidecars ]
   where
     source = case fi ^? fileStuff . variations . folded . filtered (has (var_label . only "source")) of
                Just var ->
-                 [("derivatives/" <> unpack mid <> "/" <> unpack mid <> "src." <> (var ^. var_type),
+                 [("derivatives/" <> unpack mid <> "/" <> unpack mid <> "-src." <> (var ^. var_type),
                    var ^. var_url)]
                Nothing -> []
     sidecars = fi ^.. fileStuff . sidecar_files . folded . to fromSidecar . folded
