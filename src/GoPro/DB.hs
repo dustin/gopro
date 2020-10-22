@@ -397,7 +397,11 @@ listToCopyToS3 :: (HasGoProDB m, MonadIO m) => m [MediumID]
 listToCopyToS3 = coerce <$> (liftIO . sel =<< goproDB)
   where
     sel :: Connection -> IO [Only MediumID]
-    sel db = query_ db "select media_id from media where media_id not in (select distinct media_id from s3backup)"
+    sel db = query_ db [r|
+                         select media_id from media
+                         where media_id not in (select distinct media_id from s3backup)
+                         order by created_at
+                         |]
 
 queuedCopyToS3 :: (HasGoProDB m, MonadIO m) => [(MediumID, String)] -> m ()
 queuedCopyToS3 stuff = liftIO . ins =<< goproDB
