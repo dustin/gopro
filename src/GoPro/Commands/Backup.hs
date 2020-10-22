@@ -1,4 +1,4 @@
-module GoPro.Commands.Backup (runBackup, runStoreMeta) where
+module GoPro.Commands.Backup (runBackup, runStoreMeta, runReceiveS3CopyQueue) where
 
 
 import           Control.Lens
@@ -13,8 +13,11 @@ import           Data.Maybe              (maybeToList)
 import qualified Data.Set                as Set
 import           Data.String             (fromString)
 import           Data.Text               (Text, pack, unpack)
+import qualified Data.Text.Encoding      as TE
 import           Network.AWS.Lambda      (InvocationType (..), iInvocationType, invoke)
 import           Network.AWS.S3          (BucketName (..))
+import           Network.AWS.SQS         (deleteMessage, mBody, mReceiptHandle, receiveMessage, rmMaxNumberOfMessages,
+                                          rmVisibilityTimeout, rmWaitTimeSeconds, rmrsMessages)
 import           UnliftIO                (concurrently)
 
 import           GoPro.Commands
@@ -83,3 +86,26 @@ runStoreMeta = do
   c <- asks (optUploadConcurrency . gpOptions)
   _ <- mapConcurrentlyLimited c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict blob)) todo
   clearMetaBlob (fst <$> local)
+
+runReceiveS3CopyQueue :: GoPro ()
+runReceiveS3CopyQueue = do
+  args <- asks (optArgv . gpOptions)
+  when (length args /= 1) $ fail "SQS queue must be provided"
+  let [qrl] = args
+  msg <- inAWS Oregon . send $ receiveMessage (pack qrl)
+         & rmMaxNumberOfMessages ?~ 10
+         & rmWaitTimeSeconds ?~ 5
+         & rmVisibilityTimeout ?~ 10
+  mapM_ (process (pack qrl)) (msg ^.. rmrsMessages . folded)
+
+    where
+      process q m = do
+        let Just bodBytes = m ^? mBody . _Just . to (BL.fromStrict . TE.encodeUtf8)
+            Just bod = J.decode bodBytes :: Maybe J.Value
+            modbod = bod & key "requestPayload" . _Object %~ sans "src"
+            condition = bod ^? key "requestContext" . key "condition" . _String
+            Just fn = bod ^? key "requestPayload" . key "dest" . key "key" . _String
+            Just rh = m ^? mReceiptHandle . _Just
+        logInfo (tshow modbod)
+        markS3CopyComplete fn (condition == Just "Success") modbod
+        inAWS Oregon . void . send $ deleteMessage q rh
