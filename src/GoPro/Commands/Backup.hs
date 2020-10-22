@@ -93,21 +93,27 @@ runReceiveS3CopyQueue = do
   args <- asks (optArgv . gpOptions)
   when (length args /= 1) $ fail "SQS queue must be provided"
   let [qrl] = pack <$> args
-  msg <- inAWS Oregon . send $ receiveMessage qrl
-         & rmMaxNumberOfMessages ?~ 10
-         & rmWaitTimeSeconds ?~ 5
-         & rmVisibilityTimeout ?~ 10
-  mapM_ process (msg ^.. rmrsMessages . folded)
-  let mids = msg ^.. rmrsMessages . folded . mReceiptHandle . _Just
-      deletes = zipWith (\i -> deleteMessageBatchRequestEntry (tshow i)) [1 :: Int ..] mids
-  inAWS Oregon . void . send $ deleteMessageBatch qrl & dmbEntries .~ deletes
+  go qrl =<< listS3Waiting
 
     where
+      go _ [] = logInfo "Not waiting for any results"
+      go qrl w = do
+        logInfo $ "Waiting for " <> tshow (length w) <> " files to finish copying"
+        msg <- inAWS Oregon . send $ receiveMessage qrl
+          & rmMaxNumberOfMessages ?~ 10
+          & rmWaitTimeSeconds ?~ 20
+          & rmVisibilityTimeout ?~ 60
+        mapM_ process (msg ^.. rmrsMessages . folded)
+        let mids = msg ^.. rmrsMessages . folded . mReceiptHandle . _Just
+            deletes = zipWith (\i -> deleteMessageBatchRequestEntry (tshow i)) [1 :: Int ..] mids
+        inAWS Oregon . void . send $ deleteMessageBatch qrl & dmbEntries .~ deletes
+        go qrl =<< listS3Waiting
+
       process m = do
         let Just bodBytes = m ^? mBody . _Just . to (BL.fromStrict . TE.encodeUtf8)
             Just bod = J.decode bodBytes :: Maybe J.Value
             modbod = bod & key "requestPayload" . _Object %~ sans "src"
-            condition = bod ^? key "requestContext" . key "condition" . _String
+            Just condition = bod ^? key "requestContext" . key "condition" . _String
             Just fn = bod ^? key "requestPayload" . key "dest" . key "key" . _String
-        logInfo (tshow modbod)
-        markS3CopyComplete fn (condition == Just "Success") modbod
+        logDbg $ "Finished " <> fn <> " with status: " <> condition
+        markS3CopyComplete fn (condition == "Success") modbod

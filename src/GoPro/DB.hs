@@ -15,7 +15,7 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  HasGoProDB(..),
                  storeUpload, completedUploadPart, completedUpload, listPartialUploads, PartialUpload(..),
                  listQueuedFiles,
-                 listToCopyToS3, queuedCopyToS3, markS3CopyComplete,
+                 listToCopyToS3, queuedCopyToS3, markS3CopyComplete, listS3Waiting,
                  initTables, loadConfig, updateConfig, withDB) where
 
 import           Control.Applicative              (liftA2)
@@ -402,6 +402,12 @@ listToCopyToS3 = coerce <$> (liftIO . sel =<< goproDB)
                          where media_id not in (select distinct media_id from s3backup)
                          order by created_at
                          |]
+
+listS3Waiting :: (HasGoProDB m, MonadIO m) => m [String]
+listS3Waiting = coerce <$> (liftIO . sel =<< goproDB)
+  where
+    sel :: Connection -> IO [Only String]
+    sel db = query_ db "select filename from s3backup where status is null"
 
 queuedCopyToS3 :: (HasGoProDB m, MonadIO m) => [(MediumID, String)] -> m ()
 queuedCopyToS3 stuff = liftIO . ins =<< goproDB
