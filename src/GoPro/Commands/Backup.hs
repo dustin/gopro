@@ -2,7 +2,7 @@ module GoPro.Commands.Backup (runBackup, runStoreMeta, runReceiveS3CopyQueue) wh
 
 
 import           Control.Lens
-import           Control.Monad           (unless, void, when)
+import           Control.Monad           (unless, void)
 import           Control.Monad.Reader    (asks)
 import           Control.Monad.Trans.AWS (Region (..), send)
 import qualified Data.Aeson              as J
@@ -69,13 +69,11 @@ extractSources mid fi = foldMap (fmap (first fromString)) [ vars, sidecars ]
 
 runBackup :: GoPro ()
 runBackup = do
-  args <- asks (optArgv . gpOptions)
-  when (length args /= 1) $ fail "A Lambda function name must be specified"
-  let [λ] = args
-  todo <- take 5 <$> listToCopyToS3
+  λ <- asks (configItem "s3copyfunc")
+  todo <- take 20 <$> listToCopyToS3
   logDbg $ "todo: " <> tshow todo
   c <- asks (optUploadConcurrency . gpOptions)
-  void $ mapConcurrentlyLimited c (\mid -> copyMedia (pack λ) mid) todo
+  void $ mapConcurrentlyLimited c (\mid -> copyMedia λ mid) todo
 
 runStoreMeta :: GoPro ()
 runStoreMeta = do
@@ -90,9 +88,7 @@ runStoreMeta = do
 
 runReceiveS3CopyQueue :: GoPro ()
 runReceiveS3CopyQueue = do
-  args <- asks (optArgv . gpOptions)
-  when (length args /= 1) $ fail "SQS queue must be provided"
-  let [qrl] = pack <$> args
+  qrl <- asks (configItem "s3copySQSQueue")
   go qrl =<< listS3Waiting
 
     where

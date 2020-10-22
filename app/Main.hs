@@ -91,7 +91,7 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
             ("fixup", runFixup),
             ("serve", runServer),
             ("wait", runWaitForUploads),
-            ("backup", runBackup),
+            ("backup", runBackup >> runReceiveS3CopyQueue),
             ("processSQS", runReceiveS3CopyQueue),
             ("config", runConfig)]
     unknown = do

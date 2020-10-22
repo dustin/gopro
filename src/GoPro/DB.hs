@@ -82,7 +82,9 @@ initQueries = [
   (6, "create table if not exists uploads (filename, media_id, upid, did, partnum)"),
   (6, "create table if not exists upload_parts (media_id, part)"),
   (7, "alter table upload_parts add column partnum"),
-  (8, "create table if not exists s3backup (media_id, filename, status, response)")
+  (8, "create table if not exists s3backup (media_id, filename, status, response)"),
+  (9, "insert into config values ('s3copyfunc', 'download-to-s3')"),
+  (9, "insert into config values ('s3copySQSQueue', '')")
   ]
 
 initTables :: Connection -> IO ()
