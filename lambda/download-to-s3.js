@@ -2,10 +2,7 @@ const AWS = require('aws-sdk'),
       stream = require('stream'),
       https = require('https');
 
-exports.handler = (req, context, callback) => {
-    console.log("req:", req);
-    console.log("Fetching", req.src);
-
+function complete(req, context, callback, heads) {
     https.get(req.src, res => {
         const passthrough = new stream.PassThrough();
         if (res.statusCode != 200) {
@@ -26,10 +23,17 @@ exports.handler = (req, context, callback) => {
             if (err) {
                 callback(err);
             } else {
-                callback(null, {statusCode: 200, body: JSON.stringify('Done!')});
+                callback(null, {statusCode: 200, body: {headers: heads}});
             }
         });
 
         res.pipe(passthrough);
     });
+}
+
+exports.handler = (req, context, callback) => {
+    console.log("req:", req);
+    console.log("Fetching", req.src);
+
+    https.request(req.head, { method: 'HEAD' }, (res) => complete(req, context, callback, res.headers)).end();
 };

@@ -12,10 +12,11 @@ import GoPro.Commands.Backup (extractSources)
 testExtractSources :: Assertion
 testExtractSources = do
   Just fi <- J.decode <$> BL.readFile "test/mediaex.json" :: IO (Maybe FileInfo)
-  assertEqual (show fi) [("derivatives/xxx/xxx-var-timelapse_video.mp4","http://d/"),
-                         ("derivatives/xxx/xxx-var-high_res_proxy_mp4.mp4","http://e/"),
-                         ("derivatives/xxx/xxx-var-mp4_low.mp4","http://f/"),
-                         ("derivatives/xxx/xxx-sidecar-ziplabel.zip","http://b/")] $ extractSources "xxx" fi
+  assertEqual (show fi) [("derivatives/xxx/xxx-var-timelapse_video.mp4","hhttp://d/","http://d/"),
+                         ("derivatives/xxx/xxx-var-high_res_proxy_mp4.mp4","hhttp://e/","http://e/"),
+                         ("derivatives/xxx/xxx-var-mp4_low.mp4","hhttp://f/","http://f/"),
+                         ("derivatives/xxx/xxx-sidecar-ziplabel.zip","hhttp://b/","http://b/")] $
+    extractSources "xxx" fi
 
 tests :: [TestTree]
 tests = [

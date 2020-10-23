@@ -8,7 +8,6 @@ import           Control.Monad.Reader    (asks)
 import           Control.Monad.Trans.AWS (Region (..), send)
 import qualified Data.Aeson              as J
 import           Data.Aeson.Lens
-import           Data.Bifunctor          (first)
 import qualified Data.ByteString.Lazy    as BL
 import           Data.Maybe              (maybeToList)
 import qualified Data.Set                as Set
@@ -33,38 +32,40 @@ copyMedia :: LambdaFunc -> MediumID -> GoPro ()
 copyMedia λ mid = do
   todo <- extractSources mid <$> retrieve mid
   mapConcurrentlyLimited_ 5 copy todo
-  queuedCopyToS3 (map (\(k,_) -> (mid, unpack k)) todo)
+  queuedCopyToS3 (map (\(k,_,_) -> (mid, unpack k)) todo)
 
   where
-    copy (k, u) = do
+    copy (k, h, u) = do
       b <- s3Bucket
       logInfo $ "Queueing copy of " <> mid <> " to " <> tshow k
-      inAWS Oregon . void . send $ invoke λ (encodeCopyRequest (pack u) b k) & iInvocationType ?~ Event
+      inAWS Oregon . void . send $ invoke λ (encodeCopyRequest (pack h) (pack u) b k) & iInvocationType ?~ Event
 
-    encodeCopyRequest src (BucketName bname) k = BL.toStrict . J.encode $ jbod
+    encodeCopyRequest hd src (BucketName bname) k = BL.toStrict . J.encode $ jbod
       where
         dest = J.Object (mempty & at "bucket" ?~ J.String bname
                           & at "key" ?~ J.String k)
         jbod = J.Object (mempty & at "src" ?~ J.String src
+                          & at "head" ?~ J.String hd
                           & at "dest" ?~ dest
                           & at "mid" ?~ J.String mid)
 
-extractSources :: MediumID -> FileInfo -> [(Text, String)]
-extractSources mid fi = foldMap (fmap (first fromString)) [ ex "var" variations,
-                                                            ex "sidecar" sidecar_files ]
+extractSources :: MediumID -> FileInfo -> [(Text, String, String)]
+extractSources mid fi = foldMap (fmap (\(a,b,c) -> (fromString a, fromString b, c)))
+                        [ ex "var" variations, ex "sidecar" sidecar_files ]
   where
     ex p l = fi ^.. fileStuff . l . folded . to conv . folded
       where
         conv v = maybeToList $ do
           lbl <- v ^? media_label
           typ <- v ^? media_type
+          h <- v ^? media_head
           u <- v ^? media_url
-          pure (mconcat ["derivatives/", unpack mid, "/", unpack mid, "-", p, "-", lbl, ".", typ], u)
+          pure (mconcat ["derivatives/", unpack mid, "/", unpack mid, "-", p, "-", lbl, ".", typ], h, u)
 
 runBackup :: GoPro ()
 runBackup = do
   λ <- asks (configItem "s3copyfunc")
-  todo <- take 20 <$> listToCopyToS3
+  todo <- take 5 <$> listToCopyToS3
   logDbg $ "todo: " <> tshow todo
   c <- asks (optUploadConcurrency . gpOptions)
   void $ mapConcurrentlyLimited c (\mid -> copyMedia λ mid) todo
@@ -102,7 +103,7 @@ runReceiveS3CopyQueue = do
       process m = do
         let Just bodBytes = m ^? mBody . _Just . to (BL.fromStrict . TE.encodeUtf8)
             Just bod = J.decode bodBytes :: Maybe J.Value
-            modbod = bod & key "requestPayload" . _Object %~ sans "src"
+            modbod = bod & key "requestPayload" . _Object %~ sans "src" . sans "head"
             Just condition = bod ^? key "requestContext" . key "condition" . _String
             Just fn = bod ^? key "requestPayload" . key "dest" . key "key" . _String
         logDbg $ "Finished " <> fn <> " with status: " <> condition

@@ -3,7 +3,7 @@
         "files": [
             {
                 "camera_position": "default",
-                "head": "http://a/",
+                "head": "hhttp://a/",
                 "height": 1440,
                 "item_number": 1,
                 "orientation": 1,
@@ -13,7 +13,7 @@
             },
             {
                 "camera_position": "default",
-                "head": "http://aprime/",
+                "head": "hhttp://aprime/",
                 "height": 1440,
                 "item_number": 2,
                 "orientation": 1,
@@ -25,7 +25,7 @@
         "sidecar_files": [
             {
                 "fps": 0,
-                "head": "http://b/",
+                "head": "hhttp://b/",
                 "label": "ziplabel",
                 "type": "zip",
                 "url": "http://b/"
@@ -40,7 +40,7 @@
                     "width": 100
                 },
                 "heads": [
-                    "http://c/"
+                    "hhttp://c/"
                 ],
                 "height": 56,
                 "total_count": 1,
@@ -53,7 +53,7 @@
         ],
         "variations": [
             {
-                "head": "http://d/",
+                "head": "hhttp://d/",
                 "height": 3000,
                 "label": "timelapse_video",
                 "quality": "3000p",
@@ -63,7 +63,7 @@
                 "width": 4000
             },
             {
-                "head": "http://e/",
+                "head": "hhttp://e/",
                 "height": 1440,
                 "label": "high_res_proxy_mp4",
                 "quality": "1440p",
@@ -73,7 +73,7 @@
                 "width": 1920
             },
             {
-                "head": "http://f/",
+                "head": "hhttp://f/",
                 "height": 240,
                 "label": "mp4_low",
                 "quality": "240p",
