@@ -253,6 +253,26 @@ GoPro to your own S3 bucket.  Lots of stuff is involved in setup here
 including that S3 bucket, an AWS Lambda copy function and an SQS
 queue.
 
+This does work, and should be able to move a huge amount of data in a
+short amount of time.  The tl;dr on how to use is:
+
+1. Create an S3 bucket in `us-west-2` (Oregon) to store all your
+   stuff.  Note that this is used for both metadata cache and backups.
+2. Create a lambda function (I called it `download-to-s3`, but it's
+   configurable) in `us-west-2` as a node.js runtime with `index.js`
+   containing the contents from the file
+   [lambda/download-to-s3.js](lambda/download-to-s3.js)
+3. Set up an SQS queue, also in `us-west-2` to capture the results.
+4. Configure destinations for both success and failure to this new SQS
+   queue.
+5. Configure (using `gopro config`) `s3copySQSQueue` to point to your
+   new SQS queue, `bucket` to point to your S3 bucket, and
+   `s3copyfunc` config variable is pointed to the correct function
+   name (i.e., change it if it's not `download-to-s3`).
+
+With this AWS-side infrastructure in place, `gopro backup` should copy
+all the things.
+
 This primarily exists as a proof of concept that I hope I won't ever
 need, as I don't mind using GoPro's storage (it's S3) and paying for
 the whole thing to be reproduced in my own storage kind of makes the
@@ -260,6 +280,14 @@ service less useful.
 
 When I do, I suspect I should be able to move my >TB storage from
 GoPro's buckets to my own with a tiny amount of bandwidth to my house.
+
+### processSQS
+
+The `processSQS` command is automatically run by the `backup` command
+to catch results of asynchronous lambda function calls, but if the
+process is interrupted or you just want to make sure you've picked up
+everything, this command can be invoked separately without potentially
+issuing more copy requests.
 
 [stack]: https://docs.haskellstack.org/en/stable/install_and_upgrade/
 [blog]: http://dustin.sallings.org/2020/04/29/gopro-plus.html
