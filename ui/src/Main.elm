@@ -334,8 +334,9 @@ renderOverlay z (mm, mdls) =
         Just m -> div [ H.class "details" ]
                   ([h2 [] [ text (m.id) ]
                    , a [ onClick (RefreshMedium m.id) ] [ text "Refresh Data from GoPro" ]
-                   , text " | "
-                   , a [ H.href ("/api/retrieve/" ++ m.id) ] [ text "DL.json" ]
+                   , text " | " , a [ H.href ("https://plus.gopro.com/media-library/" ++ m.id) ]
+                        [ text "View at GoPro" ]
+                   , text " | " , a [ H.href ("/api/retrieve/" ++ m.id) ] [ text "DL.json" ]
                    , renderIcon m mdls
                    , dl [ H.class "deets" ] ([
                          h2 [] [text "Details" ]
