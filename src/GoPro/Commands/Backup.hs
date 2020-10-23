@@ -102,7 +102,7 @@ runReceiveS3CopyQueue = do
         mapM_ process (msg ^.. rmrsMessages . folded)
         let mids = msg ^.. rmrsMessages . folded . mReceiptHandle . _Just
             deletes = zipWith (\i -> deleteMessageBatchRequestEntry (tshow i)) [1 :: Int ..] mids
-        inAWS Oregon . void . send $ deleteMessageBatch qrl & dmbEntries .~ deletes
+        unless (null deletes) $ inAWS Oregon . void . send $ deleteMessageBatch qrl & dmbEntries .~ deletes
         go qrl =<< listS3Waiting
 
       process m = do
