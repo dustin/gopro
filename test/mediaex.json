@@ -1,0 +1,88 @@
+{
+    "_embedded": {
+        "files": [
+            {
+                "camera_position": "default",
+                "head": "http://a/",
+                "height": 1440,
+                "item_number": 1,
+                "orientation": 1,
+                "transforms": null,
+                "url": "http://a/",
+                "width": 1920
+            },
+            {
+                "camera_position": "default",
+                "head": "http://aprime/",
+                "height": 1440,
+                "item_number": 2,
+                "orientation": 1,
+                "transforms": ["into", "a", "lightpost"],
+                "url": "http://aprime/",
+                "width": 1920
+            }
+        ],
+        "sidecar_files": [
+            {
+                "fps": 0,
+                "head": "http://b/",
+                "label": "ziplabel",
+                "type": "zip",
+                "url": "http://b/"
+            }
+        ],
+        "sprites": [
+            {
+                "fps": 30,
+                "frame": {
+                    "count": 10,
+                    "height": 56,
+                    "width": 100
+                },
+                "heads": [
+                    "http://c/"
+                ],
+                "height": 56,
+                "total_count": 1,
+                "type": "jpg",
+                "urls": [
+                    "http://c/"
+                ],
+                "width": 1000
+            }
+        ],
+        "variations": [
+            {
+                "head": "http://d/",
+                "height": 3000,
+                "label": "timelapse_video",
+                "quality": "3000p",
+                "transforms": ["antishake","horizon"],
+                "type": "mp4",
+                "url": "http://d/",
+                "width": 4000
+            },
+            {
+                "head": "http://e/",
+                "height": 1440,
+                "label": "high_res_proxy_mp4",
+                "quality": "1440p",
+                "transforms": ["proshake", "verizon"],
+                "type": "mp4",
+                "url": "http://e/",
+                "width": 1920
+            },
+            {
+                "head": "http://f/",
+                "height": 240,
+                "label": "mp4_low",
+                "quality": "240p",
+                "transforms": null,
+                "type": "mp4",
+                "url": "http://f/",
+                "width": 320
+            }
+        ]
+    },
+    "filename": "G0000004.JPG"
+}

@@ -1,4 +1,5 @@
-module GoPro.Commands.Backup (runBackup, runStoreMeta, runReceiveS3CopyQueue) where
+module GoPro.Commands.Backup (runBackup, runStoreMeta, runReceiveS3CopyQueue,
+                              extractSources) where
 
 
 import           Control.Lens
@@ -49,23 +50,16 @@ copyMedia λ mid = do
                           & at "mid" ?~ J.String mid)
 
 extractSources :: MediumID -> FileInfo -> [(Text, String)]
-extractSources mid fi = foldMap (fmap (first fromString)) [ vars, sidecars ]
+extractSources mid fi = foldMap (fmap (first fromString)) [ ex "var" variations,
+                                                            ex "sidecar" sidecar_files ]
   where
-    thepair lbl typ url = ("derivatives/" <> unpack mid <> "/" <> unpack mid <> "-" <> lbl <> "." <> typ, url)
-    vars = fi ^.. fileStuff . variations . folded . to fromVariation . folded
-      where fromVariation v = maybeToList $ do
-              lbl <- v ^? var_label
-              typ <- v ^? var_type
-              url <- v ^? var_url
-              pure $ thepair ("var-" <> lbl) typ url
-    sidecars = fi ^.. fileStuff . sidecar_files . folded . to fromSidecar . folded
-      where fromSidecar obj = maybeToList $ do
-              lbl <- obj ^? atKey "label"
-              typ <- obj ^? atKey "type"
-              url <- obj ^? atKey "url"
-              pure $ thepair ("sidecar-" <> lbl) typ url
-
-                where atKey k = key k . _String . to unpack
+    ex p l = fi ^.. fileStuff . l . folded . to conv . folded
+      where
+        conv v = maybeToList $ do
+          lbl <- v ^? media_label
+          typ <- v ^? media_type
+          u <- v ^? media_url
+          pure (mconcat ["derivatives/", unpack mid, "/", unpack mid, "-", p, "-", lbl, ".", typ], u)
 
 runBackup :: GoPro ()
 runBackup = do
