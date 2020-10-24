@@ -94,7 +94,9 @@ runReceiveS3CopyQueue = do
         msgs <- toListOf (folded . rmrsMessages . folded) <$> getmsgs qrl (length w)
 
         logInfo $ "Processing " <> tshow (length msgs) <> " responses"
-        markS3CopyComplete =<< mapM process msgs
+        let results = computeResults <$> msgs
+        mapM_ (\(fn, ok, _) -> logDbg $ "Finished " <> fn <> " with status: " <> tshow ok) results
+        markS3CopyComplete results
 
         let mids = msgs ^.. folded . mReceiptHandle . _Just
             deletes = zipWith (\i -> deleteMessageBatchRequestEntry (tshow i)) [1 :: Int ..] mids
@@ -122,11 +124,10 @@ runReceiveS3CopyQueue = do
       delMessages qrl = mapConcurrently_ batch . chunksOf 10
         where batch dels = inAWS Oregon $ void . send $ deleteMessageBatch qrl & dmbEntries .~ dels
 
-      process m = do
+      computeResults m = do
         let Just bodBytes = m ^? mBody . _Just . to (BL.fromStrict . TE.encodeUtf8)
             Just bod = J.decode bodBytes :: Maybe J.Value
             modbod = bod & key "requestPayload" . _Object %~ sans "src" . sans "head"
             Just condition = bod ^? key "requestContext" . key "condition" . _String
             Just fn = bod ^? key "requestPayload" . key "dest" . key "key" . _String
-        logDbg $ "Finished " <> fn <> " with status: " <> condition
-        pure (fn, condition == "Success", modbod)
+          in (fn, condition == "Success", modbod)
