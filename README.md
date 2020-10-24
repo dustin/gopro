@@ -281,6 +281,19 @@ service less useful.
 When I do, I suspect I should be able to move my >TB storage from
 GoPro's buckets to my own with a tiny amount of bandwidth to my house.
 
+### backuplocal
+
+The `backuplocal` command is similar to the `backup` command, except
+it copies data locally instead of to an S3 bucket (and runs entirely
+locally).
+
+Given an argument for the destination path, it will attempt to
+download all artifacts for a given medium and once complete, will move
+the destination directory into place.  Once a directory for a given
+medium is in place, it will not attempt to download the same medium
+again (i.e., if you delete the directory for a medium, it will be
+redownloaded).
+
 ### processSQS
 
 The `processSQS` command is automatically run by the `backup` command

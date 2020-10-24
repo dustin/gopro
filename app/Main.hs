@@ -93,6 +93,7 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
             ("wait", runWaitForUploads),
             ("backup", runBackup >> runReceiveS3CopyQueue),
             ("processSQS", runReceiveS3CopyQueue),
+            ("backuplocal", runLocalBackup),
             ("config", runConfig)]
     unknown = do
       putStrLn $ "Unknown command: " <> c

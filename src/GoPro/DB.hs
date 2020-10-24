@@ -16,6 +16,7 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  storeUpload, completedUploadPart, completedUpload, listPartialUploads, PartialUpload(..),
                  listQueuedFiles,
                  listToCopyToS3, queuedCopyToS3, markS3CopyComplete, listS3Waiting,
+                 listToCopyLocally,
                  initTables, loadConfig, updateConfig, withDB) where
 
 import           Control.Applicative              (liftA2)
@@ -421,3 +422,12 @@ markS3CopyComplete stuffs = liftIO . up =<< goproDB
   where
     up db = executeMany db "update s3backup set status = ?, response = ? where filename = ?"
             (fmap (\(fn, ok, res) -> (ok, J.encode res, fn)) stuffs)
+
+listToCopyLocally :: (HasGoProDB m, MonadIO m) => m [MediumID]
+listToCopyLocally = coerce <$> (liftIO . sel =<< goproDB)
+  where
+    sel :: Connection -> IO [Only MediumID]
+    sel db = query_ db [r|
+                         select media_id from media order by created_at
+                         |]
+

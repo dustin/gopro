@@ -1,25 +1,30 @@
 module GoPro.Commands.Backup (runBackup, runStoreMeta, runReceiveS3CopyQueue,
-                              extractSources) where
+                              runLocalBackup, extractSources) where
 
 
+import           Conduit
 import           Control.Lens
 import           Control.Monad           (unless, void)
 import           Control.Monad.Reader    (asks)
 import           Control.Monad.Trans.AWS (Region (..), send)
+import           Control.Retry           (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
 import qualified Data.Aeson              as J
 import           Data.Aeson.Lens
 import qualified Data.ByteString.Lazy    as BL
-import           Data.List.Extra        (chunksOf)
-import           Data.Maybe              (maybeToList)
+import           Data.List.Extra         (chunksOf)
+import           Data.Maybe              (fromJust, maybeToList)
 import qualified Data.Set                as Set
 import           Data.String             (fromString)
-import           Data.Text               (Text, pack, unpack)
+import           Data.Text               (Text, pack, stripPrefix, unpack)
 import qualified Data.Text.Encoding      as TE
 import           Network.AWS.Lambda      (InvocationType (..), iInvocationType, invoke)
 import           Network.AWS.S3          (BucketName (..))
 import           Network.AWS.SQS         (deleteMessageBatch, deleteMessageBatchRequestEntry, dmbEntries, mBody,
                                           mReceiptHandle, receiveMessage, rmMaxNumberOfMessages, rmVisibilityTimeout,
                                           rmWaitTimeSeconds, rmrsMessages)
+import           Network.HTTP.Simple     (getResponseBody, httpSource, parseRequest)
+import           System.Directory        (createDirectoryIfMissing, doesDirectoryExist, renameDirectory, renameFile)
+import           System.FilePath.Posix   (takeDirectory, (</>))
 import           UnliftIO                (concurrently, mapConcurrently, mapConcurrently_)
 
 import           GoPro.Commands
@@ -50,6 +55,31 @@ copyMedia λ mid = do
                           & at "dest" ?~ dest
                           & at "mid" ?~ J.String mid)
 
+downloadLocally :: FilePath -> MediumID -> GoPro ()
+downloadLocally path mid =
+  unlessM (liftIO (doesDirectoryExist midPath)) $ do
+    todo <- extractSources mid <$> retrieve mid
+    let tmpdir = path </> "tmp"
+    mapConcurrentlyLimited_ 5 (copy tmpdir) todo
+    liftIO $ renameDirectory tmpdir midPath
+
+  where
+    midPath = path </> unpack mid
+
+    copy tmpdir (k, _, u) = recoverAll policy $ \r -> do
+      let tmpfile = dest <> ".tmp"
+          dir = takeDirectory dest
+      liftIO $ createDirectoryIfMissing True dir
+      logInfo $ "Fetching " <> tshow mid <> " " <> k <> " attempt " <> tshow (rsIterNumber r)
+      req <- parseRequest u
+      liftIO $ runConduitRes (httpSource req getResponseBody .| sinkFile tmpfile) >>
+        renameFile tmpfile dest
+      pure dest
+
+        where
+          dest = tmpdir </> (unpack . fromJust . stripPrefix "derivatives/") k
+          policy = exponentialBackoff 2000000 <> limitRetries 9
+
 extractSources :: MediumID -> FileInfo -> [(Text, String, String)]
 extractSources mid fi = foldMap (fmap (\(a,b,c) -> (fromString a, fromString b, c)))
                         [ ex "var" variations, ex "sidecar" sidecar_files ]
@@ -59,8 +89,8 @@ extractSources mid fi = foldMap (fmap (\(a,b,c) -> (fromString a, fromString b, 
         conv v = maybeToList $ do
           lbl <- v ^? media_label
           typ <- v ^? media_type
-          h <- v ^? media_head
-          u <- v ^? media_url
+          let h = v ^. media_head
+              u = v ^. media_url
           pure (mconcat ["derivatives/", unpack mid, "/", unpack mid, "-", p, "-", lbl, ".", typ], h, u)
 
 runBackup :: GoPro ()
@@ -70,6 +100,14 @@ runBackup = do
   logDbg $ "todo: " <> tshow todo
   c <- asks (optUploadConcurrency . gpOptions)
   void $ mapConcurrentlyLimited c (\mid -> copyMedia λ mid) todo
+
+runLocalBackup :: GoPro ()
+runLocalBackup = do
+  [path] <- asks (optArgv . gpOptions)
+  todo <- listToCopyLocally
+  logDbg $ "todo: " <> tshow todo
+  c <- asks (optDownloadConcurrency . gpOptions)
+  void $ mapConcurrentlyLimited c (downloadLocally path) todo
 
 runStoreMeta :: GoPro ()
 runStoreMeta = do
