@@ -9,6 +9,7 @@ import           Control.Monad.Trans.AWS (Region (..), send)
 import qualified Data.Aeson              as J
 import           Data.Aeson.Lens
 import qualified Data.ByteString.Lazy    as BL
+import           Data.List.Extra        (chunksOf)
 import           Data.Maybe              (maybeToList)
 import qualified Data.Set                as Set
 import           Data.String             (fromString)
@@ -19,7 +20,7 @@ import           Network.AWS.S3          (BucketName (..))
 import           Network.AWS.SQS         (deleteMessageBatch, deleteMessageBatchRequestEntry, dmbEntries, mBody,
                                           mReceiptHandle, receiveMessage, rmMaxNumberOfMessages, rmVisibilityTimeout,
                                           rmWaitTimeSeconds, rmrsMessages)
-import           UnliftIO                (concurrently)
+import           UnliftIO                (concurrently, mapConcurrently, mapConcurrently_)
 
 import           GoPro.Commands
 import           GoPro.DB
@@ -90,15 +91,36 @@ runReceiveS3CopyQueue = do
       go _ [] = logInfo "Not waiting for any results"
       go qrl w = do
         logInfo $ "Waiting for " <> tshow (length w) <> " files to finish copying"
-        msg <- inAWS Oregon . send $ receiveMessage qrl
-          & rmMaxNumberOfMessages ?~ 10
-          & rmWaitTimeSeconds ?~ 20
-          & rmVisibilityTimeout ?~ 60
-        mapM_ process (msg ^.. rmrsMessages . folded)
-        let mids = msg ^.. rmrsMessages . folded . mReceiptHandle . _Just
+        msgs <- toListOf (folded . rmrsMessages . folded) <$> getmsgs qrl (length w)
+
+        logInfo $ "Processing " <> tshow (length msgs) <> " responses"
+        markS3CopyComplete =<< mapM process msgs
+
+        let mids = msgs ^.. folded . mReceiptHandle . _Just
             deletes = zipWith (\i -> deleteMessageBatchRequestEntry (tshow i)) [1 :: Int ..] mids
-        unless (null deletes) $ inAWS Oregon . void . send $ deleteMessageBatch qrl & dmbEntries .~ deletes
+        unless (null deletes) $ do
+          logDbg $ "Deleting processed messages from SQS."
+          delMessages qrl deletes
+
         go qrl =<< listS3Waiting
+
+      -- Run a few parallel message getters, allowing for parallel
+      -- processing that scales up to our expected result size, with a
+      -- maximum of 10 workers (0..9).
+      getmsgs qrl waiting = mapConcurrently someMessages [0 .. min 9 (waiting `div` 10)]
+        where
+          -- We process the queue in parallel, but only long poll on
+          -- the first one.  If no messages are available, we don't
+          -- want a bunch of workers blocking on the message that may
+          -- trickle in, but we want to be able to burst support for
+          -- lots of messages.
+          someMessages n = inAWS Oregon . send $ receiveMessage qrl
+                           & rmMaxNumberOfMessages ?~ 10
+                           & rmWaitTimeSeconds ?~ (if n == 0 then 20 else 0)
+                           & rmVisibilityTimeout ?~ 60
+
+      delMessages qrl = mapConcurrently_ batch . chunksOf 10
+        where batch dels = inAWS Oregon $ void . send $ deleteMessageBatch qrl & dmbEntries .~ dels
 
       process m = do
         let Just bodBytes = m ^? mBody . _Just . to (BL.fromStrict . TE.encodeUtf8)
@@ -107,4 +129,4 @@ runReceiveS3CopyQueue = do
             Just condition = bod ^? key "requestContext" . key "condition" . _String
             Just fn = bod ^? key "requestPayload" . key "dest" . key "key" . _String
         logDbg $ "Finished " <> fn <> " with status: " <> condition
-        markS3CopyComplete fn (condition == "Success") modbod
+        pure (fn, condition == "Success", modbod)

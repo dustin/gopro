@@ -416,7 +416,8 @@ queuedCopyToS3 :: (HasGoProDB m, MonadIO m) => [(MediumID, String)] -> m ()
 queuedCopyToS3 stuff = liftIO . ins =<< goproDB
   where ins db = executeMany db "insert into s3backup (media_id, filename) values (?,?)" stuff
 
-markS3CopyComplete :: (HasGoProDB m, MonadIO m, ToJSON j) => Text -> Bool -> j -> m ()
-markS3CopyComplete fn ok res = liftIO . up =<< goproDB
+markS3CopyComplete :: (HasGoProDB m, MonadIO m, ToJSON j) => [(Text, Bool, j)] -> m ()
+markS3CopyComplete stuffs = liftIO . up =<< goproDB
   where
-    up db = execute db "update s3backup set status = ?, response = ? where filename = ?" (ok, J.encode res, fn)
+    up db = executeMany db "update s3backup set status = ?, response = ? where filename = ?"
+            (fmap (\(fn, ok, res) -> (ok, J.encode res, fn)) stuffs)
