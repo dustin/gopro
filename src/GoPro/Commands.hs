@@ -10,7 +10,7 @@ module GoPro.Commands where
 import           Control.Applicative     (Alternative (..), (<|>))
 import           Control.Concurrent.QSem (newQSem, signalQSem, waitQSem)
 import           Control.Concurrent.STM  (TChan, atomically, writeTChan)
-import           Control.Monad           (MonadPlus (..), mzero, unless)
+import           Control.Monad           (MonadPlus (..), mzero)
 import           Control.Monad.Catch     (MonadCatch (..), MonadMask (..),
                                           MonadThrow (..), SomeException (..),
                                           bracket_, catch)
@@ -94,9 +94,6 @@ mapConcurrentlyLimited_ :: (MonadMask m, MonadUnliftIO m, Traversable f)
                         -> m ()
 mapConcurrentlyLimited_ n f l = liftIO (newQSem n) >>= \q -> mapConcurrently_ (b q) l
   where b q x = bracket_ (liftIO (waitQSem q)) (liftIO (signalQSem q)) (f x)
-
-unlessM :: Monad m => m Bool -> m () -> m ()
-unlessM mb ma = mb >>= \b -> if b then pure () else ma
 
 logError :: MonadLogger m => T.Text -> m ()
 logError = logErrorN

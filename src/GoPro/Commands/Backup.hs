@@ -23,7 +23,8 @@ import           Network.AWS.SQS         (deleteMessageBatch, deleteMessageBatch
                                           mReceiptHandle, receiveMessage, rmMaxNumberOfMessages, rmVisibilityTimeout,
                                           rmWaitTimeSeconds, rmrsMessages)
 import           Network.HTTP.Simple     (getResponseBody, httpSource, parseRequest)
-import           System.Directory        (createDirectoryIfMissing, doesDirectoryExist, renameDirectory, renameFile)
+import           System.Directory        (createDirectoryIfMissing, listDirectory, renameDirectory,
+                                          renameFile)
 import           System.FilePath.Posix   (takeDirectory, (</>))
 import           UnliftIO                (concurrently, mapConcurrently, mapConcurrently_)
 
@@ -56,8 +57,7 @@ copyMedia λ mid = do
                           & at "mid" ?~ J.String mid)
 
 downloadLocally :: FilePath -> MediumID -> GoPro ()
-downloadLocally path mid =
-  unlessM (liftIO (doesDirectoryExist midPath)) $ do
+downloadLocally path mid = do
     todo <- extractSources mid <$> retrieve mid
     let tmpdir = path </> "tmp"
     mapConcurrentlyLimited_ 5 (copy tmpdir) todo
@@ -104,7 +104,9 @@ runBackup = do
 runLocalBackup :: GoPro ()
 runLocalBackup = do
   [path] <- asks (optArgv . gpOptions)
-  todo <- listToCopyLocally
+  have <- Set.fromList . fmap pack <$> liftIO (listDirectory path)
+  want <- Set.fromList <$> listToCopyLocally
+  let todo = Set.toList (want `Set.difference` have)
   logDbg $ "todo: " <> tshow todo
   c <- asks (optDownloadConcurrency . gpOptions)
   void $ mapConcurrentlyLimited c (downloadLocally path) todo
