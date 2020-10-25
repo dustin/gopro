@@ -17,6 +17,7 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
                  listQueuedFiles,
                  listToCopyToS3, queuedCopyToS3, markS3CopyComplete, listS3Waiting,
                  listToCopyLocally,
+                 MetadataType(..),
                  initTables, loadConfig, updateConfig, withDB) where
 
 import           Control.Applicative              (liftA2)
@@ -223,11 +224,26 @@ metaBlobTODO = liftIO . sel =<< goproDB
                          where media_id not in (select media_id from metablob)
                          order by created_at desc|]
 
-insertMetaBlob :: (HasGoProDB m, MonadIO m) => MediumID -> String -> Maybe BS.ByteString -> m ()
+
+data MetadataType = GPMF | EXIF | NoMetadata deriving Show
+
+instance FromField MetadataType where
+  fromField f = case fieldData f of
+                  (SQLText "gpmf") -> Ok GPMF
+                  (SQLText "exif") -> Ok EXIF
+                  (SQLText "") -> Ok NoMetadata
+                  _           -> returnError ConversionFailed f ("invalid MetadataType")
+
+instance ToField MetadataType where
+  toField GPMF = SQLText "gpmf"
+  toField EXIF = SQLText "exif"
+  toField NoMetadata = SQLText ""
+
+insertMetaBlob :: (HasGoProDB m, MonadIO m) => MediumID -> MetadataType -> Maybe BS.ByteString -> m ()
 insertMetaBlob mid fmt blob = liftIO . ins =<< goproDB
   where ins db = execute db "insert into metablob (media_id, meta, format) values (?, ?, ?)" (mid, blob, fmt)
 
-metaTODO :: (HasGoProDB m, MonadIO m) => m [(MediumID, String, BS.ByteString)]
+metaTODO :: (HasGoProDB m, MonadIO m) => m [(MediumID, MetadataType, BS.ByteString)]
 metaTODO = liftIO . sel =<< goproDB
   where
     sel db = query_ db [r|

@@ -81,10 +81,10 @@ runGrokTel = mapM_ ud =<< metaTODO
         case summarize typ bs of
           Left x -> logError $ "Error parsing stuff for " <> tshow mid <> " show " <> tshow x
           Right x -> insertMeta mid x
-      summarize :: String -> BS.ByteString -> Either String MDSummary
-      summarize "gpmf" bs = summarizeGPMF <$> parseDEVC bs
-      summarize "exif" bs = summarizeEXIF <$> parseExif (BL.fromStrict bs)
-      summarize fmt _     = Left ("Can't summarize " <> show fmt)
+      summarize :: MetadataType -> BS.ByteString -> Either String MDSummary
+      summarize GPMF bs = summarizeGPMF <$> parseDEVC bs
+      summarize EXIF bs = summarizeEXIF <$> parseExif (BL.fromStrict bs)
+      summarize NoMetadata _ = Left ("Can't summarize with no metadata")
 
 runGetMeta :: GoPro ()
 runGetMeta = do
@@ -97,11 +97,11 @@ runGetMeta = do
       process mtyp@(mid,typ) = do
         fi <- retrieve mid
         case typ of
-          "Video"          -> processEx fi extractGPMD "gpmf" ".mp4"
-          "TimeLapseVideo" -> processEx fi extractGPMD "gpmf" ".mp4"
-          "Photo"          -> processEx fi extractEXIF "exif" ".jpg"
-          "TimeLapse"      -> processEx fi extractEXIF "exif" ".jpg"
-          "Burst"          -> processEx fi extractEXIF "exif" ".jpg"
+          "Video"          -> processEx fi extractGPMD GPMF ".mp4"
+          "TimeLapseVideo" -> processEx fi extractGPMD GPMF ".mp4"
+          "Photo"          -> processEx fi extractEXIF EXIF ".jpg"
+          "TimeLapse"      -> processEx fi extractEXIF EXIF ".jpg"
+          "Burst"          -> processEx fi extractEXIF EXIF ".jpg"
           x                -> logError $ "Unhandled type: " <> tshow x
 
           where
@@ -118,7 +118,7 @@ runGetMeta = do
               case ms of
                 Nothing -> do
                   logInfo $ "Found no metadata for " <> tshow mtyp
-                  insertMetaBlob mid "" Nothing
+                  insertMetaBlob mid NoMetadata Nothing
                 Just s -> do
                   logInfo $ "MetaData stream for " <> tshow mtyp <> " is " <> tshow (BS.length s) <> " bytes"
                   insertMetaBlob mid fmt (Just s)
