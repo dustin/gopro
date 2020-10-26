@@ -231,12 +231,12 @@ instance FromField MetadataType where
   fromField f = case fieldData f of
                   (SQLText "gpmf") -> Ok GPMF
                   (SQLText "exif") -> Ok EXIF
-                  (SQLText "") -> Ok NoMetadata
-                  _           -> returnError ConversionFailed f ("invalid MetadataType")
+                  (SQLText "")     -> Ok NoMetadata
+                  _                -> returnError ConversionFailed f ("invalid MetadataType")
 
 instance ToField MetadataType where
-  toField GPMF = SQLText "gpmf"
-  toField EXIF = SQLText "exif"
+  toField GPMF       = SQLText "gpmf"
+  toField EXIF       = SQLText "exif"
   toField NoMetadata = SQLText ""
 
 insertMetaBlob :: (HasGoProDB m, MonadIO m) => MediumID -> MetadataType -> Maybe BS.ByteString -> m ()

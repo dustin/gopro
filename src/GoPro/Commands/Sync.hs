@@ -13,8 +13,7 @@ import           Control.Monad          (unless)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Loops    (whileM_)
 import           Control.Monad.Reader   (asks)
-import           Control.Retry          (RetryStatus (..), exponentialBackoff,
-                                         limitRetries, recoverAll)
+import           Control.Retry          (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
 import qualified Data.Aeson             as J
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BL
@@ -26,10 +25,8 @@ import qualified Data.Text              as T
 import           Exif
 import           FFMPeg
 import           Graphics.HsExif        (parseExif)
-import           Network.HTTP.Simple    (getResponseBody, httpSource,
-                                         parseRequest)
-import           System.Directory       (createDirectoryIfMissing,
-                                         doesFileExist, removeFile, renameFile)
+import           Network.HTTP.Simple    (getResponseBody, httpSource, parseRequest)
+import           System.Directory       (createDirectoryIfMissing, doesFileExist, removeFile, renameFile)
 import           System.FilePath.Posix  ((</>))
 
 import           GoPro.Commands
@@ -79,11 +76,11 @@ runGrokTel = mapM_ ud =<< metaTODO
       ud (mid, typ, bs) = do
         logInfo $ "Updating " <> tshow (mid, typ)
         case summarize typ bs of
-          Left x -> logError $ "Error parsing stuff for " <> tshow mid <> " show " <> tshow x
+          Left x  -> logError $ "Error parsing stuff for " <> tshow mid <> " show " <> tshow x
           Right x -> insertMeta mid x
       summarize :: MetadataType -> BS.ByteString -> Either String MDSummary
-      summarize GPMF bs = summarizeGPMF <$> parseDEVC bs
-      summarize EXIF bs = summarizeEXIF <$> parseExif (BL.fromStrict bs)
+      summarize GPMF bs      = summarizeGPMF <$> parseDEVC bs
+      summarize EXIF bs      = summarizeEXIF <$> parseExif (BL.fromStrict bs)
       summarize NoMetadata _ = Left ("Can't summarize with no metadata")
 
 runGetMeta :: GoPro ()
@@ -156,7 +153,7 @@ runGetMeta = do
       extractEXIF mid f = do
         bs <- liftIO $ BL.readFile f
         case minimalEXIF bs of
-          Left s -> logError ("Can't find EXIF for " <> tshow mid <> tshow s) >> empty
+          Left s  -> logError ("Can't find EXIF for " <> tshow mid <> tshow s) >> empty
           Right e -> pure (BL.toStrict e)
 
       extractGPMD :: MediumID -> FilePath -> GoPro BS.ByteString
@@ -164,7 +161,7 @@ runGetMeta = do
         ms <- liftIO $ findGPMDStream f
         case ms of
           Nothing -> logError ("Can't find GPMD stream for " <> tshow mid) >> empty
-          Just s -> liftIO $ extractGPMDStream f s
+          Just s  -> liftIO $ extractGPMDStream f s
 
 runWaitForUploads :: GoPro ()
 runWaitForUploads = whileM_ inProgress (sleep 15)

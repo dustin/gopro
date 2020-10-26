@@ -11,19 +11,16 @@ import           Control.Applicative     (Alternative (..), (<|>))
 import           Control.Concurrent.QSem (newQSem, signalQSem, waitQSem)
 import           Control.Concurrent.STM  (TChan, atomically, writeTChan)
 import           Control.Monad           (MonadPlus (..), mzero)
-import           Control.Monad.Catch     (MonadCatch (..), MonadMask (..),
-                                          MonadThrow (..), SomeException (..),
+import           Control.Monad.Catch     (MonadCatch (..), MonadMask (..), MonadThrow (..), SomeException (..),
                                           bracket_, catch)
 import           Control.Monad.Fail      (MonadFail (..))
-import qualified Data.Map.Strict as Map
 import           Control.Monad.IO.Class  (MonadIO (..))
-import           Control.Monad.Logger    (Loc (..), LogLevel (..), LogSource,
-                                          LogStr, MonadLogger (..),
-                                          ToLogStr (..), logDebugN, logErrorN,
-                                          logInfoN, monadLoggerLog)
+import           Control.Monad.Logger    (Loc (..), LogLevel (..), LogSource, LogStr, MonadLogger (..), ToLogStr (..),
+                                          logDebugN, logErrorN, logInfoN, monadLoggerLog)
 import           Control.Monad.Reader    (MonadReader, ReaderT (..), asks)
 import           Data.Cache              (Cache (..), fetchWithCache)
 import           Data.Map.Strict         (Map)
+import qualified Data.Map.Strict         as Map
 import qualified Data.Text               as T
 import           Database.SQLite.Simple  (Connection)
 import           UnliftIO                (MonadUnliftIO (..), mapConcurrently, mapConcurrently_)

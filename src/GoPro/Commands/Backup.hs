@@ -23,8 +23,7 @@ import           Network.AWS.SQS         (deleteMessageBatch, deleteMessageBatch
                                           mReceiptHandle, receiveMessage, rmMaxNumberOfMessages, rmVisibilityTimeout,
                                           rmWaitTimeSeconds, rmrsMessages)
 import           Network.HTTP.Simple     (getResponseBody, httpSource, parseRequest)
-import           System.Directory        (createDirectoryIfMissing, listDirectory, renameDirectory,
-                                          renameFile)
+import           System.Directory        (createDirectoryIfMissing, listDirectory, renameDirectory, renameFile)
 import           System.FilePath.Posix   (takeDirectory, (</>))
 import           UnliftIO                (concurrently, mapConcurrently, mapConcurrently_)
 

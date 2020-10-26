@@ -1,10 +1,8 @@
 module GoPro.Logging where
 
-import           Control.Concurrent.STM (TChan, atomically, newBroadcastTChanIO,
-                                         writeTChan)
+import           Control.Concurrent.STM (TChan, atomically, newBroadcastTChanIO, writeTChan)
 import           Control.Monad          (when)
-import           Control.Monad.Logger   (Loc (..), LogLevel (..), LogSource,
-                                         LogStr, fromLogStr)
+import           Control.Monad.Logger   (Loc (..), LogLevel (..), LogSource, LogStr, fromLogStr)
 import qualified Data.ByteString.Char8  as C8
 import           Data.String            (fromString)
 import qualified Data.Text              as T

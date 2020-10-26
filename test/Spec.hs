@@ -6,8 +6,8 @@ import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck as QC
 
-import GoPro.Plus.Media
-import GoPro.Commands.Backup (extractSources)
+import           GoPro.Commands.Backup (extractSources)
+import           GoPro.Plus.Media
 
 testExtractSources :: Assertion
 testExtractSources = do

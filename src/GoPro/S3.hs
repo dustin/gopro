@@ -5,21 +5,19 @@ import           Control.Lens
 import           Control.Monad                (void)
 import           Control.Monad.Catch          (MonadCatch (..))
 import           Control.Monad.Reader         (asks)
-import           Control.Monad.Trans.AWS      (AWST', Credentials (..),
-                                               Region (..), envRegion, newEnv,
-                                               paginate, runAWST, runResourceT,
-                                               send, sinkBody)
+import           Control.Monad.Trans.AWS      (AWST', Credentials (..), Region (..), envRegion, newEnv, paginate,
+                                               runAWST, runResourceT, send, sinkBody)
 import           Control.Monad.Trans.Resource (ResourceT)
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Conduit                 (runConduit, (.|))
 import qualified Data.Conduit.Binary          as CB
 import qualified Data.Conduit.List            as CL
 import           Data.Conduit.Zlib            (ungzip)
-import           Network.AWS.S3          (BucketName (..))
 import           Data.String                  (fromString)
 import           Data.Text                    (Text, isSuffixOf, pack, unpack)
 import           Network.AWS.Data.Body        (RqBody (..), ToHashedBody (..))
 import qualified Network.AWS.Env              as AWSE
+import           Network.AWS.S3               (BucketName (..))
 import           Network.AWS.S3
 import           System.FilePath.Posix        (takeBaseName, takeDirectory)
 import           UnliftIO                     (MonadUnliftIO (..))

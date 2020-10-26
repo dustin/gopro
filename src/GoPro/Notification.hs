@@ -1,8 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
 module GoPro.Notification where
 
-import           Data.Aeson             (FromJSON (..), ToJSON (..),
-                                         defaultOptions, fieldLabelModifier,
+import           Data.Aeson             (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
                                          genericToEncoding)
 import qualified Data.Aeson             as J
 import           Data.Aeson.Types       (typeMismatch)

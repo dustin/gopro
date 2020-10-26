@@ -6,8 +6,7 @@
 module GoPro.Commands.Web where
 
 import           Control.Applicative            ((<|>))
-import           Control.Concurrent.STM         (atomically, dupTChan,
-                                                 readTChan)
+import           Control.Concurrent.STM         (atomically, dupTChan, readTChan)
 import           Control.Lens
 import           Control.Monad                  (forever)
 import           Control.Monad.IO.Class         (MonadIO (..))
@@ -25,14 +24,12 @@ import           Network.HTTP.Types.Status      (noContent204)
 import qualified Network.Wai.Handler.Warp       as Warp
 import qualified Network.Wai.Handler.WebSockets as WaiWS
 import qualified Network.Wai.Middleware.Gzip    as GZ
-import           Network.Wai.Middleware.Static  (addBase, noDots, staticPolicy,
-                                                 (>->))
+import           Network.Wai.Middleware.Static  (addBase, noDots, staticPolicy, (>->))
 import qualified Network.WebSockets             as WS
 import           System.FilePath.Posix          ((</>))
 import           UnliftIO                       (async)
-import           Web.Scotty.Trans               (ScottyT, file, get, json,
-                                                 middleware, param, post, raw,
-                                                 scottyAppT, setHeader, status)
+import           Web.Scotty.Trans               (ScottyT, file, get, json, middleware, param, post, raw, scottyAppT,
+                                                 setHeader, status)
 
 import           GoPro.AuthDB
 import           GoPro.Commands

@@ -4,8 +4,7 @@ module GoPro.Resolve where
 
 import           Control.Lens           hiding ((.=))
 import           Control.Monad.IO.Class (MonadIO (..))
-import           Data.Aeson             (FromJSON (..), ToJSON (..), Value (..),
-                                         object, (.=))
+import           Data.Aeson             (FromJSON (..), ToJSON (..), Value (..), object, (.=))
 import           Data.Aeson.Lens
 import qualified Data.ByteString        as BS
 import           Data.Map.Strict        (Map)
