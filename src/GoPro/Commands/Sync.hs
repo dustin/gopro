@@ -81,7 +81,7 @@ runGrokTel = mapM_ ud =<< metaTODO
       summarize :: MetadataType -> BS.ByteString -> Either String MDSummary
       summarize GPMF bs      = summarizeGPMF <$> parseDEVC bs
       summarize EXIF bs      = summarizeEXIF <$> parseExif (BL.fromStrict bs)
-      summarize NoMetadata _ = Left ("Can't summarize with no metadata")
+      summarize NoMetadata _ = Left "Can't summarize with no metadata"
 
 runGetMeta :: GoPro ()
 runGetMeta = do

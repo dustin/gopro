@@ -30,7 +30,7 @@ runCreateUploads = do
   -- up-enter, but it also prevents one from uploading a file if it's
   -- already included in a multipart upload.
   queued <- listQueuedFiles
-  todo <- filter (`notElem` queued) <$> asks (optArgv . gpOptions)
+  todo <- asks (filter (`notElem` queued) . optArgv . gpOptions)
   db <- goproDB
   c <- asks (optUploadConcurrency . gpOptions)
   mapConcurrentlyLimited_ c (upload db) todo
@@ -58,12 +58,12 @@ runCreateMultipart = do
     c <- asks (optUploadConcurrency . gpOptions)
     mapConcurrentlyLimited_ c (\(fp,n) -> do
               fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
-              up@(Upload{..}) <- createUpload did n (fromInteger fsize)
+              up@Upload{..} <- createUpload did n (fromInteger fsize)
               logInfo $ mconcat ["Creating part ", tshow fp, " as ", mid, " part ", tshow n,
                                  ": did=", did, ", upid=", _uploadID]
               liftIO . withDB db $ storeUpload fp mid up did (fromIntegral n)
           ) $ zip fps [1..]
-    logInfo $ "Multipart upload created.  Use the 'upload' command to complete the upload."
+    logInfo "Multipart upload created.  Use the 'upload' command to complete the upload."
 
 runResumeUpload :: GoPro ()
 runResumeUpload = do
@@ -82,7 +82,7 @@ runResumeUpload = do
     upAll [] = pure ()
 
     upAll xs@(PartialUpload{..}:_) = do
-      logInfo $ mconcat ["Uploading ", tshow _pu_medium_id, " in ", (tshow (sumOf pu_size [xs])),
+      logInfo $ mconcat ["Uploading ", tshow _pu_medium_id, " in ", tshow (sumOf pu_size [xs]),
                          " chunks (", tshow (sum . fmap pu_mb $ xs), " MB)"]
       mapM_ up xs
       logInfo $ "Finished uploading " <> tshow _pu_medium_id

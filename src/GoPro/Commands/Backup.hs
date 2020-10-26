@@ -98,7 +98,7 @@ runBackup = do
   todo <- take 5 <$> listToCopyToS3
   logDbg $ "todo: " <> tshow todo
   c <- asks (optUploadConcurrency . gpOptions)
-  void $ mapConcurrentlyLimited c (\mid -> copyMedia λ mid) todo
+  void $ mapConcurrentlyLimited c (copyMedia λ) todo
 
 runLocalBackup :: GoPro ()
 runLocalBackup = do
@@ -138,9 +138,9 @@ runReceiveS3CopyQueue = do
         markS3CopyComplete results
 
         let mids = msgs ^.. folded . mReceiptHandle . _Just
-            deletes = zipWith (\i -> deleteMessageBatchRequestEntry (tshow i)) [1 :: Int ..] mids
+            deletes = zipWith (deleteMessageBatchRequestEntry . tshow) [1 :: Int ..] mids
         unless (null deletes) $ do
-          logDbg $ "Deleting processed messages from SQS."
+          logDbg "Deleting processed messages from SQS."
           delMessages qrl deletes
 
         go qrl =<< listS3Waiting

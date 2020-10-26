@@ -17,7 +17,6 @@ import           Data.String                  (fromString)
 import           Data.Text                    (Text, isSuffixOf, pack, unpack)
 import           Network.AWS.Data.Body        (RqBody (..), ToHashedBody (..))
 import qualified Network.AWS.Env              as AWSE
-import           Network.AWS.S3               (BucketName (..))
 import           Network.AWS.S3
 import           System.FilePath.Posix        (takeBaseName, takeDirectory)
 import           UnliftIO                     (MonadUnliftIO (..))

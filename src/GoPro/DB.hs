@@ -232,7 +232,7 @@ instance FromField MetadataType where
                   (SQLText "gpmf") -> Ok GPMF
                   (SQLText "exif") -> Ok EXIF
                   (SQLText "")     -> Ok NoMetadata
-                  _                -> returnError ConversionFailed f ("invalid MetadataType")
+                  _                -> returnError ConversionFailed f "invalid MetadataType"
 
 instance ToField MetadataType where
   toField GPMF       = SQLText "gpmf"
@@ -402,7 +402,7 @@ listPartialUploads = liftIO . sel =<< goproDB
     sel db = do
       segs <- Map.fromListWith (<>) . fmap (\(mid, p, pn) -> ((mid, pn), [p])) <$>
               query_ db "select media_id, part, partnum from upload_parts"
-      sortOn (maximum . fmap length . fmap _pu_parts) .
+      sortOn (maximum . fmap (length . _pu_parts)) .
         groupOn _pu_medium_id .
         map (\p@PartialUpload{..} -> p{_pu_parts=Map.findWithDefault [] (_pu_medium_id, _pu_partnum) segs})
         <$> query_ db "select filename, media_id, upid, did, partnum from uploads order by media_id"
