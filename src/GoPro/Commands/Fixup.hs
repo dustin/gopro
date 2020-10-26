@@ -23,7 +23,7 @@ runFixup = do
   args <- asks (optArgv . gpOptions)
   when (length args /= 1) $ fail "I need a query to run"
   let [query] = fromString <$> args
-  logDbg $ "Query: " <> tshow query
+  logDbgL ["Query: ", tshow query]
   liftIO $ withStatement db query (runIO env . needful)
 
     where
@@ -43,7 +43,7 @@ runFixup = do
               mid <- case lookup "media_id" stuff of
                        (Just (SQLText m)) -> pure m
                        _                  -> fail "no media_id found in result set"
-              logInfo $ "Fixing " <> tshow mid
+              logInfoL ["Fixing ", tshow mid]
               updateMedium (\j -> foldr up j (filter (\(k,_) -> k /= "media_id") stuff)) mid
             up :: (T.Text, SQLData) -> J.Value -> J.Value
             up (name, SQLInteger i) = _Object . at name ?~ J.Number (fromIntegral i)

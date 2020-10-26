@@ -50,7 +50,7 @@ getMetaBlob :: MediumID -> GoPro BL.ByteString
 getMetaBlob mid = do
   b <- s3Bucket
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
-  logDbg $ "Requesting metablob from S3: " <> tshow key
+  logDbgL ["Requesting metablob from S3: ", tshow key]
   inAWS Oregon $ do
     rs <- send (getObject b key)
     (rs ^. gorsBody) `sinkBody` (ungzip .| CB.sinkLbs)
@@ -59,7 +59,7 @@ storeMetaBlob :: MediumID -> BL.ByteString -> GoPro ()
 storeMetaBlob mid blob = do
   b <- s3Bucket
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
-  logInfo $ "Storing metadata blob at " <> tshow key
+  logInfoL ["Storing metadata blob at ", tshow key]
   inAWS Oregon $ void . send $ putObject b key (Hashed . toHashed . compress $ blob)
 
 listMetaBlobs :: GoPro [MediumID]

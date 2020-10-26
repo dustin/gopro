@@ -43,7 +43,7 @@ copyMedia λ mid = do
   where
     copy (k, h, u) = do
       b <- s3Bucket
-      logInfo $ "Queueing copy of " <> mid <> " to " <> tshow k
+      logInfoL ["Queueing copy of ", mid, " to ", tshow k]
       inAWS Oregon . void . send $ invoke λ (encodeCopyRequest (pack h) (pack u) b k) & iInvocationType ?~ Event
 
     encodeCopyRequest hd src (BucketName bname) k = BL.toStrict . J.encode $ jbod
@@ -69,7 +69,7 @@ downloadLocally path mid = do
       let tmpfile = dest <> ".tmp"
           dir = takeDirectory dest
       liftIO $ createDirectoryIfMissing True dir
-      logInfo $ "Fetching " <> tshow mid <> " " <> k <> " attempt " <> tshow (rsIterNumber r)
+      logInfoL ["Fetching ", tshow mid, " ", k, " attempt ", tshow (rsIterNumber r)]
       req <- parseRequest u
       liftIO $ runConduitRes (httpSource req getResponseBody .| sinkFile tmpfile) >>
         renameFile tmpfile dest
@@ -96,7 +96,7 @@ runBackup :: GoPro ()
 runBackup = do
   λ <- asks (configItem "s3copyfunc")
   todo <- take 5 <$> listToCopyToS3
-  logDbg $ "todo: " <> tshow todo
+  logDbgL ["todo: ", tshow todo]
   c <- asks (optUploadConcurrency . gpOptions)
   void $ mapConcurrentlyLimited c (copyMedia λ) todo
 
@@ -106,16 +106,16 @@ runLocalBackup = do
   have <- Set.fromList . fmap pack <$> liftIO (listDirectory path)
   want <- Set.fromList <$> listToCopyLocally
   let todo = Set.toList (want `Set.difference` have)
-  logDbg $ "todo: " <> tshow todo
+  logDbgL ["todo: ", tshow todo]
   c <- asks (optDownloadConcurrency . gpOptions)
   void $ mapConcurrentlyLimited c (downloadLocally path) todo
 
 runStoreMeta :: GoPro ()
 runStoreMeta = do
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
-  logDbg $ "local: " <> (pack.show.fmap fst) local
+  logDbgL ["local: ", (pack.show.fmap fst) local]
   let todo = filter ((`Set.notMember` have) . fst) local
-  unless (null todo) .logInfo $ "storemeta todo: " <> (pack.show.fmap fst) todo
+  unless (null todo) $ logInfoL ["storemeta todo: ", (pack.show.fmap fst) todo]
 
   c <- asks (optUploadConcurrency . gpOptions)
   _ <- mapConcurrentlyLimited c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict blob)) todo
@@ -129,12 +129,12 @@ runReceiveS3CopyQueue = do
     where
       go _ [] = logInfo "Not waiting for any results"
       go qrl w = do
-        logInfo $ "Waiting for " <> tshow (length w) <> " files to finish copying"
+        logInfoL ["Waiting for ", tshow (length w), " files to finish copying"]
         msgs <- toListOf (folded . rmrsMessages . folded) <$> getmsgs qrl (length w)
 
-        logInfo $ "Processing " <> tshow (length msgs) <> " responses"
+        logInfoL ["Processing ", tshow (length msgs), " responses"]
         let results = computeResults <$> msgs
-        mapM_ (\(fn, ok, _) -> logDbg $ "Finished " <> fn <> " with status: " <> tshow ok) results
+        mapM_ (\(fn, ok, _) -> logDbgL ["Finished ", fn, " with status: ", tshow ok]) results
         markS3CopyComplete results
 
         let mids = msgs ^.. folded . mReceiptHandle . _Just

@@ -86,7 +86,7 @@ runServer = do
 
       post "/api/refresh/:id" do
         imgid <- param "id"
-        lift . logInfo $ "Refreshing " <> imgid
+        lift . logInfoL $ ["Refreshing ", imgid]
         lift (refreshMedia [imgid])
         status noContent204
 

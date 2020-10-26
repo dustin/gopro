@@ -19,6 +19,7 @@ import           Control.Monad.Logger    (Loc (..), LogLevel (..), LogSource, Lo
                                           logDebugN, logErrorN, logInfoN, monadLoggerLog)
 import           Control.Monad.Reader    (MonadReader, ReaderT (..), asks)
 import           Data.Cache              (Cache (..), fetchWithCache)
+import           Data.Foldable           (fold)
 import           Data.Map.Strict         (Map)
 import qualified Data.Map.Strict         as Map
 import qualified Data.Text               as T
@@ -95,11 +96,20 @@ mapConcurrentlyLimited_ n f l = liftIO (newQSem n) >>= \q -> mapConcurrently_ (b
 logError :: MonadLogger m => T.Text -> m ()
 logError = logErrorN
 
+logErrorL :: (Foldable f, MonadLogger m) => f T.Text-> m ()
+logErrorL = logErrorN . fold
+
 logInfo :: MonadLogger m => T.Text -> m ()
 logInfo = logInfoN
 
+logInfoL :: (Foldable f, MonadLogger m) => f T.Text-> m ()
+logInfoL = logInfoN . fold
+
 logDbg :: MonadLogger m => T.Text -> m ()
 logDbg = logDebugN
+
+logDbgL :: (Foldable f, MonadLogger m) => f T.Text-> m ()
+logDbgL = logInfoN . fold
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show

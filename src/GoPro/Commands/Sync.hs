@@ -44,8 +44,8 @@ runFetch :: SyncType -> GoPro ()
 runFetch stype = do
   seen <- Set.fromList <$> loadMediaIDs
   ms <- todo seen
-  logInfo $ tshow (length ms) <> " new items"
-  unless (null ms) $ logDbg $ "new items: " <> tshow (ms ^.. folded . medium_id)
+  logInfoL [tshow (length ms), " new items"]
+  unless (null ms) $ logDbgL ["new items: ", tshow (ms ^.. folded . medium_id)]
   mapM_ storeSome $ chunksOf 100 ms
 
     where resolve m = MediaRow m <$> fetchThumbnail m <*> (J.encode <$> fetchVariantsSansURLs (_medium_id m))
@@ -57,7 +57,7 @@ runFetch stype = do
               wanted Medium{..} = isJust _medium_file_size && _medium_ready_to_view == ViewReady
 
           storeSome l = do
-            logInfo $ "Storing batch of " <> tshow (length l)
+            logInfoL ["Storing batch of ", tshow (length l)]
             c <- asks (optDownloadConcurrency . gpOptions)
             storeMedia =<< fetch c l
           fetch c = mapConcurrentlyLimited c resolve
@@ -65,7 +65,7 @@ runFetch stype = do
 runGetMoments :: GoPro ()
 runGetMoments = do
   need <- momentsTODO
-  unless (null need) $ logInfo ("Need to fetch " <> (tshow . length) need <> " moments")
+  unless (null need) $ logInfoL ["Need to fetch ", (tshow . length) need, " moments"]
   c <- asks (optDownloadConcurrency . gpOptions)
   mapM_ (uncurry storeMoments) =<< mapConcurrentlyLimited c pickup need
     where pickup mid = (mid,) <$> moments mid
@@ -74,9 +74,9 @@ runGrokTel :: GoPro ()
 runGrokTel = mapM_ ud =<< metaTODO
     where
       ud (mid, typ, bs) = do
-        logInfo $ "Updating " <> tshow (mid, typ)
+        logInfoL ["Updating ", tshow (mid, typ)]
         case summarize typ bs of
-          Left x  -> logError $ "Error parsing stuff for " <> tshow mid <> " show " <> tshow x
+          Left x  -> logErrorL ["Error parsing stuff for ", tshow mid, " show ", tshow x]
           Right x -> insertMeta mid x
       summarize :: MetadataType -> BS.ByteString -> Either String MDSummary
       summarize GPMF bs      = summarizeGPMF <$> parseDEVC bs
@@ -86,8 +86,8 @@ runGrokTel = mapM_ ud =<< metaTODO
 runGetMeta :: GoPro ()
 runGetMeta = do
   needs <- metaBlobTODO
-  logInfo $ "Fetching meta " <> tshow (length needs)
-  logDbg $ "Need meta: " <> tshow needs
+  logInfoL ["Fetching meta ", tshow (length needs)]
+  logDbgL ["Need meta: ", tshow needs]
   mapM_ process needs
     where
       process :: (MediumID, String) -> GoPro ()
@@ -99,7 +99,7 @@ runGetMeta = do
           "Photo"          -> processEx fi extractEXIF EXIF ".jpg"
           "TimeLapse"      -> processEx fi extractEXIF EXIF ".jpg"
           "Burst"          -> processEx fi extractEXIF EXIF ".jpg"
-          x                -> logError $ "Unhandled type: " <> tshow x
+          x                -> logErrorL ["Unhandled type: ", tshow x]
 
           where
             processEx fi ex fmt fx = do
@@ -114,10 +114,10 @@ runGetMeta = do
                 pure Nothing]
               case ms of
                 Nothing -> do
-                  logInfo $ "Found no metadata for " <> tshow mtyp
+                  logInfoL ["Found no metadata for ", tshow mtyp]
                   insertMetaBlob mid NoMetadata Nothing
                 Just s -> do
-                  logInfo $ "MetaData stream for " <> tshow mtyp <> " is " <> tshow (BS.length s) <> " bytes"
+                  logInfoL ["MetaData stream for ", tshow mtyp, " is ", tshow (BS.length s), " bytes"]
                   insertMetaBlob mid fmt (Just s)
                   -- Clean up in the success case.
                   mapM_ ((\f -> asum [liftIO (removeFile f), pure ()]) . fn) ["low", "high", "src"]
@@ -139,7 +139,7 @@ runGetMeta = do
       download :: MediumID -> String -> String -> FilePath -> GoPro FilePath
       download mid var u dest = recoverAll policy $ \r -> do
         liftIO $ createDirectoryIfMissing True ".cache"
-        logInfo $ "Fetching " <> tshow mid <> " variant " <> tshow var <> " attempt " <> tshow (rsIterNumber r)
+        logInfoL ["Fetching ", tshow mid, " variant ", tshow var, " attempt ", tshow (rsIterNumber r)]
         req <- parseRequest u
         let tmpfile = dest <> ".tmp"
         liftIO $ runConduitRes (httpSource req getResponseBody .| sinkFile tmpfile) >>
@@ -153,14 +153,14 @@ runGetMeta = do
       extractEXIF mid f = do
         bs <- liftIO $ BL.readFile f
         case minimalEXIF bs of
-          Left s  -> logError ("Can't find EXIF for " <> tshow mid <> tshow s) >> empty
+          Left s  -> logErrorL ["Can't find EXIF for ", tshow mid, tshow s] >> empty
           Right e -> pure (BL.toStrict e)
 
       extractGPMD :: MediumID -> FilePath -> GoPro BS.ByteString
       extractGPMD mid f = do
         ms <- liftIO $ findGPMDStream f
         case ms of
-          Nothing -> logError ("Can't find GPMD stream for " <> tshow mid) >> empty
+          Nothing -> logErrorL ["Can't find GPMD stream for ", tshow mid] >> empty
           Just s  -> liftIO $ extractGPMDStream f s
 
 runWaitForUploads :: GoPro ()
@@ -170,8 +170,8 @@ runWaitForUploads = whileM_ inProgress (sleep 15)
       ms <- toListOf (folded . filtered ((`elem` [ViewUploading, ViewTranscoding]) . view medium_ready_to_view)) . fst <$> list 10 1
       let ups = filter (when ViewUploading) ms
           ts = filter (when ViewTranscoding) ms
-      unless (null ups) $ logInfo $ "Still uploading: " <> tshow (ids ups)
-      unless (null ts) $ logInfo $ "Still transcoding: " <> tshow (ids ts)
+      unless (null ups) $ logInfoL ["Still uploading: ", tshow (ids ups)]
+      unless (null ts) $ logInfoL ["Still transcoding: ", tshow (ids ts)]
       pure $ (not.null) (ups <> ts)
 
     ids = toListOf (folded . medium_id)
@@ -183,14 +183,14 @@ refreshMedia :: [MediumID] -> GoPro ()
 refreshMedia = mapM_ refreshSome . chunksOf 100
   where
     one mid = do
-      logDbg $ "Refreshing " <> mid
+      logDbgL ["Refreshing ", mid]
       MediaRow <$> medium mid <*> pure mempty <*> (J.encode <$> fetchVariantsSansURLs mid)
 
     refreshSome mids = do
       c <- asks (optDownloadConcurrency . gpOptions)
-      logInfo $ "Processing batch of " <> tshow (length mids)
+      logInfoL ["Processing batch of ", tshow (length mids)]
       n <- mapConcurrentlyLimited c one mids
-      logDbg $ "Storing " <> tshow (length n)
+      logDbgL ["Storing ", tshow (length n)]
       storeMedia n
 
 runRefresh :: GoPro ()
