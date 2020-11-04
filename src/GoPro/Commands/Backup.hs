@@ -24,7 +24,7 @@ import           Network.AWS.SQS         (deleteMessageBatch, deleteMessageBatch
                                           rmWaitTimeSeconds, rmrsMessages)
 import           Network.HTTP.Simple     (getResponseBody, httpSource, parseRequest)
 import           System.Directory        (createDirectoryIfMissing, listDirectory, renameDirectory, renameFile)
-import           System.FilePath.Posix   (takeDirectory, (</>))
+import           System.FilePath.Posix   (takeDirectory, takeExtension, (</>))
 import           UnliftIO                (concurrently, mapConcurrently, mapConcurrently_)
 
 import           GoPro.Commands
@@ -81,8 +81,12 @@ downloadLocally path mid = do
 
 extractSources :: MediumID -> FileInfo -> [(Text, String, String)]
 extractSources mid fi = foldMap (fmap (\(a,b,c) -> (fromString a, fromString b, c)))
-                        [ ex "var" variations, ex "sidecar" sidecar_files ]
+                        [ ex "var" variations,
+                          ex "sidecar" sidecar_files,
+                          otherfiles
+                        ]
   where
+
     ex p l = fi ^.. fileStuff . l . folded . to conv . folded
       where
         conv v = maybeToList $ do
@@ -91,6 +95,15 @@ extractSources mid fi = foldMap (fmap (\(a,b,c) -> (fromString a, fromString b, 
           let h = v ^. media_head
               u = v ^. media_url
           pure (mconcat ["derivatives/", unpack mid, "/", unpack mid, "-", p, "-", lbl, ".", typ], h, u)
+
+    otherfiles = fi ^.. fileStuff . files . folded . to conv
+      where
+        typ = fi ^. filename . to (tail.takeExtension)
+        conv v = let i = v ^. file_item_number
+                     lbl = show i <> "." <> typ
+                     h = v ^. media_head
+                     u = v ^. media_url
+                 in (mconcat ["derivatives/", unpack mid, "/", unpack mid, "-files-", lbl], h, u)
 
 runBackup :: GoPro ()
 runBackup = do
