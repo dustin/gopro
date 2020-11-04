@@ -6,8 +6,8 @@
 {-# LANGUAGE TemplateHaskell   #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadThumbnail,
-                 MediaRow(..), row_media, row_thumbnail, row_variants,
+module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadMediaRows, loadThumbnail,
+                 MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_variants,
                  storeMoments, loadMoments, momentsTODO,
                  metaBlobTODO, insertMetaBlob, selectMetaBlob, clearMetaBlob,
                  metaTODO, insertMeta, selectMeta,
@@ -47,7 +47,7 @@ import           Generics.Deriving.Base           (Generic)
 import           Text.RawString.QQ                (r)
 
 import           GoPro.Plus.Media                 (Medium (..), MediumID, MediumType (..), Moment (..),
-                                                   ReadyToViewType (..))
+                                                   ReadyToViewType (..), FileInfo(..))
 import           GoPro.Plus.Upload                (DerivativeID, Upload (..), UploadID, UploadPart (..))
 import           GoPro.Resolve                    (MDSummary (..))
 
@@ -122,8 +122,7 @@ data MediaRow = MediaRow
     { _row_media     :: Medium
     , _row_thumbnail :: BL.ByteString
     , _row_variants  :: BL.ByteString
-    }
-
+    } deriving (Show)
 makeLenses ''MediaRow
 
 jsonToField :: ToJSON a => a -> SQLData
@@ -166,9 +165,21 @@ instance ToRow MediaRow where
     toField vars
     ]
 
+row_fileInfo :: Lens' MediaRow (Maybe FileInfo)
+row_fileInfo = lens (\(MediaRow _ _ v) -> J.decode v) (\(MediaRow m t _) x -> MediaRow m t (J.encode x))
+
 storeMedia :: (HasGoProDB m, MonadIO m) => [MediaRow] -> m ()
 storeMedia media = liftIO . up =<< goproDB
   where up db = executeMany db upsertMediaStatement media
+
+instance FromRow MediaRow where
+  fromRow = MediaRow <$> fromRow <*> field <*> field
+
+loadMediaRows :: (HasGoProDB m, MonadIO m) => m [MediaRow]
+loadMediaRows = coerce <$> (liftIO . sel =<< goproDB)
+  where
+    sel :: Connection -> IO [MediaRow]
+    sel db = query_ db "select media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view, source_duration, media_type, width, height, thumbnail, variants from media"
 
 loadMediaIDs :: (HasGoProDB m, MonadIO m) => m [MediumID]
 loadMediaIDs = coerce <$> (liftIO . sel =<< goproDB)

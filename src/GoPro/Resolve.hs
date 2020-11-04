@@ -83,5 +83,11 @@ summarizeEXIF ex = MDSummary {
   _mainScene = Nothing
   }
 
+removeURLs :: Maybe Value -> Maybe Value
+removeURLs v = foldr ($) v mods
+  where
+    mods = [clear "url" "", clear "head" "", clear "urls" (Array mempty), clear "heads" (Array mempty)]
+    clear s n = _Just . deep values . _Object . at s ?~ n
+
 fetchVariantsSansURLs :: (HasGoProAuth m, MonadIO m) => MediumID -> m (Maybe Value)
-fetchVariantsSansURLs = fmap (_Just . deep  values . _Object %~ sans "url" . sans "head" . sans "heads" . sans "urls") . retrieve
+fetchVariantsSansURLs = fmap removeURLs . retrieve
