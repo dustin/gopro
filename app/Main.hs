@@ -9,17 +9,13 @@ module Main where
 import           Control.Monad          (unless)
 import           Control.Monad.Catch    (bracket_)
 import           Control.Monad.IO.Class (MonadIO (..))
-import           Control.Monad.Logger   (LogLevel (..))
 import           Control.Monad.Reader   (asks)
-import           Data.Cache             (newCache)
 import           Data.List              (intercalate)
 import           Data.Maybe             (fromMaybe)
 import qualified Data.Text              as T
-import           Database.SQLite.Simple (withConnection)
 import           Options.Applicative    (Parser, argument, auto, execParser, fullDesc, help, helper, info, long,
                                          metavar, option, progDesc, short, showDefault, some, str, strOption, switch,
                                          value, (<**>))
-import           System.Clock           (TimeSpec (..))
 import           System.IO              (hFlush, hGetEcho, hSetEcho, stdin, stdout)
 
 import           GoPro.AuthDB
@@ -30,8 +26,6 @@ import           GoPro.Commands.Fixup
 import           GoPro.Commands.Sync
 import           GoPro.Commands.Upload
 import           GoPro.Commands.Web
-import           GoPro.DB
-import           GoPro.Logging
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
 
@@ -103,20 +97,8 @@ run c = fromMaybe (liftIO unknown) $ lookup c cmds
 main :: IO ()
 main = do
   o@Options{..} <- execParser opts
-  withConnection optDBPath (runConn o)
+  runWithOptions o (run (head optArgv))
 
   where
     opts = info (options <**> helper)
            ( fullDesc <> progDesc "GoPro cloud utility.")
-
-    runConn o@Options{..} db = do
-      initTables db
-      cfg <- loadConfig db
-      cache <- newCache (Just (TimeSpec 60 0))
-      tc <- mkLogChannel
-      let o' = o{optArgv = tail optArgv}
-          notlog = notificationLogger tc
-      liftIO $ runIO (Env o' db cfg cache tc [baseLogger minLvl, notlog]) (run (head optArgv))
-
-        where
-          minLvl = if optVerbose then LevelDebug else LevelInfo

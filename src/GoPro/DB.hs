@@ -46,8 +46,8 @@ import           Database.SQLite.Simple.ToField
 import           Generics.Deriving.Base           (Generic)
 import           Text.RawString.QQ                (r)
 
-import           GoPro.Plus.Media                 (Medium (..), MediumID, MediumType (..), Moment (..),
-                                                   ReadyToViewType (..), FileInfo(..))
+import           GoPro.Plus.Media                 (FileInfo (..), Medium (..), MediumID, MediumType (..), Moment (..),
+                                                   ReadyToViewType (..))
 import           GoPro.Plus.Upload                (DerivativeID, Upload (..), UploadID, UploadPart (..))
 import           GoPro.Resolve                    (MDSummary (..))
 

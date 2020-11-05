@@ -18,16 +18,18 @@ import           Control.Monad.IO.Class  (MonadIO (..))
 import           Control.Monad.Logger    (Loc (..), LogLevel (..), LogSource, LogStr, MonadLogger (..), ToLogStr (..),
                                           logDebugN, logErrorN, logInfoN, monadLoggerLog)
 import           Control.Monad.Reader    (MonadReader, ReaderT (..), asks)
-import           Data.Cache              (Cache (..), fetchWithCache)
+import           Data.Cache              (Cache (..), fetchWithCache, newCache)
 import           Data.Foldable           (fold)
 import           Data.Map.Strict         (Map)
 import qualified Data.Map.Strict         as Map
 import qualified Data.Text               as T
-import           Database.SQLite.Simple  (Connection)
+import           Database.SQLite.Simple  (Connection, withConnection)
+import           System.Clock            (TimeSpec (..))
 import           UnliftIO                (MonadUnliftIO (..), mapConcurrently, mapConcurrently_)
 
 import           GoPro.AuthDB
-import           GoPro.DB                (HasGoProDB (..))
+import           GoPro.DB                (HasGoProDB (..), initTables, loadConfig)
+import           GoPro.Logging
 import           GoPro.Notification
 import           GoPro.Plus.Auth
 
@@ -119,3 +121,14 @@ runIO e m = runReaderT (runGoPro m) e
 
 sendNotification :: Notification -> GoPro ()
 sendNotification note = asks noteChan >>= \ch -> liftIO . atomically . writeTChan ch $ note
+
+runWithOptions :: Options -> GoPro a -> IO a
+runWithOptions o@Options{..} a = withConnection optDBPath $ \db -> do
+  initTables db
+  cfg <- loadConfig db
+  cache <- newCache (Just (TimeSpec 60 0))
+  tc <- mkLogChannel
+  let o' = o{optArgv = tail optArgv}
+      notlog = notificationLogger tc
+      minLvl = if optVerbose then LevelDebug else LevelInfo
+  liftIO $ runIO (Env o' db cfg cache tc [baseLogger minLvl, notlog]) a
