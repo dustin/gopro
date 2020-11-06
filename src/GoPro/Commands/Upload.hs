@@ -92,6 +92,7 @@ runResumeUpload = do
       let part = fromIntegral _pu_partnum
       fsize <- fromIntegral . fileSize <$> (liftIO . getFileStatus) _pu_filename
       resumeUpload [_pu_filename] _pu_medium_id $ do
+        setLogAction (logError . T.pack)
         Upload{..} <- getUpload _pu_upid _pu_did part fsize
         let chunks = filter (\UploadPart{..} -> _uploadPart `elem` _pu_parts) _uploadParts
         logInfoL ["Uploading ", tshow _pu_filename, " (", tshow fsize, " bytes) as ",
