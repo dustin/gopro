@@ -69,6 +69,7 @@ downloadLocally path mid = do
     mapConcurrentlyLimited_ 5 copynew todo
     -- This is mildly confusing since the path inherently has the mid in the path.
     liftIO $ renameDirectory (tmpdir </> unpack mid) midPath
+    logInfoL ["Completed backup of ", tshow mid]
 
   where
     midPath = path </> unpack mid
