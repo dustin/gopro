@@ -23,7 +23,8 @@ import           Network.AWS.SQS         (deleteMessageBatch, deleteMessageBatch
                                           mReceiptHandle, receiveMessage, rmMaxNumberOfMessages, rmVisibilityTimeout,
                                           rmWaitTimeSeconds, rmrsMessages)
 import           Network.HTTP.Simple     (getResponseBody, httpSource, parseRequest)
-import           System.Directory        (createDirectoryIfMissing, listDirectory, renameDirectory, renameFile)
+import           System.Directory        (createDirectoryIfMissing, doesFileExist, listDirectory, renameDirectory,
+                                          renameFile)
 import           System.FilePath.Posix   (takeDirectory, takeExtension, (</>))
 import           UnliftIO                (concurrently, mapConcurrently, mapConcurrently_)
 
@@ -58,7 +59,7 @@ copyMedia λ mid = do
 downloadLocally :: FilePath -> MediumID -> GoPro ()
 downloadLocally path mid = do
     todo <- extractSources mid <$> retrieve mid
-    mapConcurrentlyLimited_ 5 copy todo
+    mapConcurrentlyLimited_ 5 copynew todo
     -- This is mildly confusing since the path inherently has the mid in the path.
     liftIO $ renameDirectory (tmpdir </> unpack mid) midPath
 
@@ -66,9 +67,12 @@ downloadLocally path mid = do
     midPath = path </> unpack mid
     tmpdir = path </> "tmp"
 
-    copy (k, _, u) = recoverAll policy $ \r -> do
-      let tmpfile = dest <> ".tmp"
-          dir = takeDirectory dest
+    copynew argh@(k, _, _) = liftIO (doesFileExist dest) >>= \exists ->
+      if exists then pure dest else copy argh dest
+        where
+          dest = tmpdir </> (unpack . fromJust . stripPrefix "derivatives/") k
+
+    copy (k, _, u) dest = recoverAll policy $ \r -> do
       liftIO $ createDirectoryIfMissing True dir
       logInfoL ["Fetching ", tshow mid, " ", k, " attempt ", tshow (rsIterNumber r)]
       req <- parseRequest u
@@ -77,7 +81,8 @@ downloadLocally path mid = do
       pure dest
 
         where
-          dest = tmpdir </> (unpack . fromJust . stripPrefix "derivatives/") k
+          tmpfile = dest <> ".tmp"
+          dir = takeDirectory dest
           policy = exponentialBackoff 2000000 <> limitRetries 9
 
 extractSources :: MediumID -> FileInfo -> [(Text, String, String)]
