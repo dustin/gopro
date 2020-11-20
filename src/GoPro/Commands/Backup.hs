@@ -104,7 +104,7 @@ extractSources mid fi = foldMap (fmap (\(a,b,c) -> (fromString a, fromString b, 
 
     otherfiles = fi ^.. fileStuff . files . folded . to conv
       where
-        typ = fi ^. filename . to (tail.takeExtension)
+        typ = fi ^. filename . to (drop 1 . takeExtension)
         conv v = let i = v ^. file_item_number
                      lbl = show i <> "." <> typ
                      h = v ^. media_head
