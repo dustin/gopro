@@ -454,7 +454,5 @@ listToCopyLocally :: (HasGoProDB m, MonadIO m) => m [MediumID]
 listToCopyLocally = coerce <$> (liftIO . sel =<< goproDB)
   where
     sel :: Connection -> IO [Only MediumID]
-    sel db = query_ db [r|
-                         select media_id from media order by created_at
-                         |]
+    sel db = query_ db "select media_id from media order by created_at"
 
