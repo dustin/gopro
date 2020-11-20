@@ -58,14 +58,15 @@ copyMedia λ mid = do
 downloadLocally :: FilePath -> MediumID -> GoPro ()
 downloadLocally path mid = do
     todo <- extractSources mid <$> retrieve mid
-    let tmpdir = path </> "tmp"
-    mapConcurrentlyLimited_ 5 (copy tmpdir) todo
-    liftIO $ renameDirectory tmpdir midPath
+    mapConcurrentlyLimited_ 5 copy todo
+    -- This is mildly confusing since the path inherently has the mid in the path.
+    liftIO $ renameDirectory (tmpdir </> unpack mid) midPath
 
   where
     midPath = path </> unpack mid
+    tmpdir = path </> "tmp"
 
-    copy tmpdir (k, _, u) = recoverAll policy $ \r -> do
+    copy (k, _, u) = recoverAll policy $ \r -> do
       let tmpfile = dest <> ".tmp"
           dir = takeDirectory dest
       liftIO $ createDirectoryIfMissing True dir
