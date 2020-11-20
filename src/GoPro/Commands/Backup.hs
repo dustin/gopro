@@ -68,7 +68,9 @@ downloadLocally path mid = do
     tmpdir = path </> "tmp"
 
     copynew argh@(k, _, _) = liftIO (doesFileExist dest) >>= \exists ->
-      if exists then pure dest else copy argh dest
+      if exists then (logDbgL ["Using existing file: ", tshow dest] >> pure dest)
+      else copy argh dest
+
         where
           dest = tmpdir </> (unpack . fromJust . stripPrefix "derivatives/") k
 
