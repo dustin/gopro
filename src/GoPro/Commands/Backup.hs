@@ -51,7 +51,7 @@ copyMedia λ mid = do
   where
     copy (k, h, u) = do
       b <- s3Bucket
-      logInfoL ["Queueing copy of ", mid, " to ", tshow k]
+      logDbgL ["Queueing copy of ", mid, " to ", tshow k]
       inAWS Oregon . void . send $ invoke λ (encodeCopyRequest (pack h) (pack u) b k) & iInvocationType ?~ Event
 
     encodeCopyRequest hd src (BucketName bname) k = BL.toStrict . J.encode $ jbod
@@ -65,11 +65,12 @@ copyMedia λ mid = do
 
 downloadLocally :: FilePath -> MediumID -> GoPro ()
 downloadLocally path mid = do
-    todo <- extractSources mid <$> retryRetrieve mid
-    mapConcurrentlyLimited_ 5 copynew todo
-    -- This is mildly confusing since the path inherently has the mid in the path.
-    liftIO $ renameDirectory (tmpdir </> unpack mid) midPath
-    logInfoL ["Completed backup of ", tshow mid]
+  logInfoL ["Beginning backup of ", tshow mid]
+  todo <- extractSources mid <$> retryRetrieve mid
+  mapConcurrentlyLimited_ 5 copynew todo
+  -- This is mildly confusing since the path inherently has the mid in the path.
+  liftIO $ renameDirectory (tmpdir </> unpack mid) midPath
+  logInfoL ["Completed backup of ", tshow mid]
 
   where
     midPath = path </> unpack mid
@@ -84,7 +85,7 @@ downloadLocally path mid = do
 
     copy (k, _, u) dest = recoverAll policy $ \r -> do
       liftIO $ createDirectoryIfMissing True dir
-      logInfoL ["Fetching ", tshow mid, " ", k, " attempt ", tshow (rsIterNumber r)]
+      logDbgL ["Fetching ", tshow mid, " ", k, " attempt ", tshow (rsIterNumber r)]
       req <- parseRequest u
       liftIO $ runConduitRes (httpSource req getResponseBody .| sinkFile tmpfile) >>
         renameFile tmpfile dest
