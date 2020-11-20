@@ -33,11 +33,18 @@ import           GoPro.DB
 import           GoPro.Plus.Media
 import           GoPro.S3
 
+
+retryRetrieve :: J.FromJSON j => MediumID -> GoPro j
+retryRetrieve mid = recoverAll policy $ \r -> do
+  unless (rsIterNumber r == 0) $ logInfoL ["retrying metadata ", tshow mid, " attempt ", tshow (rsIterNumber r)]
+  retrieve mid
+  where policy = exponentialBackoff 2000000 <> limitRetries 9
+
 type LambdaFunc = Text
 
 copyMedia :: LambdaFunc -> MediumID -> GoPro ()
 copyMedia λ mid = do
-  todo <- extractSources mid <$> retrieve mid
+  todo <- extractSources mid <$> retryRetrieve mid
   mapConcurrentlyLimited_ 5 copy todo
   queuedCopyToS3 (map (\(k,_,_) -> (mid, unpack k)) todo)
 
@@ -58,7 +65,7 @@ copyMedia λ mid = do
 
 downloadLocally :: FilePath -> MediumID -> GoPro ()
 downloadLocally path mid = do
-    todo <- extractSources mid <$> retrieve mid
+    todo <- extractSources mid <$> retryRetrieve mid
     mapConcurrentlyLimited_ 5 copynew todo
     -- This is mildly confusing since the path inherently has the mid in the path.
     liftIO $ renameDirectory (tmpdir </> unpack mid) midPath
