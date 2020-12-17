@@ -147,7 +147,7 @@ runStoreMeta = do
   unless (null todo) $ logInfoL ["storemeta todo: ", (pack.show.fmap fst) todo]
 
   c <- asks (optUploadConcurrency . gpOptions)
-  _ <- mapConcurrentlyLimited c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict blob)) todo
+  _ <- mapConcurrentlyLimited c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
   clearMetaBlob (fst <$> local)
 
 runReceiveS3CopyQueue :: GoPro ()

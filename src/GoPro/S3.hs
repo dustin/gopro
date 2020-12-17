@@ -13,6 +13,7 @@ import           Data.Conduit                 (runConduit, (.|))
 import qualified Data.Conduit.Binary          as CB
 import qualified Data.Conduit.List            as CL
 import           Data.Conduit.Zlib            (ungzip)
+import           Data.Maybe                   (fromMaybe)
 import           Data.String                  (fromString)
 import           Data.Text                    (Text, isSuffixOf, pack, unpack)
 import           Network.AWS.Data.Body        (RqBody (..), ToHashedBody (..))
@@ -55,12 +56,12 @@ getMetaBlob mid = do
     rs <- send (getObject b key)
     (rs ^. gorsBody) `sinkBody` (ungzip .| CB.sinkLbs)
 
-storeMetaBlob :: MediumID -> BL.ByteString -> GoPro ()
+storeMetaBlob :: MediumID -> Maybe BL.ByteString -> GoPro ()
 storeMetaBlob mid blob = do
   b <- s3Bucket
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
   logInfoL ["Storing metadata blob at ", tshow key]
-  inAWS Oregon $ void . send $ putObject b key (Hashed . toHashed . compress $ blob)
+  inAWS Oregon $ void . send $ putObject b key (Hashed . toHashed . compress . fromMaybe "" $ blob)
 
 listMetaBlobs :: GoPro [MediumID]
 listMetaBlobs = s3Bucket >>= \b -> inAWS Oregon $

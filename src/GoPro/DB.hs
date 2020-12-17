@@ -264,9 +264,9 @@ metaTODO = liftIO . sel =<< goproDB
                                and b.media_id not in (select media_id from meta)
                          |]
 
-selectMetaBlob :: (HasGoProDB m, MonadIO m) => m [(MediumID, BS.ByteString)]
+selectMetaBlob :: (HasGoProDB m, MonadIO m) => m [(MediumID, Maybe BS.ByteString)]
 selectMetaBlob = liftIO . sel =<< goproDB
-  where sel db = query_ db "select media_id, meta from metablob where meta is not null"
+  where sel db = query_ db "select media_id, meta from metablob"
 
 clearMetaBlob :: (HasGoProDB m, MonadIO m) => [MediumID] -> m ()
 clearMetaBlob ms = liftIO . up =<< goproDB
