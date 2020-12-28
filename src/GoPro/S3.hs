@@ -27,8 +27,8 @@ import           GoPro.Plus.Media
 
 type Derivative = (MediumID, Text)
 
-inAWS :: (MonadCatch m, MonadUnliftIO m) => Region -> AWST' AWSE.Env (ResourceT m) a -> m a
-inAWS r a = (newEnv Discover <&> set envRegion r) >>= \awsenv -> (runResourceT . runAWST awsenv) a
+inAWS :: (MonadCatch m, MonadUnliftIO m) => AWST' AWSE.Env (ResourceT m) a -> m a
+inAWS a = (newEnv Discover <&> set envRegion Oregon) >>= \e -> (runResourceT . runAWST e) a
 
 s3Bucket :: GoPro BucketName
 s3Bucket = do
@@ -36,7 +36,7 @@ s3Bucket = do
   if b == "" then fail "s3 bucket is not configured" else pure b
 
 allDerivatives :: GoPro [Derivative]
-allDerivatives = s3Bucket >>= \b -> inAWS Oregon $
+allDerivatives = s3Bucket >>= \b -> inAWS $
   runConduit $ paginate (listObjectsV2 b & lovPrefix ?~ "derivatives/")
     .| CL.concatMap (view lovrsContents)
     .| CL.map (view (oKey . _ObjectKey))
@@ -52,7 +52,7 @@ getMetaBlob mid = do
   b <- s3Bucket
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
   logDbgL ["Requesting metablob from S3: ", tshow key]
-  inAWS Oregon $ do
+  inAWS $ do
     rs <- send (getObject b key)
     (rs ^. gorsBody) `sinkBody` (ungzip .| CB.sinkLbs)
 
@@ -61,10 +61,10 @@ storeMetaBlob mid blob = do
   b <- s3Bucket
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
   logInfoL ["Storing metadata blob at ", tshow key]
-  inAWS Oregon $ void . send $ putObject b key (Hashed . toHashed . compress . fromMaybe "" $ blob)
+  inAWS $ void . send $ putObject b key (Hashed . toHashed . compress . fromMaybe "" $ blob)
 
 listMetaBlobs :: GoPro [MediumID]
-listMetaBlobs = s3Bucket >>= \b -> inAWS Oregon $
+listMetaBlobs = s3Bucket >>= \b -> inAWS $
   runConduit $ paginate (listObjectsV2 b & lovPrefix ?~ "metablob/")
     .| CL.concatMap (view lovrsContents)
     .| CL.map (view (oKey . _ObjectKey))

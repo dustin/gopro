@@ -6,7 +6,7 @@ import           Conduit
 import           Control.Lens
 import           Control.Monad           (unless, void)
 import           Control.Monad.Reader    (asks)
-import           Control.Monad.Trans.AWS (Region (..), send)
+import           Control.Monad.Trans.AWS (send)
 import           Control.Retry           (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
 import qualified Data.Aeson              as J
 import           Data.Aeson.Lens
@@ -52,7 +52,7 @@ copyMedia λ mid = do
     copy (k, h, u) = do
       b <- s3Bucket
       logDbgL ["Queueing copy of ", mid, " to ", tshow k]
-      inAWS Oregon . void . send $ invoke λ (encodeCopyRequest (pack h) (pack u) b k) & iInvocationType ?~ Event
+      inAWS . void . send $ invoke λ (encodeCopyRequest (pack h) (pack u) b k) & iInvocationType ?~ Event
 
     encodeCopyRequest hd src (BucketName bname) k = BL.toStrict . J.encode $ jbod
       where
@@ -184,13 +184,13 @@ runReceiveS3CopyQueue = do
           -- want a bunch of workers blocking on the message that may
           -- trickle in, but we want to be able to burst support for
           -- lots of messages.
-          someMessages n = inAWS Oregon . send $ receiveMessage qrl
+          someMessages n = inAWS . send $ receiveMessage qrl
                            & rmMaxNumberOfMessages ?~ 10
                            & rmWaitTimeSeconds ?~ (if n == 0 then 20 else 0)
                            & rmVisibilityTimeout ?~ 60
 
       delMessages qrl = mapConcurrently_ batch . chunksOf 10
-        where batch dels = inAWS Oregon $ void . send $ deleteMessageBatch qrl & dmbEntries .~ dels
+        where batch dels = inAWS $ void . send $ deleteMessageBatch qrl & dmbEntries .~ dels
 
       computeResults m = do
         let Just bodBytes = m ^? mBody . _Just . to (BL.fromStrict . TE.encodeUtf8)
