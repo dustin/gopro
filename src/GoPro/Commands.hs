@@ -95,22 +95,16 @@ mapConcurrentlyLimited_ :: (MonadMask m, MonadUnliftIO m, Traversable f)
 mapConcurrentlyLimited_ n f l = liftIO (newQSem n) >>= \q -> mapConcurrently_ (b q) l
   where b q x = bracket_ (liftIO (waitQSem q)) (liftIO (signalQSem q)) (f x)
 
-logError :: MonadLogger m => T.Text -> m ()
+logError, logInfo, logDbg :: MonadLogger m => T.Text -> m ()
+
 logError = logErrorN
-
-logErrorL :: (Foldable f, MonadLogger m) => f T.Text-> m ()
-logErrorL = logErrorN . fold
-
-logInfo :: MonadLogger m => T.Text -> m ()
 logInfo = logInfoN
-
-logInfoL :: (Foldable f, MonadLogger m) => f T.Text-> m ()
-logInfoL = logInfoN . fold
-
-logDbg :: MonadLogger m => T.Text -> m ()
 logDbg = logDebugN
 
-logDbgL :: (Foldable f, MonadLogger m) => f T.Text-> m ()
+logErrorL, logInfoL, logDbgL :: (Foldable f, MonadLogger m) => f T.Text-> m ()
+
+logErrorL = logErrorN . fold
+logInfoL = logInfoN . fold
 logDbgL = logInfoN . fold
 
 tshow :: Show a => a -> T.Text
