@@ -60,7 +60,7 @@ options = Options
     uploadCmd = UploadCmd <$> many (argument str (metavar "file..."))
     createMultiCmd = CreateMultiCmd <$> argument mediumType (metavar "Mediumtype")
                      <*> some (argument str (metavar "file..."))
-    backupLocalCmd = BackupLocalCmd <$> argument auto (metavar "path")
+    backupLocalCmd = BackupLocalCmd <$> argument str (metavar "path")
     configCmd = ConfigCmd <$> many (argument str (metavar "args..."))
     mediumType = eitherReader $ \s -> case reads s of
                                         [(x,_)] -> pure x
