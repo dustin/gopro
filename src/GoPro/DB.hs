@@ -18,7 +18,7 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadMediaRows, loadThumbna
                  listToCopyToS3, queuedCopyToS3, markS3CopyComplete, listS3Waiting,
                  listToCopyLocally,
                  MetadataType(..),
-                 initTables, loadConfig, updateConfig, withDB) where
+                 initTables, ConfigOption(..), strOption, optionStr, loadConfig, updateConfig, withDB) where
 
 import           Control.Applicative              (liftA2)
 import           Control.Lens
@@ -97,10 +97,31 @@ initTables db = do
   -- binding doesn't work on this for some reason.  It's safe, at least.
   execute_ db $ "pragma user_version = " <> (fromString . show . maximum . fmap fst $ initQueries)
 
-loadConfig :: Connection -> IO (Map Text Text)
+data ConfigOption = CfgBucket | CfgCopySQSQueue | CfgCopyFunc
+  deriving (Eq, Ord, Bounded, Enum)
+
+strOption :: Text -> Maybe ConfigOption
+strOption "bucket"         = Just CfgBucket
+strOption "s3copySQSQueue" = Just CfgCopySQSQueue
+strOption "s3copyfunc"     = Just CfgCopyFunc
+strOption _                = Nothing
+
+optionStr :: ConfigOption -> Text
+optionStr CfgBucket       = "bucket"
+optionStr CfgCopySQSQueue = "s3copySQSQueue"
+optionStr CfgCopyFunc     = "s3copyfunc"
+
+instance FromField ConfigOption where
+  fromField f = case fieldData f of
+                  (SQLText t) -> maybe (returnError ConversionFailed f "invalid value") Ok (strOption t)
+                  _           -> returnError ConversionFailed f "invalid type config option"
+
+instance ToField ConfigOption where toField = SQLText . optionStr
+
+loadConfig :: Connection -> IO (Map ConfigOption Text)
 loadConfig db = Map.fromList <$> query_ db "select key, value from config"
 
-updateConfig :: (HasGoProDB m, MonadIO m) => Map Text Text -> m ()
+updateConfig :: (HasGoProDB m, MonadIO m) => Map ConfigOption Text -> m ()
 updateConfig cfg = liftIO . up =<< goproDB
   where up db = do
           execute_ db "delete from config"

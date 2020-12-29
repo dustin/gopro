@@ -28,7 +28,7 @@ import           System.Clock            (TimeSpec (..))
 import           UnliftIO                (MonadUnliftIO (..), mapConcurrently, mapConcurrently_)
 
 import           GoPro.AuthDB
-import           GoPro.DB                (HasGoProDB (..), initTables, loadConfig)
+import           GoPro.DB                (ConfigOption (..), HasGoProDB (..), initTables, loadConfig)
 import           GoPro.Logging
 import           GoPro.Notification
 import           GoPro.Plus.Auth
@@ -49,7 +49,7 @@ data Command = AuthCmd
              | BackupCmd
              | ProcessSQSCmd
              | BackupLocalCmd FilePath
-             | ConfigCmd [T.Text]
+             | ConfigCmd (Maybe ConfigOption) (Maybe T.Text)
 
 data Options = Options
     { optDBPath              :: String
@@ -63,16 +63,16 @@ data Options = Options
 data Env = Env
     { gpOptions  :: Options
     , dbConn     :: Connection
-    , gpConfig   :: Map T.Text T.Text
+    , gpConfig   :: Map ConfigOption T.Text
     , authCache  :: Cache () AuthInfo
     , noteChan   :: TChan Notification
     , envLoggers :: [Loc -> LogSource -> LogLevel -> LogStr -> IO ()]
     }
 
-configItem :: T.Text -> Env -> T.Text
+configItem :: ConfigOption -> Env -> T.Text
 configItem k = configItemDef k ""
 
-configItemDef :: T.Text -> T.Text -> Env -> T.Text
+configItemDef :: ConfigOption -> T.Text -> Env -> T.Text
 configItemDef k def Env{gpConfig} = Map.findWithDefault def k gpConfig
 
 newtype GoPro a = GoPro

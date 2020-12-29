@@ -6,10 +6,12 @@
 
 module Main where
 
+import           Control.Applicative                  ((<|>))
 import           Control.Monad                        (unless)
 import           Control.Monad.Catch                  (bracket_)
 import           Control.Monad.IO.Class               (MonadIO (..))
 import           Control.Monad.Reader                 (asks)
+import           Data.Foldable                        (fold)
 import           Data.List                            (intercalate, sortOn)
 import qualified Data.Text                            as T
 import           Options.Applicative                  (Parser, action, argument, auto, command, completeWith,
@@ -28,6 +30,7 @@ import           GoPro.Commands.Fixup
 import           GoPro.Commands.Sync
 import           GoPro.Commands.Upload
 import           GoPro.Commands.Web
+import qualified GoPro.DB                             as DB
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
 
@@ -61,16 +64,24 @@ options = Options
     uploadCmd = UploadCmd <$> many (argument str (metavar "file..." <> action "file"))
     createMultiCmd = CreateMultiCmd <$> argument mediumType (metavar "Mediumtype" <> completeWith mtypes)
                      <*> some (argument str (metavar "file..." <> action "file"))
-    backupLocalCmd = BackupLocalCmd <$> argument str (metavar "path" <> action "directory")
-    configCmd = ConfigCmd <$> many (argument str (metavar "args..."))
     mediumType = eitherReader $ \s -> case reads s of
                                         [(x,_)] -> pure x
-                                        _ -> Left ("invalid MediumType: '" <> s
-                                                   <> "', perhaps you meant: '" <> bestMatch s mtypes
-                                                   <> "'\n All valid medium types include: " <>
-                                                    intercalate ", " mtypes)
-    bestMatch n = head . sortOn (editDistance n)
+                                        _       -> Left (inv "MediumType" s mtypes)
     mtypes = [show t | t <- [minBound..] :: [MediumType]]
+
+    backupLocalCmd = BackupLocalCmd <$> argument str (metavar "path" <> action "directory")
+
+    configCmd = ConfigCmd . Just <$> argument cfgOpt (metavar "configopt" <> completeWith opttypes)
+                <*> fmap exactlyOne (many (argument str (metavar "val")))
+                <|> pure (ConfigCmd Nothing Nothing)
+    cfgOpt = eitherReader $ \s -> maybe (Left (inv "config option" s opttypes)) Right (DB.strOption (T.pack s))
+    opttypes = [T.unpack (DB.optionStr t) | t <- [minBound..] :: [DB.ConfigOption]]
+
+    exactlyOne [a] = Just a
+    exactlyOne _   = Nothing
+    bestMatch n = head . sortOn (editDistance n)
+    inv t v vs = fold ["invalid ", t, ": ", show v, ", perhaps you meant: ", bestMatch v vs,
+                        "\nValid values:  ", intercalate ", " vs]
 
 runCleanup :: GoPro ()
 runCleanup = mapM_ rm =<< (filter wanted <$> listAll)
@@ -105,25 +116,25 @@ runReauth = do
   updateAuth db res
 
 run :: Command -> GoPro ()
-run AuthCmd               = runAuth
-run ReauthCmd             = runReauth
-run SyncCmd               = runFullSync
-run (RefreshCmd mids)     = refreshMedia mids
-run (CreateUploadCmd fs)  = runCreateUploads fs
-run (CreateMultiCmd t fs) = runCreateMultipart t fs
-run (UploadCmd fs)        = runCreateUploads fs >> runResumeUpload
-run FetchAllCmd           = runFetch Full
-run CleanupCmd            = runCleanup
-run (FixupCmd q)          = runFixup q
-run ServeCmd              = runServer
-run WaitCmd               = runWaitForUploads
-run BackupCmd             = runBackup >> runReceiveS3CopyQueue
-run ProcessSQSCmd         = runReceiveS3CopyQueue
-run (BackupLocalCmd p)    = runLocalBackup p
-run (ConfigCmd [])        = runListConfig
-run (ConfigCmd [k])       = runGetConfig k
-run (ConfigCmd [k, v])    = runSetConfig k v
-run (ConfigCmd _)         = fail "invalid config command"
+run AuthCmd                       = runAuth
+run ReauthCmd                     = runReauth
+run SyncCmd                       = runFullSync
+run (RefreshCmd mids)             = refreshMedia mids
+run (CreateUploadCmd fs)          = runCreateUploads fs
+run (CreateMultiCmd t fs)         = runCreateMultipart t fs
+run (UploadCmd fs)                = runCreateUploads fs >> runResumeUpload
+run FetchAllCmd                   = runFetch Full
+run CleanupCmd                    = runCleanup
+run (FixupCmd q)                  = runFixup q
+run ServeCmd                      = runServer
+run WaitCmd                       = runWaitForUploads
+run BackupCmd                     = runBackup >> runReceiveS3CopyQueue
+run ProcessSQSCmd                 = runReceiveS3CopyQueue
+run (BackupLocalCmd p)            = runLocalBackup p
+run (ConfigCmd Nothing Nothing)   = runListConfig
+run (ConfigCmd (Just k) Nothing)  = runGetConfig k
+run (ConfigCmd (Just k) (Just v)) = runSetConfig k v
+run (ConfigCmd _ _)               = fail "invalid config command"
 
 main :: IO ()
 main = do

@@ -124,7 +124,7 @@ extractSources mid fi = foldMap (fmap (\(a,b,c) -> (fromString a, fromString b, 
 
 runBackup :: GoPro ()
 runBackup = do
-  λ <- asks (configItem "s3copyfunc")
+  λ <- asks (configItem CfgCopyFunc)
   todo <- take 5 <$> listToCopyToS3
   logDbgL ["todo: ", tshow todo]
   c <- asks (optUploadConcurrency . gpOptions)
@@ -151,7 +151,7 @@ runStoreMeta = do
 
 runReceiveS3CopyQueue :: GoPro ()
 runReceiveS3CopyQueue = do
-  qrl <- asks (configItem "s3copySQSQueue")
+  qrl <- asks (configItem CfgCopySQSQueue)
   go qrl =<< listS3Waiting
 
     where

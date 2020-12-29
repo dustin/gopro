@@ -23,6 +23,7 @@ import           System.FilePath.Posix        (takeBaseName, takeDirectory)
 import           UnliftIO                     (MonadUnliftIO (..))
 
 import           GoPro.Commands
+import           GoPro.DB                     (ConfigOption (..))
 import           GoPro.Plus.Media
 
 type Derivative = (MediumID, Text)
@@ -32,7 +33,7 @@ inAWS a = (newEnv Discover <&> set envRegion Oregon) >>= \e -> (runResourceT . r
 
 s3Bucket :: GoPro BucketName
 s3Bucket = do
-  b <- asks (BucketName . configItem "bucket")
+  b <- asks (BucketName . configItem CfgBucket)
   if b == "" then fail "s3 bucket is not configured" else pure b
 
 allDerivatives :: GoPro [Derivative]
