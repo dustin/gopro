@@ -12,10 +12,11 @@ import           Control.Monad.IO.Class               (MonadIO (..))
 import           Control.Monad.Reader                 (asks)
 import           Data.List                            (intercalate, sortOn)
 import qualified Data.Text                            as T
-import           Options.Applicative                  (Parser, argument, auto, command, eitherReader, execParser,
-                                                       fullDesc, help, helper, info, long, many, metavar, option,
-                                                       progDesc, short, showDefault, some, str, strOption, subparser,
-                                                       switch, value, (<**>))
+import           Options.Applicative                  (Parser, action, argument, auto, command, completeWith,
+                                                       customExecParser, eitherReader, fullDesc, help, helper, info,
+                                                       long, many, metavar, option, prefs, progDesc, short, showDefault,
+                                                       showHelpOnError, some, str, strOption, subparser, switch, value,
+                                                       (<**>))
 import           Options.Applicative.Help.Levenshtein (editDistance)
 import           System.IO                            (hFlush, hGetEcho, hSetEcho, stdin, stdout)
 
@@ -56,11 +57,11 @@ options = Options
                 )
   where
     refreshCmd = RefreshCmd <$> some (argument str (metavar "mIDs..."))
-    createUpCmd = CreateUploadCmd <$> some (argument str (metavar "file..."))
-    uploadCmd = UploadCmd <$> many (argument str (metavar "file..."))
-    createMultiCmd = CreateMultiCmd <$> argument mediumType (metavar "Mediumtype")
-                     <*> some (argument str (metavar "file..."))
-    backupLocalCmd = BackupLocalCmd <$> argument str (metavar "path")
+    createUpCmd = CreateUploadCmd <$> some (argument str (metavar "file..." <> action "file"))
+    uploadCmd = UploadCmd <$> many (argument str (metavar "file..." <> action "file"))
+    createMultiCmd = CreateMultiCmd <$> argument mediumType (metavar "Mediumtype" <> completeWith mtypes)
+                     <*> some (argument str (metavar "file..." <> action "file"))
+    backupLocalCmd = BackupLocalCmd <$> argument str (metavar "path" <> action "directory")
     configCmd = ConfigCmd <$> many (argument str (metavar "args..."))
     mediumType = eitherReader $ \s -> case reads s of
                                         [(x,_)] -> pure x
@@ -90,10 +91,10 @@ runAuth = do
 
   where
     prompt x = putStr x >> hFlush stdout
-    withEcho echo action = do
+    withEcho echo a = do
       prompt "Enter password: "
       old <- hGetEcho stdin
-      bracket_ (hSetEcho stdin echo) (hSetEcho stdin old) action
+      bracket_ (hSetEcho stdin echo) (hSetEcho stdin old) a
 
     getPass = liftIO $ withEcho False getLine
 
@@ -123,7 +124,7 @@ run (ConfigCmd a)         = runConfig a
 
 main :: IO ()
 main = do
-  o@Options{..} <- execParser opts
+  o@Options{..} <- customExecParser (prefs showHelpOnError) opts
   runWithOptions o (run optCommand)
 
   where
