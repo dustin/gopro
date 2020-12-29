@@ -120,7 +120,10 @@ run WaitCmd               = runWaitForUploads
 run BackupCmd             = runBackup >> runReceiveS3CopyQueue
 run ProcessSQSCmd         = runReceiveS3CopyQueue
 run (BackupLocalCmd p)    = runLocalBackup p
-run (ConfigCmd a)         = runConfig a
+run (ConfigCmd [])        = runListConfig
+run (ConfigCmd [k])       = runGetConfig k
+run (ConfigCmd [k, v])    = runSetConfig k v
+run (ConfigCmd _)         = fail "invalid config command"
 
 main :: IO ()
 main = do

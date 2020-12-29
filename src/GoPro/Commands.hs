@@ -49,7 +49,7 @@ data Command = AuthCmd
              | BackupCmd
              | ProcessSQSCmd
              | BackupLocalCmd FilePath
-             | ConfigCmd [String]
+             | ConfigCmd [T.Text]
 
 data Options = Options
     { optDBPath              :: String
