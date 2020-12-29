@@ -6,15 +6,18 @@
 
 module Main where
 
-import           Control.Monad          (unless)
-import           Control.Monad.Catch    (bracket_)
-import           Control.Monad.IO.Class (MonadIO (..))
-import           Control.Monad.Reader   (asks)
-import qualified Data.Text              as T
-import           Options.Applicative    (Parser, argument, auto, command, execParser, fullDesc, help, helper, info,
-                                         long, many, metavar, option, progDesc, short, showDefault, some, str,
-                                         strOption, subparser, switch, value, (<**>))
-import           System.IO              (hFlush, hGetEcho, hSetEcho, stdin, stdout)
+import           Control.Monad                        (unless)
+import           Control.Monad.Catch                  (bracket_)
+import           Control.Monad.IO.Class               (MonadIO (..))
+import           Control.Monad.Reader                 (asks)
+import           Data.List                            (intercalate, sortOn)
+import qualified Data.Text                            as T
+import           Options.Applicative                  (Parser, argument, auto, command, eitherReader, execParser,
+                                                       fullDesc, help, helper, info, long, many, metavar, option,
+                                                       progDesc, short, showDefault, some, str, strOption, subparser,
+                                                       switch, value, (<**>))
+import           Options.Applicative.Help.Levenshtein (editDistance)
+import           System.IO                            (hFlush, hGetEcho, hSetEcho, stdin, stdout)
 
 import           GoPro.AuthDB
 import           GoPro.Commands
@@ -55,10 +58,18 @@ options = Options
     refreshCmd = RefreshCmd <$> some (argument str (metavar "mIDs..."))
     createUpCmd = CreateUploadCmd <$> some (argument str (metavar "file..."))
     uploadCmd = UploadCmd <$> many (argument str (metavar "file..."))
-    createMultiCmd = CreateMultiCmd <$> argument auto (metavar "Mediumtype")
+    createMultiCmd = CreateMultiCmd <$> argument mediumType (metavar "Mediumtype")
                      <*> some (argument str (metavar "file..."))
     backupLocalCmd = BackupLocalCmd <$> argument auto (metavar "path")
     configCmd = ConfigCmd <$> many (argument str (metavar "args..."))
+    mediumType = eitherReader $ \s -> case reads s of
+                                        [(x,_)] -> pure x
+                                        _ -> Left ("invalid MediumType: '" <> s
+                                                   <> "', perhaps you meant: '" <> bestMatch s mtypes
+                                                   <> "'\n All valid medium types include: " <>
+                                                    intercalate ", " mtypes)
+    bestMatch n = head . sortOn (editDistance n)
+    mtypes = [show t | t <- [minBound..] :: [MediumType]]
 
 runCleanup :: GoPro ()
 runCleanup = mapM_ rm =<< (filter wanted <$> listAll)
