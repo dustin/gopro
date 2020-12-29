@@ -10,12 +10,10 @@ import           Control.Monad          (unless)
 import           Control.Monad.Catch    (bracket_)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Reader   (asks)
-import           Data.List              (intercalate)
-import           Data.Maybe             (fromMaybe)
 import qualified Data.Text              as T
-import           Options.Applicative    (Parser, argument, auto, execParser, fullDesc, help, helper, info, long,
-                                         metavar, option, progDesc, short, showDefault, some, str, strOption, switch,
-                                         value, (<**>))
+import           Options.Applicative    (Parser, argument, auto, command, execParser, fullDesc, help, helper, info,
+                                         long, many, metavar, option, progDesc, short, showDefault, some, str,
+                                         strOption, subparser, switch, value, (<**>))
 import           System.IO              (hFlush, hGetEcho, hSetEcho, stdin, stdout)
 
 import           GoPro.AuthDB
@@ -36,7 +34,31 @@ options = Options
   <*> switch (short 'v' <> long "verbose" <> help "enable debug logging")
   <*> option auto (short 'u' <> long "upload-concurrency" <> showDefault <> value 3 <> help "Upload concurrency")
   <*> option auto (short 'd' <> long "download-concurrency" <> showDefault <> value 11 <> help "Download concurrency")
-  <*> some (argument str (metavar "cmd args..."))
+  <*> subparser ( command "auth" (info (pure AuthCmd) (progDesc "Authenticate to GoPro"))
+                  <> command "reauth" (info (pure ReauthCmd) (progDesc "Refresh authentication credentials"))
+                  <> command "sync" (info (pure SyncCmd) (progDesc "Sync recent data from GoPro Plus"))
+                  <> command "refresh" (info refreshCmd (progDesc "Refresh individual media"))
+                  <> command "createupload" (info createUpCmd (progDesc "Create an upload"))
+                  <> command "upload" (info uploadCmd
+                                       (progDesc "Optionally create an upload, then run all uploads"))
+                  <> command "createmulti" (info createMultiCmd (progDesc "Create a multipart upload"))
+                  <> command "fetchall" (info (pure FetchAllCmd) (progDesc "Fully sync all metadata"))
+                  <> command "cleanup" (info (pure CleanupCmd) (progDesc "Clean up any outstanding ops"))
+                  <> command "serve" (info (pure ServeCmd) (progDesc "Run the UI web server"))
+                  <> command "wait" (info (pure WaitCmd) (progDesc "Wait for outstanding uploads to complete"))
+                  <> command "backup" (info (pure BackupCmd) (progDesc "Backup all media to S3"))
+                  <> command "processSQS" (info (pure ProcessSQSCmd) (progDesc "Process SQS queue"))
+                  <> command "backuplocal" (info backupLocalCmd (progDesc "Backup all media to local path"))
+                  <> command "config" (info configCmd (progDesc "Interact with config"))
+                )
+  where
+    refreshCmd = RefreshCmd <$> some (argument str (metavar "mIDs..."))
+    createUpCmd = CreateUploadCmd <$> some (argument str (metavar "file..."))
+    uploadCmd = UploadCmd <$> many (argument str (metavar "file..."))
+    createMultiCmd = CreateMultiCmd <$> argument auto (metavar "Mediumtype")
+                     <*> some (argument str (metavar "file..."))
+    backupLocalCmd = BackupLocalCmd <$> argument auto (metavar "path")
+    configCmd = ConfigCmd <$> many (argument str (metavar "args..."))
 
 runCleanup :: GoPro ()
 runCleanup = mapM_ rm =<< (filter wanted <$> listAll)
@@ -70,34 +92,28 @@ runReauth = do
   res <- refreshAuth =<< loadAuth db
   updateAuth db res
 
-run :: String -> GoPro ()
-run c = fromMaybe (liftIO unknown) $ lookup c cmds
-  where
-    cmds = [("auth", runAuth),
-            ("reauth", runReauth),
-            ("sync", runFullSync),
-            ("refresh", runRefresh),
-            ("createupload", runCreateUploads),
-            ("upload", runCreateUploads >> runResumeUpload),
-            ("createmulti", runCreateMultipart),
-            ("fetchall", runFetch Full),
-            ("cleanup", runCleanup),
-            ("fixup", runFixup),
-            ("serve", runServer),
-            ("wait", runWaitForUploads),
-            ("backup", runBackup >> runReceiveS3CopyQueue),
-            ("processSQS", runReceiveS3CopyQueue),
-            ("backuplocal", runLocalBackup),
-            ("config", runConfig)]
-    unknown = do
-      putStrLn $ "Unknown command: " <> c
-      putStrLn "Try one of these:"
-      putStrLn $ "    " <> intercalate "\n    " (map fst cmds)
+run :: Command -> GoPro ()
+run AuthCmd               = runAuth
+run ReauthCmd             = runReauth
+run SyncCmd               = runFullSync
+run (RefreshCmd mids)     = refreshMedia mids
+run (CreateUploadCmd fs)  = runCreateUploads fs
+run (CreateMultiCmd t fs) = runCreateMultipart t fs
+run (UploadCmd fs)        = runCreateUploads fs >> runResumeUpload
+run FetchAllCmd           = runFetch Full
+run CleanupCmd            = runCleanup
+run (FixupCmd q)          = runFixup q
+run ServeCmd              = runServer
+run WaitCmd               = runWaitForUploads
+run BackupCmd             = runBackup >> runReceiveS3CopyQueue
+run ProcessSQSCmd         = runReceiveS3CopyQueue
+run (BackupLocalCmd p)    = runLocalBackup p
+run (ConfigCmd a)         = runConfig a
 
 main :: IO ()
 main = do
   o@Options{..} <- execParser opts
-  runWithOptions o (run (head optArgv))
+  runWithOptions o (run optCommand)
 
   where
     opts = info (options <**> helper)

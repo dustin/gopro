@@ -23,7 +23,7 @@ import           Data.Foldable           (fold)
 import           Data.Map.Strict         (Map)
 import qualified Data.Map.Strict         as Map
 import qualified Data.Text               as T
-import           Database.SQLite.Simple  (Connection, withConnection)
+import           Database.SQLite.Simple  (Connection, Query, withConnection)
 import           System.Clock            (TimeSpec (..))
 import           UnliftIO                (MonadUnliftIO (..), mapConcurrently, mapConcurrently_)
 
@@ -32,6 +32,24 @@ import           GoPro.DB                (HasGoProDB (..), initTables, loadConfi
 import           GoPro.Logging
 import           GoPro.Notification
 import           GoPro.Plus.Auth
+import           GoPro.Plus.Media        (MediumID, MediumType)
+
+data Command = AuthCmd
+             | ReauthCmd
+             | SyncCmd
+             | RefreshCmd [MediumID]
+             | CreateUploadCmd [FilePath]
+             | UploadCmd [FilePath]
+             | CreateMultiCmd MediumType [FilePath]
+             | FetchAllCmd
+             | CleanupCmd
+             | FixupCmd Query
+             | ServeCmd
+             | WaitCmd
+             | BackupCmd
+             | ProcessSQSCmd
+             | BackupLocalCmd FilePath
+             | ConfigCmd [String]
 
 data Options = Options
     { optDBPath              :: String
@@ -39,7 +57,7 @@ data Options = Options
     , optVerbose             :: Bool
     , optUploadConcurrency   :: Int
     , optDownloadConcurrency :: Int
-    , optArgv                :: [String]
+    , optCommand             :: Command
     }
 
 data Env = Env
@@ -122,7 +140,6 @@ runWithOptions o@Options{..} a = withConnection optDBPath $ \db -> do
   cfg <- loadConfig db
   cache <- newCache (Just (TimeSpec 60 0))
   tc <- mkLogChannel
-  let o' = o{optArgv = tail optArgv}
-      notlog = notificationLogger tc
+  let notlog = notificationLogger tc
       minLvl = if optVerbose then LevelDebug else LevelInfo
-  liftIO $ runIO (Env o' db cfg cache tc [baseLogger minLvl, notlog]) a
+  liftIO $ runIO (Env o db cfg cache tc [baseLogger minLvl, notlog]) a

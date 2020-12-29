@@ -130,9 +130,8 @@ runBackup = do
   c <- asks (optUploadConcurrency . gpOptions)
   void $ mapConcurrentlyLimited c (copyMedia λ) todo
 
-runLocalBackup :: GoPro ()
-runLocalBackup = do
-  [path] <- asks (optArgv . gpOptions)
+runLocalBackup :: FilePath -> GoPro ()
+runLocalBackup path = do
   have <- Set.fromList . fmap pack <$> liftIO (listDirectory path)
   todo <- filter (`Set.notMember` have) <$> listToCopyLocally
   logDbgL ["todo: ", tshow todo]

@@ -14,8 +14,8 @@ import qualified Data.Text.IO           as TIO
 import           GoPro.Commands
 import           GoPro.DB
 
-runConfig :: GoPro ()
-runConfig = exec =<< asks (optArgv . gpOptions)
+runConfig :: [String] -> GoPro ()
+runConfig = exec
   where
     exec []     = listConfig
     exec [k]    = showConfig k

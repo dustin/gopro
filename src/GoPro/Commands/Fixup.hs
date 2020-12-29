@@ -1,28 +1,24 @@
 module GoPro.Commands.Fixup where
 
 import           Control.Lens
-import           Control.Monad          (when)
 import           Control.Monad.Fail     (MonadFail (..))
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Reader   (ask, asks)
 import qualified Data.Aeson             as J
 import           Data.Aeson.Lens
 import           Data.Scientific        (fromFloatDigits)
-import           Data.String            (fromString)
 import qualified Data.Text              as T
-import           Database.SQLite.Simple (SQLData (..), Statement, columnCount, columnName, nextRow, withStatement)
+import           Database.SQLite.Simple (Query, SQLData (..), Statement, columnCount, columnName, nextRow,
+                                         withStatement)
 import           Prelude                hiding (fail)
 
 import           GoPro.Commands
 import           GoPro.Plus.Media
 
-runFixup :: GoPro ()
-runFixup = do
+runFixup :: Query -> GoPro ()
+runFixup query = do
   db <- asks dbConn
   env <- ask
-  args <- asks (optArgv . gpOptions)
-  when (length args /= 1) $ fail "I need a query to run"
-  let [query] = fromString <$> args
   logDbgL ["Query: ", tshow query]
   liftIO $ withStatement db query (runIO env . needful)
 

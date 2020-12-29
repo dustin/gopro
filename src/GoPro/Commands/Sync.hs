@@ -134,7 +134,7 @@ runGetMeta = do
       dlIf mid var u dest = liftIO (doesFileExist dest) >>=
         \case
           True -> pure dest
-          _ -> download mid var u dest
+          _    -> download mid var u dest
 
       download :: MediumID -> String -> String -> FilePath -> GoPro FilePath
       download mid var u dest = recoverAll policy $ \r -> do
@@ -192,9 +192,6 @@ refreshMedia = mapM_ refreshSome . chunksOf 100
       n <- mapConcurrentlyLimited c one mids
       logDbgL ["Storing ", tshow (length n)]
       storeMedia n
-
-runRefresh :: GoPro ()
-runRefresh = refreshMedia . fmap T.pack =<< asks (optArgv . gpOptions)
 
 runFullSync :: GoPro ()
 runFullSync = do

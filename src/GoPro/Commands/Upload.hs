@@ -13,7 +13,7 @@ import           System.Posix.Files     (fileSize, getFileStatus)
 
 import           GoPro.Commands
 import           GoPro.DB
-import           GoPro.Plus.Media       (MediumID)
+import           GoPro.Plus.Media       (MediumID, MediumType)
 import           GoPro.Plus.Upload
 
 uc :: FilePath -> MediumID -> Integer -> UploadPart -> Uploader GoPro ()
@@ -23,14 +23,14 @@ uc fp mid partnum up@UploadPart{..} = do
   completedUploadPart mid _uploadPart partnum
   logDbgL ["Finished part ", tshow _uploadPart, " of ", T.pack fp]
 
-runCreateUploads :: GoPro ()
-runCreateUploads = do
+runCreateUploads :: [FilePath] -> GoPro ()
+runCreateUploads filePaths = do
   -- Exclude any commandline params for files that are already being
   -- uploaded.  This prevents duplicate uploads if you just hit
   -- up-enter, but it also prevents one from uploading a file if it's
   -- already included in a multipart upload.
   queued <- listQueuedFiles
-  todo <- asks (filter (`notElem` queued) . optArgv . gpOptions)
+  let todo = filter (`notElem` queued) filePaths
   db <- goproDB
   c <- asks (optUploadConcurrency . gpOptions)
   mapConcurrentlyLimited_ c (upload db) todo
@@ -46,12 +46,11 @@ runCreateUploads = do
                 mid, ": did=", did, ", upid=", _uploadID]
       liftIO . withDB db $ storeUpload fp mid up did 1
 
-runCreateMultipart :: GoPro ()
-runCreateMultipart = do
-  (typ:fps) <- asks (optArgv . gpOptions)
+runCreateMultipart :: MediumType -> [FilePath] -> GoPro ()
+runCreateMultipart typ fps = do
   db <- goproDB
   runUpload fps $ do
-    setMediumType (read typ)
+    setMediumType typ
     setLogAction (logError . T.pack)
     mid <- createMedium
     did <- createSource (length fps)
