@@ -123,7 +123,7 @@ logErrorL, logInfoL, logDbgL :: (Foldable f, MonadLogger m) => f T.Text-> m ()
 
 logErrorL = logErrorN . fold
 logInfoL = logInfoN . fold
-logDbgL = logInfoN . fold
+logDbgL = logDebugN . fold
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
