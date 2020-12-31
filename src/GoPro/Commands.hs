@@ -49,7 +49,9 @@ data Command = AuthCmd
              | BackupCmd
              | ProcessSQSCmd
              | BackupLocalCmd FilePath
-             | ConfigCmd (Maybe ConfigOption) (Maybe T.Text)
+             | ConfigListCmd
+             | ConfigGetCmd ConfigOption
+             | ConfigSetCmd ConfigOption T.Text
 
 data Options = Options
     { optDBPath              :: String

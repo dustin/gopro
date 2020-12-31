@@ -71,14 +71,14 @@ options = Options
 
     backupLocalCmd = BackupLocalCmd <$> argument str (metavar "path" <> action "directory")
 
-    configCmd = hsubparser (foldMap optCmd [minBound ..]) <|> pure (ConfigCmd Nothing Nothing)
+    configCmd = hsubparser (foldMap optCmd [minBound ..]) <|> pure ConfigListCmd
 
     optCmd o = command (T.unpack (DB.optionStr o))
                (info opt (progDesc ("get/set " <> T.unpack (DB.optionStr o) <> " config")))
 
       where
-        opt = ConfigCmd (Just o) . Just <$> argument str (metavar "val")
-                 <|> pure (ConfigCmd (Just o) Nothing)
+        opt = ConfigSetCmd o <$> argument str (metavar "val")
+                 <|> pure (ConfigGetCmd o)
 
     bestMatch n = head . sortOn (editDistance n)
     inv t v vs = fold ["invalid ", t, ": ", show v, ", perhaps you meant: ", bestMatch v vs,
@@ -117,25 +117,24 @@ runReauth = do
   updateAuth db res
 
 run :: Command -> GoPro ()
-run AuthCmd                       = runAuth
-run ReauthCmd                     = runReauth
-run SyncCmd                       = runFullSync
-run (RefreshCmd mids)             = refreshMedia mids
-run (CreateUploadCmd fs)          = runCreateUploads fs
-run (CreateMultiCmd t fs)         = runCreateMultipart t fs
-run (UploadCmd fs)                = runCreateUploads fs >> runResumeUpload
-run FetchAllCmd                   = runFetch Full
-run CleanupCmd                    = runCleanup
-run (FixupCmd q)                  = runFixup q
-run ServeCmd                      = runServer
-run WaitCmd                       = runWaitForUploads
-run BackupCmd                     = runBackup >> runReceiveS3CopyQueue
-run ProcessSQSCmd                 = runReceiveS3CopyQueue
-run (BackupLocalCmd p)            = runLocalBackup p
-run (ConfigCmd Nothing Nothing)   = runListConfig
-run (ConfigCmd (Just k) Nothing)  = runGetConfig k
-run (ConfigCmd (Just k) (Just v)) = runSetConfig k v
-run (ConfigCmd _ _)               = fail "invalid config command"
+run AuthCmd               = runAuth
+run ReauthCmd             = runReauth
+run SyncCmd               = runFullSync
+run (RefreshCmd mids)     = refreshMedia mids
+run (CreateUploadCmd fs)  = runCreateUploads fs
+run (CreateMultiCmd t fs) = runCreateMultipart t fs
+run (UploadCmd fs)        = runCreateUploads fs >> runResumeUpload
+run FetchAllCmd           = runFetch Full
+run CleanupCmd            = runCleanup
+run (FixupCmd q)          = runFixup q
+run ServeCmd              = runServer
+run WaitCmd               = runWaitForUploads
+run BackupCmd             = runBackup >> runReceiveS3CopyQueue
+run ProcessSQSCmd         = runReceiveS3CopyQueue
+run (BackupLocalCmd p)    = runLocalBackup p
+run ConfigListCmd         = runListConfig
+run (ConfigGetCmd k)      = runGetConfig k
+run (ConfigSetCmd k v)    = runSetConfig k v
 
 main :: IO ()
 main = do
