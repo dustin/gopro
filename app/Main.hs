@@ -15,10 +15,10 @@ import           Data.Foldable                        (fold)
 import           Data.List                            (intercalate, sortOn)
 import qualified Data.Text                            as T
 import           Options.Applicative                  (Parser, action, argument, auto, command, completeWith,
-                                                       customExecParser, eitherReader, fullDesc, help, helper, info,
-                                                       long, many, metavar, option, prefs, progDesc, short, showDefault,
-                                                       showHelpOnError, some, str, strOption, subparser, switch, value,
-                                                       (<**>))
+                                                       customExecParser, eitherReader, fullDesc, help, helper,
+                                                       hsubparser, info, long, many, metavar, option, prefs, progDesc,
+                                                       short, showDefault, showHelpOnError, some, str, strOption,
+                                                       switch, value, (<**>))
 import           Options.Applicative.Help.Levenshtein (editDistance)
 import           System.IO                            (hFlush, hGetEcho, hSetEcho, stdin, stdout)
 
@@ -41,7 +41,7 @@ options = Options
   <*> switch (short 'v' <> long "verbose" <> help "enable debug logging")
   <*> option auto (short 'u' <> long "upload-concurrency" <> showDefault <> value 3 <> help "Upload concurrency")
   <*> option auto (short 'd' <> long "download-concurrency" <> showDefault <> value 11 <> help "Download concurrency")
-  <*> subparser ( command "auth" (info (pure AuthCmd) (progDesc "Authenticate to GoPro"))
+  <*> hsubparser (command "auth" (info (pure AuthCmd) (progDesc "Authenticate to GoPro"))
                   <> command "reauth" (info (pure ReauthCmd) (progDesc "Refresh authentication credentials"))
                   <> command "sync" (info (pure SyncCmd) (progDesc "Sync recent data from GoPro Plus"))
                   <> command "refresh" (info refreshCmd (progDesc "Refresh individual media"))
@@ -57,7 +57,7 @@ options = Options
                   <> command "processSQS" (info (pure ProcessSQSCmd) (progDesc "Process SQS queue"))
                   <> command "backuplocal" (info backupLocalCmd (progDesc "Backup all media to local path"))
                   <> command "config" (info configCmd (progDesc "Interact with config"))
-                )
+                 )
   where
     refreshCmd = RefreshCmd <$> some (argument str (metavar "mIDs..."))
     createUpCmd = CreateUploadCmd <$> some (argument str (metavar "file..." <> action "file"))
@@ -71,14 +71,15 @@ options = Options
 
     backupLocalCmd = BackupLocalCmd <$> argument str (metavar "path" <> action "directory")
 
-    configCmd = ConfigCmd . Just <$> argument cfgOpt (metavar "configopt" <> completeWith opttypes)
-                <*> fmap exactlyOne (many (argument str (metavar "val")))
-                <|> pure (ConfigCmd Nothing Nothing)
-    cfgOpt = eitherReader $ \s -> maybe (Left (inv "config option" s opttypes)) Right (DB.strOption (T.pack s))
-    opttypes = [T.unpack (DB.optionStr t) | t <- [minBound..] :: [DB.ConfigOption]]
+    configCmd = hsubparser (foldMap optCmd [minBound ..]) <|> pure (ConfigCmd Nothing Nothing)
 
-    exactlyOne [a] = Just a
-    exactlyOne _   = Nothing
+    optCmd o = command (T.unpack (DB.optionStr o))
+               (info opt (progDesc ("get/set " <> T.unpack (DB.optionStr o) <> " config")))
+
+      where
+        opt = ConfigCmd (Just o) . Just <$> argument str (metavar "val")
+                 <|> pure (ConfigCmd (Just o) Nothing)
+
     bestMatch n = head . sortOn (editDistance n)
     inv t v vs = fold ["invalid ", t, ": ", show v, ", perhaps you meant: ", bestMatch v vs,
                         "\nValid values:  ", intercalate ", " vs]
