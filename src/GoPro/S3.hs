@@ -62,7 +62,8 @@ storeMetaBlob mid blob = do
   b <- s3Bucket
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
   logInfoL ["Storing metadata blob at ", tshow key]
-  inAWS $ void . send $ putObject b key (Hashed . toHashed . compress . fromMaybe "" $ blob)
+  inAWS $ void . send $ putObject b key (Hashed . toHashed . compress . fromMaybe "" $ blob) &
+    poStorageClass ?~ OnezoneIA
 
 listMetaBlobs :: GoPro [MediumID]
 listMetaBlobs = s3Bucket >>= \b -> inAWS $
