@@ -195,7 +195,6 @@ refreshMedia = mapM_ refreshSome . chunksOf 100
 
 runFullSync :: GoPro ()
 runFullSync = do
-  runWaitForUploads
   runFetch Incremental
   runGetMeta
   runGrokTel
