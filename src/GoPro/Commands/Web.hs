@@ -45,7 +45,7 @@ runServer = do
   env <- ask
   let settings = Warp.setPort 8008 Warp.defaultSettings
   app <- scottyAppT (runIO env) application
-  logInfo "Starting web server"
+  logInfo "Starting web server at http://localhost:8008/"
   liftIO $ Warp.runSettings settings $ WaiWS.websocketsOr WS.defaultConnectionOptions (wsapp env) app
 
   where
