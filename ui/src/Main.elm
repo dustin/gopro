@@ -196,12 +196,16 @@ type Msg
   | Process Value
   | Connected WebSocket.Message
 
+maybeMap : b -> (a -> b) -> Maybe a -> b
+maybeMap d f m =
+    case m of
+        Nothing -> d
+        Just x -> f x
+
 mediumHTML : Time.Zone -> Medium -> Html Msg
 mediumHTML z m = div [ H.class "medium", onClick (OpenOverlay m) ] [
                       img [ H.class "thumb", H.src ("/thumb/" ++ m.id) ] [],
-                      case m.source_duration of
-                          Nothing -> text ""
-                          Just t -> span [ H.class "duration" ] [ text (F.millis t) ]
+                      maybeMap (text "") (\t -> span [ H.class "duration" ] [ text (F.millis t) ]) m.source_duration
                  ]
 
 mediaHTML : Time.Zone -> List (Medium, List Medium) -> List (Html Msg)
@@ -280,10 +284,7 @@ renderMediaList ms model =
 view : Model -> Html Msg
 view model =
     case model.httpError of
-        Nothing ->
-            case model.media of
-                Nothing -> text "Loading..."
-                Just m -> renderMediaList m model
+        Nothing -> maybeMap (text "Loading...") (\m -> renderMediaList m model) model.media
         Just x -> pre [] [text ("I was unable to load the media: " ++ F.httpErr x)]
 
 
@@ -395,12 +396,8 @@ init _ = let model = emptyState in
 
 filter : Model -> Model
 filter model =
-    case model.media of
-        Nothing -> model
-        Just ms ->
-            let z = model.zone
-                filty = List.filter (\m -> List.all (\f -> f model m) allFilters) ms.media in
-            { model | media = Just { ms | filty = filty }}
+    let filts ms = {ms | filty = List.filter (\m -> List.all (\f -> f model m) allFilters) ms.media} in
+    { model | media = Maybe.map filts model.media }
 
 camFilter : Model -> Medium -> Bool
 camFilter model m = Set.member m.camera_model model.camerasChecked
@@ -412,10 +409,7 @@ dateFilter : Model -> Medium -> Bool
 dateFilter model m =
     let mr = Picker.getRange model.datePicker
         lte a b = Time.posixToMillis a <= Time.posixToMillis b
-    in
-    case mr of
-        Nothing -> True
-        Just r -> lte (beginsAt r) m.captured_at && lte m.captured_at (endsAt r)
+    in maybeMap True (\r -> lte (beginsAt r) m.captured_at && lte m.captured_at (endsAt r)) mr
 
 momentFilter : Model -> Medium -> Bool
 momentFilter model m = m.moments_count > 0 || (not model.momentsChecked)
@@ -425,9 +419,7 @@ areaFilter model m =
     if Set.isEmpty model.areasChecked then True
     else
         let areas = List.filter (\a -> Set.member a.name model.areasChecked) model.areas in
-        case mediaPoint m of
-            Just p -> List.any (inArea p) areas
-            _ -> False
+        maybeMap False (\p -> List.any (inArea p) areas) (mediaPoint m)
 
 addOrRemove : Bool -> comparable -> Set.Set comparable -> Set.Set comparable
 addOrRemove b = if b then Set.insert else Set.remove
