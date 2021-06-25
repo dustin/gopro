@@ -16,4 +16,4 @@ jobs:
     - uses: jorelali/setup-elm@v3
       with:
         elm-version: 0.19.1
-    - run: cd ui && make
+    - run: cd ui && elm make src/Main.elm
