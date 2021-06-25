@@ -1,0 +1,45 @@
+name: Periodic
+
+on:
+  workflow_dispatch:
+  schedule:
+  - cron: "0 0 * * 1"
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        plan:
+        # - { resolver: "--resolver=nightly" }
+        - { resolver: "--resolver=lts" }
+
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Cache Key
+      id: cache_key
+      run: echo ::set-output name=key::$(stack $RESOLVER ls dependencies | md5sum | awk '{print $1}')
+      env:
+        RESOLVER: ${{ matrix.plan.resolver }}
+
+    - name: Cache Dependencies
+      id: cache
+      uses: actions/cache@v1
+      with:
+        path: ~/.stack
+        key: ${{ matrix.os }}-${{ matrix.plan.resolver }}-${{ steps.cache_key.outputs.key }}
+
+    - name: Build Snapshot
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: |
+        stack $RESOLVER --no-terminal test --bench --only-snapshot
+      env:
+        RESOLVER: ${{ matrix.plan.resolver }}
+
+    - name: Build & Test
+      run: |
+        stack $RESOLVER --no-terminal test --bench --no-run-benchmarks
+      env:
+        RESOLVER: ${{ matrix.plan.resolver }}
