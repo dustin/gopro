@@ -10,8 +10,9 @@ import           Control.Applicative    (Alternative (..))
 import           Control.Concurrent     (threadDelay)
 import           Control.Lens
 import           Control.Monad          (unless)
-import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Loops    (whileM_)
+import qualified Data.List.NonEmpty     as NE
+import           Data.List.NonEmpty     (NonEmpty(..))
 import           Control.Monad.Reader   (asks)
 import           Control.Retry          (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
 import qualified Data.Aeson             as J
@@ -179,8 +180,8 @@ runWaitForUploads = whileM_ inProgress (sleep 15)
     sleep = liftIO . threadDelay . seconds
     seconds = (* 1000000)
 
-refreshMedia :: [MediumID] -> GoPro ()
-refreshMedia = mapM_ refreshSome . chunksOf 100
+refreshMedia :: NonEmpty MediumID -> GoPro ()
+refreshMedia = mapM_ refreshSome . chunksOf 100 . NE.toList
   where
     one mid = do
       logDbgL ["Refreshing ", mid]

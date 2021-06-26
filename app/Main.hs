@@ -18,7 +18,7 @@ import qualified Data.List.NonEmpty                   as NE
 import qualified Data.Text                            as T
 import           Options.Applicative                  (Parser, action, argument, auto, command, completeWith,
                                                        customExecParser, eitherReader, fullDesc, help, helper,
-                                                       hsubparser, info, long, many, metavar, option, prefs, progDesc,
+                                                       hsubparser, info, long, metavar, option, prefs, progDesc,
                                                        short, showDefault, showHelpOnError, some, str, strOption,
                                                        switch, value, (<**>))
 import           Options.Applicative.Help.Levenshtein (editDistance)
@@ -61,7 +61,7 @@ options = Options
                   <> command "config" (info configCmd (progDesc "Interact with config"))
                  )
   where
-    refreshCmd = RefreshCmd <$> some (argument str (metavar "mIDs..."))
+    refreshCmd = RefreshCmd <$> some1 (argument str (metavar "mIDs..."))
     createUpCmd = CreateUploadCmd <$> some1 (argument str (metavar "file..." <> action "file"))
     uploadCmd = UploadCmd <$> some1 (argument str (metavar "file..." <> action "file"))
     createMultiCmd = CreateMultiCmd <$> argument mediumType (metavar "Mediumtype" <> completeWith mtypes)

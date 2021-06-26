@@ -11,6 +11,7 @@ import           Control.Lens
 import           Control.Monad                  (forever)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Reader           (ask, asks, lift)
+import           Data.List.NonEmpty             (NonEmpty(..))
 import qualified Data.Aeson                     as J
 import           Data.Aeson.Lens                (_Object)
 import           Data.Cache                     (insert)
@@ -87,7 +88,7 @@ runServer = do
       post "/api/refresh/:id" do
         imgid <- param "id"
         lift . logInfoL $ ["Refreshing ", imgid]
-        lift (refreshMedia [imgid])
+        lift (refreshMedia (imgid :| []))
         status noContent204
 
       post "/api/reauth" do

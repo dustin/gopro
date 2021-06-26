@@ -37,7 +37,7 @@ import           GoPro.Plus.Media        (MediumID, MediumType)
 data Command = AuthCmd
              | ReauthCmd
              | SyncCmd
-             | RefreshCmd [MediumID]
+             | RefreshCmd (NonEmpty MediumID)
              | CreateUploadCmd (NonEmpty FilePath)
              | UploadCmd (NonEmpty FilePath)
              | CreateMultiCmd MediumType (NonEmpty FilePath)
