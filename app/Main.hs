@@ -13,6 +13,8 @@ import           Control.Monad.IO.Class               (MonadIO (..))
 import           Control.Monad.Reader                 (asks)
 import           Data.Foldable                        (fold)
 import           Data.List                            (intercalate, sortOn)
+import           Data.List.NonEmpty                   (NonEmpty (..))
+import qualified Data.List.NonEmpty                   as NE
 import qualified Data.Text                            as T
 import           Options.Applicative                  (Parser, action, argument, auto, command, completeWith,
                                                        customExecParser, eitherReader, fullDesc, help, helper,
@@ -60,10 +62,10 @@ options = Options
                  )
   where
     refreshCmd = RefreshCmd <$> some (argument str (metavar "mIDs..."))
-    createUpCmd = CreateUploadCmd <$> some (argument str (metavar "file..." <> action "file"))
-    uploadCmd = UploadCmd <$> many (argument str (metavar "file..." <> action "file"))
+    createUpCmd = CreateUploadCmd <$> some1 (argument str (metavar "file..." <> action "file"))
+    uploadCmd = UploadCmd <$> some1 (argument str (metavar "file..." <> action "file"))
     createMultiCmd = CreateMultiCmd <$> argument mediumType (metavar "Mediumtype" <> completeWith mtypes)
-                     <*> some (argument str (metavar "file..." <> action "file"))
+                     <*> some1 (argument str (metavar "file..." <> action "file"))
     mediumType = eitherReader $ \s -> case reads s of
                                         [(x,_)] -> pure x
                                         _       -> Left (inv "MediumType" s mtypes)
@@ -83,6 +85,9 @@ options = Options
     bestMatch n = head . sortOn (editDistance n)
     inv t v vs = fold ["invalid ", t, ": ", show v, ", perhaps you meant: ", bestMatch v vs,
                         "\nValid values:  ", intercalate ", " vs]
+
+some1 :: Parser a -> Parser (NonEmpty a)
+some1 p = NE.fromList <$> some p
 
 runCleanup :: GoPro ()
 runCleanup = mapM_ rm =<< (filter wanted <$> listAll)

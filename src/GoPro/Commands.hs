@@ -13,13 +13,13 @@ import           Control.Concurrent.STM  (TChan, atomically, writeTChan)
 import           Control.Monad           (MonadPlus (..), mzero)
 import           Control.Monad.Catch     (MonadCatch (..), MonadMask (..), MonadThrow (..), SomeException (..),
                                           bracket_, catch)
-import           Control.Monad.Fail      (MonadFail (..))
 import           Control.Monad.IO.Class  (MonadIO (..))
 import           Control.Monad.Logger    (Loc (..), LogLevel (..), LogSource, LogStr, MonadLogger (..), ToLogStr (..),
                                           logDebugN, logErrorN, logInfoN, monadLoggerLog)
 import           Control.Monad.Reader    (MonadReader, ReaderT (..), asks)
 import           Data.Cache              (Cache (..), fetchWithCache, newCache)
 import           Data.Foldable           (fold)
+import           Data.List.NonEmpty      (NonEmpty (..))
 import           Data.Map.Strict         (Map)
 import qualified Data.Map.Strict         as Map
 import qualified Data.Text               as T
@@ -38,9 +38,9 @@ data Command = AuthCmd
              | ReauthCmd
              | SyncCmd
              | RefreshCmd [MediumID]
-             | CreateUploadCmd [FilePath]
-             | UploadCmd [FilePath]
-             | CreateMultiCmd MediumType [FilePath]
+             | CreateUploadCmd (NonEmpty FilePath)
+             | UploadCmd (NonEmpty FilePath)
+             | CreateMultiCmd MediumType (NonEmpty FilePath)
              | FetchAllCmd
              | CleanupCmd
              | FixupCmd Query

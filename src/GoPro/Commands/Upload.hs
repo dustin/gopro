@@ -6,7 +6,9 @@ module GoPro.Commands.Upload (
 
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Reader   (asks)
-import           Data.Foldable          (fold, foldMap)
+import           Data.Foldable          (fold)
+import           Data.List.NonEmpty     (NonEmpty (..))
+import qualified Data.List.NonEmpty     as NE
 import           Data.Monoid            (Sum (..))
 import qualified Data.Text              as T
 import           System.Posix.Files     (fileSize, getFileStatus)
@@ -23,20 +25,20 @@ uc fp mid partnum up@UploadPart{..} = do
   completedUploadPart mid _uploadPart partnum
   logDbgL ["Finished part ", tshow _uploadPart, " of ", T.pack fp]
 
-runCreateUploads :: [FilePath] -> GoPro ()
+runCreateUploads :: NonEmpty FilePath -> GoPro ()
 runCreateUploads filePaths = do
   -- Exclude any commandline params for files that are already being
   -- uploaded.  This prevents duplicate uploads if you just hit
   -- up-enter, but it also prevents one from uploading a file if it's
   -- already included in a multipart upload.
   queued <- listQueuedFiles
-  let todo = filter (`notElem` queued) filePaths
+  let todo = filter (`notElem` queued) (NE.toList filePaths)
   db <- goproDB
   c <- asks (optUploadConcurrency . gpOptions)
   mapConcurrentlyLimited_ c (upload db) todo
 
   where
-    upload db fp = runUpload [fp] $ do
+    upload db fp = runUpload (fp :| []) $ do
       setLogAction (logError . T.pack)
       mid <- createMedium
       did <- createSource 1
@@ -46,7 +48,7 @@ runCreateUploads filePaths = do
                 mid, ": did=", did, ", upid=", _uploadID]
       liftIO . withDB db $ storeUpload fp mid up did 1
 
-runCreateMultipart :: MediumType -> [FilePath] -> GoPro ()
+runCreateMultipart :: MediumType -> NonEmpty FilePath -> GoPro ()
 runCreateMultipart typ fps = do
   db <- goproDB
   runUpload fps $ do
@@ -61,7 +63,7 @@ runCreateMultipart typ fps = do
               logInfoL ["Creating part ", tshow fp, " as ", mid, " part ", tshow n,
                         ": did=", did, ", upid=", _uploadID]
               liftIO . withDB db $ storeUpload fp mid up did (fromIntegral n)
-          ) $ zip fps [1..]
+          ) $ zip (NE.toList fps) [1..]
     logInfo "Multipart upload created.  Use the 'upload' command to complete the upload."
 
 runResumeUpload :: GoPro ()
@@ -85,12 +87,12 @@ runResumeUpload = do
                 " chunks (", tshow (sum . fmap pu_mb $ xs), " MB)"]
       mapM_ up xs
       logInfoL ["Finished uploading ", tshow _pu_medium_id]
-      resumeUpload [_pu_filename] _pu_medium_id $ markAvailable _pu_did
+      resumeUpload (_pu_filename :| []) _pu_medium_id $ markAvailable _pu_did
 
     up PartialUpload{..} = do
       let part = fromIntegral _pu_partnum
       fsize <- fromIntegral . fileSize <$> (liftIO . getFileStatus) _pu_filename
-      resumeUpload [_pu_filename] _pu_medium_id $ do
+      resumeUpload (_pu_filename :| []) _pu_medium_id $ do
         setLogAction (logError . T.pack)
         Upload{..} <- getUpload _pu_upid _pu_did part fsize
         let chunks = filter (\UploadPart{..} -> _uploadPart `elem` _pu_parts) _uploadParts
