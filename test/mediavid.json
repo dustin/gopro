@@ -1,0 +1,123 @@
+{
+    "_embedded": {
+        "files": [
+            {
+                "camera_position": "default",
+                "head": "hhttp://a/",
+                "height": 1080,
+                "item_number": 1,
+                "orientation": 1,
+                "url": "http://a/",
+                "width": 1920
+            }
+        ],
+        "sidecar_files": [
+            {
+                "fps": 59.94006,
+                "head": "hhttp://b/",
+                "label": "gpmf",
+                "type": "1.mp4",
+                "url": "http://b/"
+            },
+            {
+                "fps": 59.94006,
+                "head": "http://c/",
+                "label": "gpmf",
+                "type": "antishake.json",
+                "url": "http://c/"
+            },
+            {
+                "fps": 59.94006,
+                "head": "hhttp://d/",
+                "label": "gpmf",
+                "type": "antishake_horizon.json",
+                "url": "http://d/"
+            },
+            {
+                "fps": 59.94006,
+                "head": "hhttp://e/",
+                "label": "gpmf",
+                "type": "antishake_horizon_worldlock.json",
+                "url": "http://d/"
+            },
+            {
+                "fps": 59.94006,
+                "head": "hhttp://f/",
+                "label": "gpmf",
+                "type": "antishake_worldlock.json",
+                "url": "http://f/"
+            },
+            {
+                "fps": 59.94006,
+                "head": "hhttp://g/",
+                "label": "gpmf",
+                "type": "proxy_antishake.json",
+                "url": "http://g/"
+            },
+            {
+                "fps": 59.94006,
+                "head": "hhttp://h/",
+                "label": "gpmf",
+                "type": "proxy_horizon_worldlock.json",
+                "url": "http://h/"
+            },
+            {
+                "fps": 59.94006,
+                "head": "hhttp://i/",
+                "label": "gpmf",
+                "type": "proxy_worldlock.json",
+                "url": "http://i/"
+            }
+        ],
+        "sprites": [
+            {
+                "fps": 59.94006,
+                "frame": {
+                    "count": 10,
+                    "height": 56,
+                    "width": 100
+                },
+                "heads": [
+                    "hhttp://j/"
+                ],
+                "height": 56,
+                "total_count": 1,
+                "type": "jpg",
+                "urls": [
+                    "http://j/"
+                ],
+                "width": 1000
+            }
+        ],
+        "variations": [
+            {
+                "head": "hhttp://k/",
+                "height": 1520,
+                "label": "source",
+                "quality": "1520p",
+                "type": "mp4",
+                "url": "http://k/",
+                "width": 2704
+            },
+            {
+                "head": "hhttp://l/",
+                "height": 1080,
+                "label": "high_res_proxy_mp4",
+                "quality": "1080p",
+                "type": "mp4",
+                "url": "http://l/",
+                "width": 1920
+            },
+            {
+                "head": "hhttp://m/",
+                "height": 240,
+                "label": "mp4_low",
+                "quality": "240p",
+                "type": "mp4",
+                "url": "http://m/",
+                "width": 426
+            }
+        ]
+    },
+    "filename": "GX010327.MP4"
+}

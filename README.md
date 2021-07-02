@@ -248,10 +248,10 @@ model, but I was able to derive it from metadata.  I fed that to the
 
 ### backup
 
-The `backup` command will orchestrate a move of all data stored in
-GoPro to your own S3 bucket.  Lots of stuff is involved in setup here
-including that S3 bucket, an AWS Lambda copy function and an SQS
-queue.
+The `backup` command will orchestrate a move of all original media
+stored in GoPro to your own S3 bucket.  Lots of stuff is involved in
+setup here including that S3 bucket, an AWS Lambda copy function and
+an SQS queue.
 
 This does work, and should be able to move a huge amount of data in a
 short amount of time.  The tl;dr on how to use is:
@@ -281,6 +281,11 @@ service less useful.
 When I do, I suspect I should be able to move my >TB storage from
 GoPro's buckets to my own with a tiny amount of bandwidth to my house.
 
+### backupall
+
+The `backupall` command is similar to the `backup` command, but grabs
+all known media stored on your behalf, including derivatives.
+
 ### backuplocal
 
 The `backuplocal` command is similar to the `backup` command, except
@@ -288,11 +293,16 @@ it copies data locally instead of to an S3 bucket (and runs entirely
 locally).
 
 Given an argument for the destination path, it will attempt to
-download all artifacts for a given medium and once complete, will move
-the destination directory into place.  Once a directory for a given
-medium is in place, it will not attempt to download the same medium
-again (i.e., if you delete the directory for a medium, it will be
-redownloaded).
+download all original artifacts for a given medium and once complete,
+will move the destination directory into place.  Once a directory for
+a given medium is in place, it will not attempt to download the same
+medium again (i.e., if you delete the directory for a medium, it will
+be redownloaded).
+
+### backuplocalall
+
+The `backuplocalall` command is similar to the `backuplocal` commnand,
+except it fetches all known media instead of just originals.
 
 ### processSQS
 

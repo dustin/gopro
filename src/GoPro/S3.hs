@@ -5,8 +5,8 @@ import           Control.Lens
 import           Control.Monad                (void)
 import           Control.Monad.Catch          (MonadCatch (..))
 import           Control.Monad.Reader         (asks)
-import           Control.Monad.Trans.AWS      (AWST', Credentials (..), Region (..), envRegion, newEnv, paginate,
-                                               runAWST, runResourceT, send, sinkBody)
+import           Control.Monad.Trans.AWS      (AWST', Credentials (..), envRegion, newEnv, paginate, runAWST,
+                                               runResourceT, send, sinkBody)
 import           Control.Monad.Trans.Resource (ResourceT)
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Conduit                 (runConduit, (.|))

@@ -1,5 +1,5 @@
 module GoPro.Commands.Backup (runBackup, runStoreMeta, runReceiveS3CopyQueue,
-                              runLocalBackup, extractSources) where
+                              runLocalBackup, extractMedia, extractOrig) where
 
 
 import           Conduit
@@ -11,6 +11,7 @@ import           Control.Retry           (RetryStatus (..), exponentialBackoff, 
 import qualified Data.Aeson              as J
 import           Data.Aeson.Lens
 import qualified Data.ByteString.Lazy    as BL
+import           Data.Foldable           (fold)
 import           Data.List.Extra         (chunksOf)
 import           Data.Maybe              (fromJust, maybeToList)
 import qualified Data.Set                as Set
@@ -33,7 +34,6 @@ import           GoPro.DB
 import           GoPro.Plus.Media
 import           GoPro.S3
 
-
 retryRetrieve :: J.FromJSON j => MediumID -> GoPro j
 retryRetrieve mid = recoverAll policy $ \r -> do
   unless (rsIterNumber r == 0) $ logInfoL ["retrying metadata ", tshow mid, " attempt ", tshow (rsIterNumber r)]
@@ -42,9 +42,9 @@ retryRetrieve mid = recoverAll policy $ \r -> do
 
 type LambdaFunc = Text
 
-copyMedia :: LambdaFunc -> MediumID -> GoPro ()
-copyMedia λ mid = do
-  todo <- extractSources mid <$> retryRetrieve mid
+copyMedia :: LambdaFunc -> Extractor -> MediumID -> GoPro ()
+copyMedia λ extract mid = do
+  todo <- extract mid <$> retryRetrieve mid
   mapConcurrentlyLimited_ 5 copy todo
   queuedCopyToS3 (map (\(k,_,_) -> (mid, unpack k)) todo)
 
@@ -63,10 +63,10 @@ copyMedia λ mid = do
                           & at "dest" ?~ dest
                           & at "mid" ?~ J.String mid)
 
-downloadLocally :: FilePath -> MediumID -> GoPro ()
-downloadLocally path mid = do
+downloadLocally :: FilePath -> Extractor -> MediumID -> GoPro ()
+downloadLocally path extract mid = do
   logInfoL ["Beginning backup of ", tshow mid]
-  todo <- extractSources mid <$> retryRetrieve mid
+  todo <- extract mid <$> retryRetrieve mid
   mapConcurrentlyLimited_ 5 copynew todo
   -- This is mildly confusing since the path inherently has the mid in the path.
   liftIO $ renameDirectory (tmpdir </> unpack mid) midPath
@@ -96,12 +96,11 @@ downloadLocally path mid = do
           dir = takeDirectory dest
           policy = exponentialBackoff 2000000 <> limitRetries 9
 
-extractSources :: MediumID -> FileInfo -> [(Text, String, String)]
-extractSources mid fi = foldMap (fmap (\(a,b,c) -> (fromString a, fromString b, c)))
-                        [ ex "var" variations,
-                          ex "sidecar" sidecar_files,
-                          otherfiles
-                        ]
+extractMedia :: Extractor
+extractMedia mid fi = fold [ ex "var" variations,
+                             ex "sidecar" sidecar_files,
+                             otherFiles mid fi
+                           ]
   where
 
     ex p l = fi ^.. fileStuff . l . folded . to conv . folded
@@ -111,32 +110,49 @@ extractSources mid fi = foldMap (fmap (\(a,b,c) -> (fromString a, fromString b, 
           typ <- v ^? media_type
           let h = v ^. media_head
               u = v ^. media_url
-          pure (mconcat ["derivatives/", unpack mid, "/", unpack mid, "-", p, "-", lbl, ".", typ], h, u)
+          pure (fromString $ mconcat ["derivatives/", unpack mid, "/", unpack mid, "-", p, "-", lbl, ".", typ],
+                fromString h,
+                u)
 
-    otherfiles = fi ^.. fileStuff . files . folded . to conv
-      where
-        typ = fi ^. filename . to (drop 1 . takeExtension)
-        conv v = let i = v ^. file_item_number
-                     lbl = show i <> "." <> typ
-                     h = v ^. media_head
-                     u = v ^. media_url
-                 in (mconcat ["derivatives/", unpack mid, "/", unpack mid, "-files-", lbl], h, u)
+otherFiles :: Extractor
+otherFiles mid fi = fi ^.. fileStuff . files . folded . to conv
+  where
+    typ = fi ^. filename . to (drop 1 . takeExtension)
+    conv v = let i = v ^. file_item_number
+                 lbl = show i <> "." <> typ
+                 h = v ^. media_head
+                 u = v ^. media_url
+             in (fromString $ mconcat ["derivatives/", unpack mid, "/", unpack mid, "-files-", lbl],
+                 fromString h,
+                 u)
 
-runBackup :: GoPro ()
-runBackup = do
+extractOrig :: Extractor
+extractOrig mid fi = maybe (otherFiles mid fi) (:[]) source
+  where
+    source = fi ^? fileStuff . variations . folded . filtered (has (var_label . only "source")) . to conv . folded
+    conv v = do
+          typ <- v ^? media_type
+          let h = v ^. media_head
+              u = v ^. media_url
+          pure (fromString $ mconcat ["derivatives/", unpack mid, "/" , unpack mid, "-var-source.", typ],
+                fromString h,
+                u)
+
+runBackup :: Extractor -> GoPro ()
+runBackup ex = do
   λ <- asks (configItem CfgCopyFunc)
   todo <- take 5 <$> listToCopyToS3
   logDbgL ["todo: ", tshow todo]
   c <- asks (optUploadConcurrency . gpOptions)
-  void $ mapConcurrentlyLimited c (copyMedia λ) todo
+  void $ mapConcurrentlyLimited c (copyMedia λ ex) todo
 
-runLocalBackup :: FilePath -> GoPro ()
-runLocalBackup path = do
+runLocalBackup :: Extractor -> FilePath -> GoPro ()
+runLocalBackup ex path = do
   have <- Set.fromList . fmap pack <$> liftIO (listDirectory path)
   todo <- filter (`Set.notMember` have) <$> listToCopyLocally
   logDbgL ["todo: ", tshow todo]
   c <- asks (optDownloadConcurrency . gpOptions)
-  void $ mapConcurrentlyLimited c (downloadLocally path) todo
+  void $ mapConcurrentlyLimited c (downloadLocally path ex) todo
 
 runStoreMeta :: GoPro ()
 runStoreMeta = do

@@ -32,7 +32,10 @@ import           GoPro.DB                (ConfigOption (..), HasGoProDB (..), in
 import           GoPro.Logging
 import           GoPro.Notification
 import           GoPro.Plus.Auth
-import           GoPro.Plus.Media        (MediumID, MediumType)
+import           GoPro.Plus.Media        (FileInfo, MediumID, MediumType)
+
+-- Extractor function for deciding which files to download for backing up.
+type Extractor = MediumID -> FileInfo -> [(T.Text, String, String)]
 
 data Command = AuthCmd
              | ReauthCmd
@@ -46,9 +49,9 @@ data Command = AuthCmd
              | FixupCmd Query
              | ServeCmd
              | WaitCmd
-             | BackupCmd
+             | BackupCmd Extractor
              | ProcessSQSCmd
-             | BackupLocalCmd FilePath
+             | BackupLocalCmd Extractor FilePath
              | ConfigListCmd
              | ConfigGetCmd ConfigOption
              | ConfigSetCmd ConfigOption T.Text

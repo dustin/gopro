@@ -18,9 +18,9 @@ import qualified Data.List.NonEmpty                   as NE
 import qualified Data.Text                            as T
 import           Options.Applicative                  (Parser, action, argument, auto, command, completeWith,
                                                        customExecParser, eitherReader, fullDesc, help, helper,
-                                                       hsubparser, info, long, metavar, option, prefs, progDesc,
-                                                       short, showDefault, showHelpOnError, some, str, strOption,
-                                                       switch, value, (<**>))
+                                                       hsubparser, info, long, metavar, option, prefs, progDesc, short,
+                                                       showDefault, showHelpOnError, some, str, strOption, switch,
+                                                       value, (<**>))
 import           Options.Applicative.Help.Levenshtein (editDistance)
 import           System.IO                            (hFlush, hGetEcho, hSetEcho, stdin, stdout)
 
@@ -55,9 +55,11 @@ options = Options
                   <> command "cleanup" (info (pure CleanupCmd) (progDesc "Clean up any outstanding ops"))
                   <> command "serve" (info (pure ServeCmd) (progDesc "Run the UI web server"))
                   <> command "wait" (info (pure WaitCmd) (progDesc "Wait for outstanding uploads to complete"))
-                  <> command "backup" (info (pure BackupCmd) (progDesc "Backup all media to S3"))
+                  <> command "backup" (info (pure $ BackupCmd extractOrig) (progDesc "Backup original media to S3"))
+                  <> command "backupall" (info (pure $ BackupCmd extractMedia) (progDesc "Backup all media to S3"))
                   <> command "processSQS" (info (pure ProcessSQSCmd) (progDesc "Process SQS queue"))
-                  <> command "backuplocal" (info backupLocalCmd (progDesc "Backup all media to local path"))
+                  <> command "backuplocal" (info backupLocalCmd (progDesc "Backup original media to local path"))
+                  <> command "backuplocalall" (info backupLocalAllCmd (progDesc "Backup all media to local path"))
                   <> command "config" (info configCmd (progDesc "Interact with config"))
                  )
   where
@@ -71,7 +73,8 @@ options = Options
                                         _       -> Left (inv "MediumType" s mtypes)
     mtypes = [show t | t <- [minBound..] :: [MediumType]]
 
-    backupLocalCmd = BackupLocalCmd <$> argument str (metavar "path" <> action "directory")
+    backupLocalCmd = BackupLocalCmd extractOrig <$> argument str (metavar "path" <> action "directory")
+    backupLocalAllCmd = BackupLocalCmd extractMedia <$> argument str (metavar "path" <> action "directory")
 
     configCmd = hsubparser (foldMap optCmd [minBound ..]) <|> pure ConfigListCmd
 
@@ -134,9 +137,9 @@ run CleanupCmd            = runCleanup
 run (FixupCmd q)          = runFixup q
 run ServeCmd              = runServer
 run WaitCmd               = runWaitForUploads
-run BackupCmd             = runBackup >> runReceiveS3CopyQueue
+run (BackupCmd x)         = runBackup x >> runReceiveS3CopyQueue
 run ProcessSQSCmd         = runReceiveS3CopyQueue
-run (BackupLocalCmd p)    = runLocalBackup p
+run (BackupLocalCmd x p)  = runLocalBackup x p
 run ConfigListCmd         = runListConfig
 run (ConfigGetCmd k)      = runGetConfig k
 run (ConfigSetCmd k v)    = runSetConfig k v
