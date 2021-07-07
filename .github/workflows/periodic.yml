@@ -43,3 +43,12 @@ jobs:
         stack $RESOLVER --no-terminal test --bench --no-run-benchmarks
       env:
         RESOLVER: ${{ matrix.plan.resolver }}
+
+  niv-updater:
+    name: 'Create PRs for niv-managed dependencies'
+    runs-on: ubuntu-latest
+    steps:
+      - name: niv-updater-action
+        uses: knl/niv-updater-action@v9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
