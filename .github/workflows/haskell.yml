@@ -7,13 +7,11 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  backend:
     strategy:
       matrix:
         os: [ubuntu-latest]
-
     runs-on: ${{ matrix.os }}
-
     steps:
     - uses: actions/checkout@v2
 
@@ -46,3 +44,14 @@ jobs:
       with:
         name: gopro-${{ matrix.os }}
         path: dist
+
+  ui:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: jorelali/setup-elm@v3
+      with:
+        elm-version: 0.19.1
+    - run: cd ui && elm make src/Main.elm
