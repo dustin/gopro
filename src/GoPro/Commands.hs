@@ -42,7 +42,7 @@ data Command = AuthCmd
              | SyncCmd
              | RefreshCmd (NonEmpty MediumID)
              | CreateUploadCmd (NonEmpty FilePath)
-             | UploadCmd (NonEmpty FilePath)
+             | UploadCmd [FilePath]
              | CreateMultiCmd MediumType (NonEmpty FilePath)
              | FetchAllCmd
              | CleanupCmd

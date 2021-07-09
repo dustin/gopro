@@ -18,9 +18,9 @@ import qualified Data.List.NonEmpty                   as NE
 import qualified Data.Text                            as T
 import           Options.Applicative                  (Parser, action, argument, auto, command, completeWith,
                                                        customExecParser, eitherReader, fullDesc, help, helper,
-                                                       hsubparser, info, long, metavar, option, prefs, progDesc, short,
-                                                       showDefault, showHelpOnError, some, str, strOption, switch,
-                                                       value, (<**>))
+                                                       hsubparser, info, long, many, metavar, option, prefs, progDesc,
+                                                       short, showDefault, showHelpOnError, some, str, strOption,
+                                                       switch, value, (<**>))
 import           Options.Applicative.Help.Levenshtein (editDistance)
 import           System.IO                            (hFlush, hGetEcho, hSetEcho, stdin, stdout)
 
@@ -65,7 +65,7 @@ options = Options
   where
     refreshCmd = RefreshCmd <$> some1 (argument str (metavar "mIDs..."))
     createUpCmd = CreateUploadCmd <$> some1 (argument str (metavar "file..." <> action "file"))
-    uploadCmd = UploadCmd <$> some1 (argument str (metavar "file..." <> action "file"))
+    uploadCmd = UploadCmd <$> many (argument str (metavar "file..." <> action "file"))
     createMultiCmd = CreateMultiCmd <$> argument mediumType (metavar "Mediumtype" <> completeWith mtypes)
                      <*> some1 (argument str (metavar "file..." <> action "file"))
     mediumType = eitherReader $ \s -> case reads s of
@@ -131,7 +131,7 @@ run SyncCmd               = runFullSync
 run (RefreshCmd mids)     = refreshMedia mids
 run (CreateUploadCmd fs)  = runCreateUploads fs
 run (CreateMultiCmd t fs) = runCreateMultipart t fs
-run (UploadCmd fs)        = runCreateUploads fs >> runResumeUpload
+run (UploadCmd fs)        = ifne fs runCreateUploads >> runResumeUpload
 run FetchAllCmd           = runFetch Full
 run CleanupCmd            = runCleanup
 run (FixupCmd q)          = runFixup q
@@ -143,6 +143,12 @@ run (BackupLocalCmd x p)  = runLocalBackup x p
 run ConfigListCmd         = runListConfig
 run (ConfigGetCmd k)      = runGetConfig k
 run (ConfigSetCmd k v)    = runSetConfig k v
+
+-- Perform an action on a list if the list is non-empty
+ifne :: Monad m => [a] -> (NonEmpty a -> m ()) -> m ()
+ifne [] _     = pure ()
+ifne (x:xs) a = a (x :| xs)
+
 
 main :: IO ()
 main = do
