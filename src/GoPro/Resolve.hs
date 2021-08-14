@@ -10,6 +10,7 @@ import qualified Data.ByteString        as BS
 import           Data.Map.Strict        (Map)
 import qualified Data.Map.Strict        as Map
 import           Data.Maybe             (fromMaybe, mapMaybe)
+import           Data.Semigroup         (Sum (..))
 import           Data.Time.Clock        (UTCTime (..))
 import           Data.Time.LocalTime    (localTimeToUTC, utc)
 import           Data.Tuple             (swap)
@@ -65,9 +66,8 @@ summarizeGPMF devc = MDSummary {
 
   where mainScene = swap <$> Map.lookupMax avgs
           where ss = devc  ^. folded . dev_telems . folded . tele_values . _TVScene . folded . to Map.assocs
-                counts = Map.fromListWith (+) . map (\(a,_) -> (a,1::Float)) $ ss
-                sums   = Map.fromListWith (+) ss
-                avgs   = Map.fromList $ zipWith (\(k,s) (_,c) -> (s/c,k)) (Map.assocs sums) (Map.assocs counts)
+                sc     = Map.fromListWith (<>) $ (\(a,x) -> (a, (Sum x, Sum 1))) <$> ss
+                avgs   = Map.foldMapWithKey (\k (Sum s, Sum c) -> Map.singleton (s/c) k) sc
 
         gps = devc ^.. folded . dev_telems . folded . tele_values . _TVGPS . filtered ((< 500) . view gps_p)
 
