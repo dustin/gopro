@@ -9,7 +9,7 @@ import           Data.Aeson.Lens
 import qualified Data.ByteString        as BS
 import           Data.Map.Strict        (Map)
 import qualified Data.Map.Strict        as Map
-import           Data.Maybe             (fromMaybe)
+import           Data.Maybe             (fromMaybe, mapMaybe)
 import           Data.Time.Clock        (UTCTime (..))
 import           Data.Time.LocalTime    (localTimeToUTC, utc)
 import           Data.Tuple             (swap)
@@ -49,7 +49,7 @@ instance FromJSON MDSummary where
   parseJSON _ = pure (MDSummary "" Nothing Nothing Nothing Nothing Nothing 0 Nothing)
 
 parseDEVC :: BS.ByteString -> Either String [DEVC]
-parseDEVC = (fmap.fmap) (uncurry mkDEVC) . parseGPMF
+parseDEVC = (fmap . mapMaybe) (uncurry mkDEVC) . parseGPMF
 
 summarizeGPMF :: [DEVC] -> MDSummary
 summarizeGPMF devc = MDSummary {
