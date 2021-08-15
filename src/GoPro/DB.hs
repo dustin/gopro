@@ -87,7 +87,9 @@ initQueries = [
   (8, "create table if not exists s3backup (media_id, filename, status, response)"),
   (9, "insert into config values ('s3copyfunc', 'download-to-s3')"),
   (9, "insert into config values ('s3copySQSQueue', '')"),
-  (10, "create unique index if not exists s3backup_by_file on s3backup(filename)")
+  (10, "create unique index if not exists s3backup_by_file on s3backup(filename)"),
+  (11, "alter table metablob add column meta_length int"),
+  (11, "update metablob set meta_length = length(meta)")
   ]
 
 initTables :: Connection -> IO ()
@@ -273,7 +275,8 @@ instance ToField MetadataType where
 
 insertMetaBlob :: (HasGoProDB m, MonadIO m) => MediumID -> MetadataType -> Maybe BS.ByteString -> m ()
 insertMetaBlob mid fmt blob = liftIO . ins =<< goproDB
-  where ins db = execute db "insert into metablob (media_id, meta, format) values (?, ?, ?)" (mid, blob, fmt)
+  where ins db = execute db "insert into metablob (media_id, meta, format, meta_length) values (?, ?, ?, ?)" (
+          mid, blob, fmt, maybe 0 BS.length blob)
 
 metaTODO :: (HasGoProDB m, MonadIO m) => m [(MediumID, MetadataType, BS.ByteString)]
 metaTODO = liftIO . sel =<< goproDB
