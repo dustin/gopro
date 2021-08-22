@@ -56,6 +56,7 @@ options = Options
                   <> command "serve" (info (pure ServeCmd) (progDesc "Run the UI web server"))
                   <> command "wait" (info (pure WaitCmd) (progDesc "Wait for outstanding uploads to complete"))
                   <> command "backup" (info (pure $ BackupCmd extractOrig) (progDesc "Backup original media to S3"))
+                  <> command "clearmeta" (info (pure ClearMetaCmd) (progDesc "Remove local, backed-up metadata"))
                   <> command "backupall" (info (pure $ BackupCmd extractMedia) (progDesc "Backup all media to S3"))
                   <> command "processSQS" (info (pure ProcessSQSCmd) (progDesc "Process SQS queue"))
                   <> command "backuplocal" (info backupLocalCmd (progDesc "Backup original media to local path"))
@@ -143,6 +144,7 @@ run (BackupLocalCmd x p)  = runLocalBackup x p
 run ConfigListCmd         = runListConfig
 run (ConfigGetCmd k)      = runGetConfig k
 run (ConfigSetCmd k v)    = runSetConfig k v
+run ClearMetaCmd          = runClearMeta
 
 -- Perform an action on a list if the list is non-empty
 ifne :: Monad m => [a] -> (NonEmpty a -> m ()) -> m ()

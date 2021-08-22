@@ -1,5 +1,5 @@
 module GoPro.Commands.Backup (runBackup, runStoreMeta, runReceiveS3CopyQueue,
-                              runLocalBackup, extractMedia, extractOrig) where
+                              runLocalBackup, runClearMeta, extractMedia, extractOrig) where
 
 
 import           Conduit
@@ -162,8 +162,14 @@ runStoreMeta = do
   unless (null todo) $ logInfoL ["storemeta todo: ", (pack.show.fmap fst) todo]
 
   c <- asks (optUploadConcurrency . gpOptions)
-  _ <- mapConcurrentlyLimited c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
-  clearMetaBlob (fst <$> local)
+  mapConcurrentlyLimited_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
+
+runClearMeta :: GoPro()
+runClearMeta = do
+  (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
+  let backedup =  filter (`Set.member` have) (fst <$> local)
+  logDbgL ["clearing ", tshow backedup]
+  clearMetaBlob backedup
 
 runReceiveS3CopyQueue :: GoPro ()
 runReceiveS3CopyQueue = do

@@ -55,6 +55,7 @@ data Command = AuthCmd
              | ConfigListCmd
              | ConfigGetCmd ConfigOption
              | ConfigSetCmd ConfigOption T.Text
+             | ClearMetaCmd
 
 data Options = Options
     { optDBPath              :: String

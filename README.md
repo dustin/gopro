@@ -312,5 +312,11 @@ process is interrupted or you just want to make sure you've picked up
 everything, this command can be invoked separately without potentially
 issuing more copy requests.
 
+### clearmeta
+
+The `clearmeta` command removes any local metadata storage for any
+medium whose metadata is backed up on S3.  This can save a lot of
+space if you have a lot of video assets.
+
 [stack]: https://docs.haskellstack.org/en/stable/install_and_upgrade/
 [blog]: http://dustin.sallings.org/2020/04/29/gopro-plus.html
