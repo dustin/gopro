@@ -143,7 +143,7 @@ upsertMediaStatement = [r|insert into media (media_id, camera_model, captured_at
 
 data MediaRow = MediaRow
     { _row_media     :: Medium
-    , _row_thumbnail :: BL.ByteString
+    , _row_thumbnail :: Maybe BL.ByteString
     , _row_variants  :: BL.ByteString
     } deriving (Show)
 makeLenses ''MediaRow
@@ -243,7 +243,7 @@ instance FromRow Medium where
 loadMedia :: (HasGoProDB m, MonadIO m) => m [Medium]
 loadMedia = goproDB >>= \db -> liftIO $ query_ db selectMediaStatement
 
-loadThumbnail :: (HasGoProDB m, MonadIO m) => MediumID -> m BL.ByteString
+loadThumbnail :: (HasGoProDB m, MonadIO m) => MediumID -> m (Maybe BL.ByteString)
 loadThumbnail imgid = liftIO . sel =<< goproDB
   where
     sel db = do

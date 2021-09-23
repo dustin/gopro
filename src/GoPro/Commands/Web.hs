@@ -1,5 +1,6 @@
 {-# LANGUAGE BlockArguments      #-}
 {-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 
@@ -11,11 +12,11 @@ import           Control.Lens
 import           Control.Monad                  (forever)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Reader           (ask, asks, lift)
-import           Data.List.NonEmpty             (NonEmpty(..))
 import qualified Data.Aeson                     as J
 import           Data.Aeson.Lens                (_Object)
 import           Data.Cache                     (insert)
 import qualified Data.HashMap.Strict            as HM
+import           Data.List.NonEmpty             (NonEmpty (..))
 import qualified Data.Map.Strict                as Map
 import           Data.String                    (fromString)
 import qualified Data.Text                      as T
@@ -103,10 +104,13 @@ runServer = do
           logInfo "Refreshed auth"
         status noContent204
 
-      get "/thumb/:id" do
-        setHeader "Content-Type" "image/jpeg"
-        setHeader "Cache-Control" "max-age=86400"
-        raw =<< lift . loadThumbnail =<< param "id"
+      get "/thumb/:id" $ param "id" >>= lift . loadThumbnail >>= \case
+        Nothing ->
+          file $ staticPath </> "nothumb.jpg"
+        Just b -> do
+          setHeader "Content-Type" "image/jpeg"
+          setHeader "Cache-Control" "max-age=86400"
+          raw b
 
       get "/api/areas" (lift selectAreas >>= json)
 
