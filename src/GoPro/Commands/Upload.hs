@@ -7,9 +7,11 @@ module GoPro.Commands.Upload (
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Reader   (asks)
 import           Data.Foldable          (fold)
+import           Data.List              (sortOn)
 import           Data.List.NonEmpty     (NonEmpty (..))
 import qualified Data.List.NonEmpty     as NE
 import           Data.Monoid            (Sum (..))
+import           Data.Ord               (Down (..))
 import qualified Data.Text              as T
 import           System.Posix.Files     (fileSize, getFileStatus)
 
@@ -95,7 +97,8 @@ runResumeUpload = do
       resumeUpload (_pu_filename :| []) _pu_medium_id $ do
         setLogAction (logError . T.pack)
         Upload{..} <- getUpload _pu_upid _pu_did part fsize
-        let chunks = filter (\UploadPart{..} -> _uploadPart `elem` _pu_parts) _uploadParts
+        let chunks = sortOn (Down . _uploadPart) $
+                     filter (\UploadPart{..} -> _uploadPart `elem` _pu_parts) _uploadParts
         logInfoL ["Uploading ", tshow _pu_filename, " (", tshow fsize, " bytes) as ",
                   _pu_medium_id, ":", tshow part, ": did=",
                   _pu_did, ", upid=", _uploadID, ", parts=", tshow (length chunks)]
