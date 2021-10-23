@@ -1,33 +1,37 @@
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications  #-}
+
 module GoPro.Commands.Backup (runBackup, runStoreMeta, runReceiveS3CopyQueue,
                               runLocalBackup, runClearMeta, extractMedia, extractOrig) where
 
 
+import           Amazonka              (send)
+import           Amazonka.Lambda       (InvocationType (..), newInvoke)
+import           Amazonka.S3           (BucketName (..))
+import           Amazonka.SQS          (newDeleteMessageBatch, newDeleteMessageBatchRequestEntry, newReceiveMessage)
 import           Conduit
 import           Control.Lens
-import           Control.Monad           (unless, void)
-import           Control.Monad.Reader    (asks)
-import           Control.Monad.Trans.AWS (send)
-import           Control.Retry           (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
-import qualified Data.Aeson              as J
+import           Control.Monad         (unless, void)
+import           Control.Monad.Reader  (asks)
+import           Control.Retry         (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
+import qualified Data.Aeson            as J
 import           Data.Aeson.Lens
-import qualified Data.ByteString.Lazy    as BL
-import           Data.Foldable           (fold)
-import           Data.List.Extra         (chunksOf)
-import           Data.Maybe              (fromJust, maybeToList)
-import qualified Data.Set                as Set
-import           Data.String             (fromString)
-import           Data.Text               (Text, pack, stripPrefix, unpack)
-import qualified Data.Text.Encoding      as TE
-import           Network.AWS.Lambda      (InvocationType (..), iInvocationType, invoke)
-import           Network.AWS.S3          (BucketName (..))
-import           Network.AWS.SQS         (deleteMessageBatch, deleteMessageBatchRequestEntry, dmbEntries, mBody,
-                                          mReceiptHandle, receiveMessage, rmMaxNumberOfMessages, rmVisibilityTimeout,
-                                          rmWaitTimeSeconds, rmrsMessages)
-import           Network.HTTP.Simple     (getResponseBody, httpSource, parseRequest)
-import           System.Directory        (createDirectoryIfMissing, doesFileExist, listDirectory, renameDirectory,
-                                          renameFile)
-import           System.FilePath.Posix   (takeDirectory, takeExtension, (</>))
-import           UnliftIO                (concurrently, mapConcurrently, mapConcurrently_)
+import qualified Data.ByteString.Lazy  as BL
+import           Data.Foldable         (fold)
+import           Data.Generics.Product (field)
+import           Data.List.Extra       (chunksOf)
+import           Data.Maybe            (fromJust, maybeToList)
+import qualified Data.Set              as Set
+import           Data.String           (fromString)
+import           Data.Text             (Text, pack, stripPrefix, unpack)
+import qualified Data.Text.Encoding    as TE
+import           Network.HTTP.Simple   (getResponseBody, httpSource, parseRequest)
+import           System.Directory      (createDirectoryIfMissing, doesFileExist, listDirectory, renameDirectory,
+                                        renameFile)
+import           System.FilePath.Posix (takeDirectory, takeExtension, (</>))
+import           UnliftIO              (concurrently, mapConcurrently, mapConcurrently_)
 
 import           GoPro.Commands
 import           GoPro.DB
@@ -52,7 +56,7 @@ copyMedia λ extract mid = do
     copy (k, h, u) = do
       b <- s3Bucket
       logDbgL ["Queueing copy of ", mid, " to ", tshow k]
-      inAWS . void . send $ invoke λ (encodeCopyRequest (pack h) (pack u) b k) & iInvocationType ?~ Event
+      inAWS $ \env -> void . send env $ newInvoke λ (encodeCopyRequest (pack h) (pack u) b k) & field @"invocationType" ?~ InvocationType_Event
 
     encodeCopyRequest hd src (BucketName bname) k = BL.toStrict . J.encode $ jbod
       where
@@ -180,15 +184,15 @@ runReceiveS3CopyQueue = do
       go _ [] = logInfo "Not waiting for any results"
       go qrl w = do
         logInfoL ["Waiting for ", tshow (length w), " files to finish copying"]
-        msgs <- toListOf (folded . rmrsMessages . folded) <$> getmsgs qrl (length w)
+        msgs <- toListOf (folded . field @"messages" . folded) <$> getmsgs qrl (length w)
 
         logInfoL ["Processing ", tshow (length msgs), " responses"]
         let results = computeResults <$> msgs
         mapM_ (\(fn, ok, _) -> logDbgL ["Finished ", fn, " with status: ", tshow ok]) results
         markS3CopyComplete results
 
-        let mids = msgs ^.. folded . mReceiptHandle . _Just
-            deletes = zipWith (deleteMessageBatchRequestEntry . tshow) [1 :: Int ..] mids
+        let mids = msgs ^.. folded . folded . field @"receiptHandle" . _Just
+            deletes = zipWith (newDeleteMessageBatchRequestEntry . tshow) [1 :: Int ..] mids
         unless (null deletes) $ do
           logDbg "Deleting processed messages from SQS."
           delMessages qrl deletes
@@ -205,16 +209,16 @@ runReceiveS3CopyQueue = do
           -- want a bunch of workers blocking on the message that may
           -- trickle in, but we want to be able to burst support for
           -- lots of messages.
-          someMessages n = inAWS . send $ receiveMessage qrl
-                           & rmMaxNumberOfMessages ?~ 10
-                           & rmWaitTimeSeconds ?~ (if n == 0 then 20 else 0)
-                           & rmVisibilityTimeout ?~ 60
+          someMessages n = inAWS $ \env -> send env $ newReceiveMessage qrl
+                           & field @"maxNumberOfMessages" ?~ 10
+                           & field @"waitTimeSeconds" ?~ (if n == 0 then 20 else 0)
+                           & field @"visibilityTimeout" ?~ 60
 
       delMessages qrl = mapConcurrently_ batch . chunksOf 10
-        where batch dels = inAWS $ void . send $ deleteMessageBatch qrl & dmbEntries .~ dels
+        where batch dels = inAWS $ \env -> void . send env $ newDeleteMessageBatch qrl & field @"entries" .~ dels
 
       computeResults m = do
-        let Just bodBytes = m ^? mBody . _Just . to (BL.fromStrict . TE.encodeUtf8)
+        let Just bodBytes = m ^? folded . field @"body" . _Just . to (BL.fromStrict . TE.encodeUtf8)
             Just bod = J.decode bodBytes :: Maybe J.Value
             modbod = bod & key "requestPayload" . _Object %~ sans "src" . sans "head"
             Just condition = bod ^? key "requestContext" . key "condition" . _String

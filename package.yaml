@@ -30,6 +30,7 @@ dependencies:
 - text
 - lens
 - lens-aeson
+- generic-lens
 - time
 - sqlite-simple
 - mtl
@@ -65,11 +66,11 @@ dependencies:
 - retry
 - resourcet
 - conduit-extra
-- amazonka
-- amazonka-core
-- amazonka-s3 >= 1.6.1
-- amazonka-sqs
-- amazonka-lambda
+- amazonka >= 2.0
+- amazonka-core >= 2.0
+- amazonka-s3 >= 2.0
+- amazonka-sqs >= 2.0
+- amazonka-lambda >= 2.0
 - monad-loops
 - zlib
 - stm
