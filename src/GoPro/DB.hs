@@ -42,9 +42,9 @@ import           Data.Typeable                    (Typeable)
 import           Database.SQLite.Simple           hiding (bind, close)
 import           Database.SQLite.Simple.FromField
 import           Database.SQLite.Simple.Ok
+import           Database.SQLite.Simple.QQ        (sql)
 import           Database.SQLite.Simple.ToField
 import           Generics.Deriving.Base           (Generic)
-import           Text.RawString.QQ                (r)
 
 import           GoPro.Plus.Media                 (FileInfo (..), Medium (..), MediumID, MediumType (..), Moment (..),
                                                    ReadyToViewType (..))
@@ -61,19 +61,19 @@ withDB = flip runReaderT
 
 initQueries :: [(Int, Query)]
 initQueries = [
-  (1, [r|create table if not exists media (media_id primary key, camera_model,
-                                           captured_at, created_at, file_size,
-                                           moments_count, source_duration,
-                                           media_type, width, height,
-                                           ready_to_view, thumbnail)|]),
-  (1, [r|create table if not exists
-         meta (media_id primary key, camera_model, captured_at,
-               lat, lon, max_speed_2d, max_speed_3d, max_faces, main_scene, main_scene_prob)|]),
+  (1, [sql|create table if not exists media (media_id primary key, camera_model,
+                                             captured_at, created_at, file_size,
+                                             moments_count, source_duration,
+                                             media_type, width, height,
+                                             ready_to_view, thumbnail)|]),
+  (1, [sql|create table if not exists
+           meta (media_id primary key, camera_model, captured_at,
+                 lat, lon, max_speed_2d, max_speed_3d, max_faces, main_scene, main_scene_prob)|]),
   (1, "create table if not exists metablob (media_id primary key, meta blob, format text, backedup boolean)"),
-  (1, [r|create table if not exists areas (area_id integer primary key autoincrement,
-                                           name text,
-                                           lat1 real, lon1 real,
-                                           lat2 real, lon2 real)|]),
+  (1, [sql|create table if not exists areas (area_id integer primary key autoincrement,
+                                             name text,
+                                             lat1 real, lon1 real,
+                                             lat2 real, lon2 real)|]),
   (1, "create table if not exists moments (media_id, moment_id integer, timestamp integer)"),
   (1, "create index if not exists moments_by_medium on moments(media_id)"),
   (2, "create table if not exists config (key, value)"),
@@ -130,15 +130,15 @@ updateConfig cfg = liftIO . up =<< goproDB
           executeMany db "insert into config (key, value) values (?,?)" (Map.assocs cfg)
 
 upsertMediaStatement :: Query
-upsertMediaStatement = [r|insert into media (media_id, camera_model, captured_at, created_at,
-                                             file_size, moments_count, source_duration, media_type,
-                                             width, height, ready_to_view, thumbnail, variants)
-                                      values(?,?,?,?,?,?,?,?,?,?,?,?,?)
-                            on conflict (media_id)
-                               do update
-                                 set moments_count = excluded.moments_count,
-                                     ready_to_view = excluded.ready_to_view,
-                                     variants = excluded.variants
+upsertMediaStatement = [sql|insert into media (media_id, camera_model, captured_at, created_at,
+                                               file_size, moments_count, source_duration, media_type,
+                                               width, height, ready_to_view, thumbnail, variants)
+                                        values(?,?,?,?,?,?,?,?,?,?,?,?,?)
+                              on conflict (media_id)
+                                 do update
+                                   set moments_count = excluded.moments_count,
+                                       ready_to_view = excluded.ready_to_view,
+                                       variants = excluded.variants
                               |]
 
 data MediaRow = MediaRow
@@ -211,19 +211,19 @@ loadMediaIDs = coerce <$> (liftIO . sel =<< goproDB)
     sel db = query_ db "select media_id from media order by captured_at desc"
 
 selectMediaStatement :: Query
-selectMediaStatement = [r|select media_id,
-                                 camera_model,
-                                 captured_at,
-                                 created_at,
-                                 file_size,
-                                 moments_count,
-                                 ready_to_view,
-                                 source_duration,
-                                 media_type,
-                                 width,
-                                 height
-                             from media
-                             order by captured_at desc|]
+selectMediaStatement = [sql|select media_id,
+                                   camera_model,
+                                   captured_at,
+                                   created_at,
+                                   file_size,
+                                   moments_count,
+                                   ready_to_view,
+                                   source_duration,
+                                   media_type,
+                                   width,
+                                   height
+                               from media
+                               order by captured_at desc|]
 
 instance FromRow Medium where
   fromRow =
@@ -253,10 +253,10 @@ loadThumbnail imgid = liftIO . sel =<< goproDB
 metaBlobTODO :: (HasGoProDB m, MonadIO m) => m [(MediumID, String)]
 metaBlobTODO = liftIO . sel =<< goproDB
   where
-    sel db = query_ db [r|select media_id, media_type
-                         from media
-                         where media_id not in (select media_id from metablob)
-                         order by created_at desc|]
+    sel db = query_ db [sql|select media_id, media_type
+                            from media
+                            where media_id not in (select media_id from metablob)
+                            order by created_at desc|]
 
 
 data MetadataType = GPMF | EXIF | NoMetadata deriving Show
@@ -281,7 +281,7 @@ insertMetaBlob mid fmt blob = liftIO . ins =<< goproDB
 metaTODO :: (HasGoProDB m, MonadIO m) => m [(MediumID, MetadataType, BS.ByteString)]
 metaTODO = liftIO . sel =<< goproDB
   where
-    sel db = query_ db [r|
+    sel db = query_ db [sql|
                          select b.media_id, b.format, b.meta
                          from metablob b join media m on (m.media_id = b.media_id)
                          where b.meta is not null
@@ -299,7 +299,7 @@ clearMetaBlob ms = liftIO . up =<< goproDB
 insertMeta :: (HasGoProDB m, MonadIO m) => MediumID -> MDSummary -> m ()
 insertMeta mid MDSummary{..} = liftIO . up =<< goproDB
   where
-    q = [r|
+    q = [sql|
           insert into meta (media_id, camera_model, captured_at, lat, lon,
                             max_speed_2d, max_speed_3d, max_faces,
                             main_scene, main_scene_prob)
@@ -340,11 +340,11 @@ selectMeta :: (HasGoProDB m, MonadIO m) => m (Map MediumID MDSummary)
 selectMeta = goproDB >>= \db ->  Map.fromList . coerce <$> liftIO (sel db)
   where
     sel :: Connection -> IO [NamedSummary]
-    sel db = query_ db [r|select media_id, camera_model, captured_at, lat, lon,
-                              max_speed_2d, max_speed_3d,
-                              max_faces, main_scene, main_scene_prob
-                          from meta
-                          where camera_model is not null |]
+    sel db = query_ db [sql|select media_id, camera_model, captured_at, lat, lon,
+                                   max_speed_2d, max_speed_3d,
+                                   max_faces, main_scene, main_scene_prob
+                            from meta
+                            where camera_model is not null |]
 
 data Area = Area
     { _area_id   :: Int
@@ -388,7 +388,7 @@ momentsTODO :: (HasGoProDB m, MonadIO m) => m [MediumID]
 momentsTODO = liftIO . coerce . sel =<< goproDB
   where
     sel :: Connection -> IO [Only MediumID]
-    sel db = query_ db [r|
+    sel db = query_ db [sql|
                          select m.media_id from media m left outer join
                            (select media_id, count(*) as moco from moments group by media_id) as mo
                            on (m. media_id = mo.media_id)
@@ -452,7 +452,7 @@ listToCopyToS3 :: (HasGoProDB m, MonadIO m) => m [MediumID]
 listToCopyToS3 = coerce <$> (liftIO . sel =<< goproDB)
   where
     sel :: Connection -> IO [Only MediumID]
-    sel db = query_ db [r|
+    sel db = query_ db [sql|
                          select media_id from media
                          where media_id not in (select distinct media_id from s3backup)
                          order by created_at
