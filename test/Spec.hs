@@ -40,7 +40,10 @@ tests :: [TestTree]
 tests = [
   testCase "extracting all media" testExtractMedia,
   testCase "extracting orig media" testExtractOrig
-  ] <> DBSpec.tests
+  ]
 
 main :: IO ()
-main = defaultMain $ testGroup "All Tests" tests
+main = defaultMain $ testGroup "All Tests" [
+  testGroup "Misc" tests,
+  testGroup "DB" DBSpec.tests
+  ]
