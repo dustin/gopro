@@ -6,7 +6,7 @@
 module GoPro.Commands.Sync where
 
 import           Conduit
-import           Control.Applicative   (Alternative (..))
+import           Control.Applicative   (Alternative (..), optional)
 import           Control.Concurrent    (threadDelay)
 import           Control.Lens
 import           Control.Monad         (unless)
@@ -49,7 +49,7 @@ runFetch stype = do
   unless (null ms) $ logDbgL ["new items: ", tshow (ms ^.. folded . medium_id)]
   mapM_ storeSome $ chunksOf 100 ms
 
-    where resolve m = MediaRow m <$> maybeFetchThumbnail m <*> (J.encode <$> fetchVariantsSansURLs (_medium_id m))
+    where resolve m = MediaRow m <$> optional (fetchThumbnail m) <*> (J.encode <$> fetchVariantsSansURLs (_medium_id m))
           todo seen = filter (\m -> notSeen m && wanted m) <$> listWhile (listPred stype)
             where
               notSeen = (`Set.notMember` seen) . _medium_id
@@ -62,8 +62,6 @@ runFetch stype = do
             c <- asks (optDownloadConcurrency . gpOptions)
             storeMedia =<< fetch c l
           fetch c = mapConcurrentlyLimited c resolve
-
-          maybeFetchThumbnail m = (Just <$> fetchThumbnail m) <|> pure Nothing
 
 runGetMoments :: GoPro ()
 runGetMoments = do
