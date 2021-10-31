@@ -363,12 +363,7 @@ data Area = Area
 makeLenses ''Area
 
 instance FromRow Area where
-  fromRow = do
-    _area_id <- field
-    _area_name <- field
-    _area_nw <- liftA2 (,) field field
-    _area_se <- liftA2 (,) field field
-    pure Area{..}
+  fromRow = Area <$> field <*> field <*> liftA2 (,) field field <*> liftA2 (,) field field
 
 instance ToJSON Area where
   toEncoding = genericToEncoding defaultOptions { fieldLabelModifier = drop 6}
