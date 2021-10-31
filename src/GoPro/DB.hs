@@ -1,9 +1,11 @@
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE RecordWildCards   #-}
-{-# LANGUAGE TemplateHaskell   #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RecordWildCards     #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadMediaRows, loadThumbnail,
@@ -195,17 +197,23 @@ storeMedia media = liftIO . up =<< goproDB
 instance FromRow MediaRow where
   fromRow = MediaRow <$> fromRow <*> field <*> field
 
-loadMediaRows :: (HasGoProDB m, MonadIO m) => m [MediaRow]
-loadMediaRows = coerce <$> (liftIO . sel =<< goproDB)
+-- A simple query.
+q_ :: (HasGoProDB m, MonadIO m, FromRow r) => Query -> m [r]
+q_ q = liftIO . flip query_ q =<< goproDB
+
+-- A query that returns only a single column.
+oq_ :: (HasGoProDB m, MonadIO m, FromField r) => Query -> m [r]
+oq_ q = unonly <$> q_ q
   where
-    sel :: Connection -> IO [MediaRow]
-    sel db = query_ db "select media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view, source_duration, media_type, width, height, thumbnail, variants from media"
+    unonly :: [Only a] -> [a]
+    unonly = coerce
+
+
+loadMediaRows :: (HasGoProDB m, MonadIO m) => m [MediaRow]
+loadMediaRows = q_ "select media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view, source_duration, media_type, width, height, thumbnail, variants from media"
 
 loadMediaIDs :: (HasGoProDB m, MonadIO m) => m [MediumID]
-loadMediaIDs = coerce <$> (liftIO . sel =<< goproDB)
-  where
-    sel :: Connection -> IO [Only MediumID]
-    sel db = query_ db "select media_id from media order by captured_at desc"
+loadMediaIDs = oq_ "select media_id from media order by captured_at desc"
 
 selectMediaStatement :: Query
 selectMediaStatement = [sql|select media_id,
@@ -238,7 +246,7 @@ instance FromRow Medium where
     <*> field -- _medium_height
 
 loadMedia :: (HasGoProDB m, MonadIO m) => m [Medium]
-loadMedia = goproDB >>= \db -> liftIO $ query_ db selectMediaStatement
+loadMedia = q_ selectMediaStatement
 
 loadThumbnail :: (HasGoProDB m, MonadIO m) => MediumID -> m (Maybe BL.ByteString)
 loadThumbnail imgid = liftIO . sel =<< goproDB
@@ -248,13 +256,10 @@ loadThumbnail imgid = liftIO . sel =<< goproDB
       pure t
 
 metaBlobTODO :: (HasGoProDB m, MonadIO m) => m [(MediumID, String)]
-metaBlobTODO = liftIO . sel =<< goproDB
-  where
-    sel db = query_ db [sql|select media_id, media_type
-                            from media
-                            where media_id not in (select media_id from metablob)
-                            order by created_at desc|]
-
+metaBlobTODO = q_ [sql|select media_id, media_type
+                         from media
+                         where media_id not in (select media_id from metablob)
+                         order by created_at desc|]
 
 data MetadataType = GPMF | EXIF | NoMetadata deriving Show
 
@@ -276,18 +281,15 @@ insertMetaBlob mid fmt blob = liftIO . ins =<< goproDB
           mid, blob, fmt, maybe 0 BS.length blob)
 
 metaTODO :: (HasGoProDB m, MonadIO m) => m [(MediumID, MetadataType, BS.ByteString)]
-metaTODO = liftIO . sel =<< goproDB
-  where
-    sel db = query_ db [sql|
-                         select b.media_id, b.format, b.meta
-                         from metablob b join media m on (m.media_id = b.media_id)
-                         where b.meta is not null
-                               and b.media_id not in (select media_id from meta)
-                         |]
+metaTODO = q_ [sql|
+                    select b.media_id, b.format, b.meta
+                    from metablob b join media m on (m.media_id = b.media_id)
+                    where b.meta is not null
+                          and b.media_id not in (select media_id from meta)
+                    |]
 
 selectMetaBlob :: (HasGoProDB m, MonadIO m) => m [(MediumID, Maybe BS.ByteString)]
-selectMetaBlob = liftIO . sel =<< goproDB
-  where sel db = query_ db "select media_id, meta from metablob where meta is not null"
+selectMetaBlob = q_ "select media_id, meta from metablob where meta is not null"
 
 clearMetaBlob :: (HasGoProDB m, MonadIO m) => [MediumID] -> m ()
 clearMetaBlob ms = liftIO . up =<< goproDB
@@ -333,15 +335,14 @@ instance FromRow NamedSummary where
     let _mainScene = liftA2 (,) loc prob
     pure $ NamedSummary (mid, MDSummary{..})
 
-selectMeta :: (HasGoProDB m, MonadIO m) => m (Map MediumID MDSummary)
-selectMeta = goproDB >>= \db ->  Map.fromList . coerce <$> liftIO (sel db)
+selectMeta :: forall m. (HasGoProDB m, MonadIO m) => m (Map MediumID MDSummary)
+selectMeta = Map.fromList . coerce <$> (q_ q :: m [NamedSummary])
   where
-    sel :: Connection -> IO [NamedSummary]
-    sel db = query_ db [sql|select media_id, camera_model, captured_at, lat, lon,
-                                   max_speed_2d, max_speed_3d,
-                                   max_faces, main_scene, main_scene_prob
-                            from meta
-                            where camera_model is not null |]
+    q = [sql|select media_id, camera_model, captured_at, lat, lon,
+                    max_speed_2d, max_speed_3d,
+                    max_faces, main_scene, main_scene_prob
+             from meta
+             where camera_model is not null |]
 
 data Area = Area
     { _area_id   :: Int
@@ -365,9 +366,7 @@ instance ToJSON Area where
   toEncoding = genericToEncoding defaultOptions { fieldLabelModifier = drop 6}
 
 selectAreas :: (HasGoProDB m, MonadIO m) => m [Area]
-selectAreas = liftIO . sel =<< goproDB
-  where
-    sel db = query_ db "select area_id, name, lat1, lon1, lat2, lon2 from areas"
+selectAreas = q_ "select area_id, name, lat1, lon1, lat2, lon2 from areas"
 
 storeMoments :: (HasGoProDB m, MonadIO m) => MediumID -> [Moment] -> m ()
 storeMoments mid ms = liftIO . up =<< goproDB
@@ -378,14 +377,11 @@ storeMoments mid ms = liftIO . up =<< goproDB
       executeMany db "insert into moments (media_id, moment_id, timestamp) values (?,?,?)" vals
 
 loadMoments :: (HasGoProDB m, MonadIO m) => m (Map MediumID [Moment])
-loadMoments = goproDB >>= \db -> Map.fromListWith (<>) . map (\(a,b,c) -> (a,[Moment b c])) <$> liftIO (sel db)
-  where sel db = query_ db "select media_id, moment_id, timestamp from moments"
+loadMoments = Map.fromListWith (<>) . map (\(a,b,c) -> (a,[Moment b c]))
+              <$> q_ "select media_id, moment_id, timestamp from moments"
 
 momentsTODO :: (HasGoProDB m, MonadIO m) => m [MediumID]
-momentsTODO = liftIO . coerce . sel =<< goproDB
-  where
-    sel :: Connection -> IO [Only MediumID]
-    sel db = query_ db [sql|
+momentsTODO = oq_ [sql|
                          select m.media_id from media m left outer join
                            (select media_id, count(*) as moco from moments group by media_id) as mo
                            on (m. media_id = mo.media_id)
@@ -429,37 +425,26 @@ instance FromRow PartialUpload where
 
 -- Return in order of least work to do.
 listPartialUploads :: (HasGoProDB m, MonadIO m) => m [[PartialUpload]]
-listPartialUploads = liftIO . sel =<< goproDB
-  where
-    sel db = do
-      segs <- Map.fromListWith (<>) . fmap (\(mid, p, pn) -> ((mid, pn), [p])) <$>
-              query_ db "select media_id, part, partnum from upload_parts"
-      sortOn (maximum . fmap (length . _pu_parts)) .
-        groupOn _pu_medium_id .
-        map (\p@PartialUpload{..} -> p{_pu_parts=Map.findWithDefault [] (_pu_medium_id, _pu_partnum) segs})
-        <$> query_ db "select filename, media_id, upid, did, partnum from uploads order by media_id"
+listPartialUploads = do
+    segs <- Map.fromListWith (<>) . fmap (\(mid, p, pn) -> ((mid, pn), [p])) <$>
+            q_ "select media_id, part, partnum from upload_parts"
+    sortOn (maximum . fmap (length . _pu_parts)) .
+      groupOn _pu_medium_id .
+      map (\p@PartialUpload{..} -> p{_pu_parts=Map.findWithDefault [] (_pu_medium_id, _pu_partnum) segs})
+      <$> q_ "select filename, media_id, upid, did, partnum from uploads order by media_id"
 
 listQueuedFiles :: (HasGoProDB m, MonadIO m) => m [FilePath]
-listQueuedFiles = liftIO . coerce . sel =<< goproDB
-  where
-    sel :: Connection -> IO [Only FilePath]
-    sel db = query_ db "select filename from uploads"
+listQueuedFiles = oq_ "select filename from uploads"
 
 listToCopyToS3 :: (HasGoProDB m, MonadIO m) => m [MediumID]
-listToCopyToS3 = coerce <$> (liftIO . sel =<< goproDB)
-  where
-    sel :: Connection -> IO [Only MediumID]
-    sel db = query_ db [sql|
+listToCopyToS3 = oq_ [sql|
                          select media_id from media
                          where media_id not in (select distinct media_id from s3backup)
                          order by created_at
                          |]
 
 listS3Waiting :: (HasGoProDB m, MonadIO m) => m [String]
-listS3Waiting = coerce <$> (liftIO . sel =<< goproDB)
-  where
-    sel :: Connection -> IO [Only String]
-    sel db = query_ db "select filename from s3backup where status is null"
+listS3Waiting = oq_ "select filename from s3backup where status is null"
 
 queuedCopyToS3 :: (HasGoProDB m, MonadIO m) => [(MediumID, String)] -> m ()
 queuedCopyToS3 stuff = liftIO . ins =<< goproDB
@@ -472,8 +457,5 @@ markS3CopyComplete stuffs = liftIO . up =<< goproDB
             (fmap (\(fn, ok, res) -> (ok, J.encode res, fn)) stuffs)
 
 listToCopyLocally :: (HasGoProDB m, MonadIO m) => m [MediumID]
-listToCopyLocally = coerce <$> (liftIO . sel =<< goproDB)
-  where
-    sel :: Connection -> IO [Only MediumID]
-    sel db = query_ db "select media_id from media order by created_at"
+listToCopyLocally = oq_ "select media_id from media order by created_at"
 
