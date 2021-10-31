@@ -6,32 +6,32 @@
 module GoPro.Commands.Sync where
 
 import           Conduit
-import           Control.Applicative    (Alternative (..))
-import           Control.Concurrent     (threadDelay)
+import           Control.Applicative   (Alternative (..))
+import           Control.Concurrent    (threadDelay)
 import           Control.Lens
-import           Control.Monad          (unless)
-import           Control.Monad.Loops    (whileM_)
-import qualified Data.List.NonEmpty     as NE
-import           Data.List.NonEmpty     (NonEmpty(..))
-import           Control.Monad.Reader   (asks)
-import           Control.Retry          (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
-import qualified Data.Aeson             as J
-import qualified Data.ByteString        as BS
-import qualified Data.ByteString.Lazy   as BL
-import           Data.Foldable          (asum)
-import           Data.List.Extra        (chunksOf)
-import           Data.Maybe             (isJust)
-import qualified Data.Set               as Set
-import qualified Data.Text              as T
+import           Control.Monad         (unless)
+import           Control.Monad.Loops   (whileM_)
+import           Control.Monad.Reader  (asks)
+import           Control.Retry         (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
+import qualified Data.Aeson            as J
+import qualified Data.ByteString       as BS
+import qualified Data.ByteString.Lazy  as BL
+import           Data.Foldable         (asum)
+import           Data.List.Extra       (chunksOf)
+import           Data.List.NonEmpty    (NonEmpty (..))
+import qualified Data.List.NonEmpty    as NE
+import           Data.Maybe            (isJust)
+import qualified Data.Set              as Set
+import qualified Data.Text             as T
 import           Exif
 import           FFMPeg
-import           Graphics.HsExif        (parseExif)
-import           Network.HTTP.Simple    (getResponseBody, httpSource, parseRequest)
-import           System.Directory       (createDirectoryIfMissing, doesFileExist, removeFile, renameFile)
-import           System.FilePath.Posix  ((</>))
+import           Graphics.HsExif       (parseExif)
+import           Network.HTTP.Simple   (getResponseBody, httpSource, parseRequest)
+import           System.Directory      (createDirectoryIfMissing, doesFileExist, removeFile, renameFile)
+import           System.FilePath.Posix ((</>))
 
 import           GoPro.Commands
-import           GoPro.Commands.Backup  (runStoreMeta)
+import           GoPro.Commands.Backup (runStoreMeta)
 import           GoPro.DB
 import           GoPro.Plus.Media
 import           GoPro.Resolve
