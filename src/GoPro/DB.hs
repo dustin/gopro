@@ -166,7 +166,7 @@ data MediaRow = MediaRow
     { _row_media     :: Medium
     , _row_thumbnail :: Maybe BL.ByteString
     , _row_variants  :: BL.ByteString
-    } deriving (Show)
+    } deriving (Show, Eq)
 makeLenses ''MediaRow
 
 jsonToField :: ToJSON a => a -> SQLData

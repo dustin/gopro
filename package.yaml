@@ -57,7 +57,7 @@ dependencies:
 - raw-strings-qq
 - scientific
 - hsexif
-- gopro-plus
+- gopro-plus >= 0.6
 - unix
 - unliftio
 - cache
@@ -110,3 +110,4 @@ tests:
     - tasty
     - tasty-hunit
     - tasty-quickcheck
+    - quickcheck-instances
