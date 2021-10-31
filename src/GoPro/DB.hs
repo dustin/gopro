@@ -453,7 +453,7 @@ queuedCopyToS3 = em "insert into s3backup (media_id, filename) values (?,?)"
 
 markS3CopyComplete :: (HasGoProDB m, MonadIO m, ToJSON j) => [(Text, Bool, j)] -> m ()
 markS3CopyComplete stuffs = em "update s3backup set status = ?, response = ? where filename = ?"
-                            (fmap (\(fn, ok, res) -> (ok, J.encode res, fn)) stuffs)
+                            [(ok, J.encode res, fn) | (fn, ok, res) <- stuffs]
 
 listToCopyLocally :: (HasGoProDB m, MonadIO m) => m [MediumID]
 listToCopyLocally = oq_ "select media_id from media order by created_at"
