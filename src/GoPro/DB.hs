@@ -30,7 +30,7 @@ import qualified Data.Aeson                       as J
 import qualified Data.ByteString                  as BS
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Coerce                      (coerce)
-import           Data.List                        (sortOn)
+import           Data.List                        (find, sortOn)
 import           Data.List.Extra                  (groupOn)
 import           Data.Map.Strict                  (Map)
 import qualified Data.Map.Strict                  as Map
@@ -100,18 +100,15 @@ initTables db = do
   execute_ db $ "pragma user_version = " <> (fromString . show . maximum . fmap fst $ initQueries)
 
 data ConfigOption = CfgBucket | CfgCopySQSQueue | CfgCopyFunc
-  deriving (Eq, Ord, Bounded, Enum)
-
-strOption :: Text -> Maybe ConfigOption
-strOption "bucket"         = Just CfgBucket
-strOption "s3copySQSQueue" = Just CfgCopySQSQueue
-strOption "s3copyfunc"     = Just CfgCopyFunc
-strOption _                = Nothing
+  deriving (Eq, Ord, Show, Bounded, Enum)
 
 optionStr :: ConfigOption -> Text
 optionStr CfgBucket       = "bucket"
 optionStr CfgCopySQSQueue = "s3copySQSQueue"
 optionStr CfgCopyFunc     = "s3copyfunc"
+
+strOption :: Text -> Maybe ConfigOption
+strOption s = find ((== s) . optionStr) [minBound..]
 
 instance FromField ConfigOption where
   fromField f = case fieldData f of
