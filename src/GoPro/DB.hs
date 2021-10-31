@@ -101,6 +101,31 @@ initTables db = do
   -- binding doesn't work on this for some reason.  It's safe, at least.
   execute_ db $ "pragma user_version = " <> (fromString . show . maximum . fmap fst $ initQueries)
 
+
+-- A simple query.
+q_ :: (HasGoProDB m, MonadIO m, FromRow r) => Query -> m [r]
+q_ q = liftIO . flip query_ q =<< goproDB
+
+-- A query that returns only a single column.
+oq_ :: (HasGoProDB m, MonadIO m, FromField r) => Query -> m [r]
+oq_ q = unonly <$> q_ q
+  where
+    unonly :: [Only a] -> [a]
+    unonly = coerce
+
+-- execute many
+em :: (HasGoProDB m, MonadIO m, ToRow r) => Query -> [r] -> m ()
+em q rs = goproDB >>= \db -> liftIO $ executeMany db q rs
+
+-- execute
+ex :: (HasGoProDB m, MonadIO m, ToRow r) => Query -> r -> m ()
+ex q r = goproDB >>= \db -> liftIO $ execute db q r
+
+-- execute_
+ex_ :: (HasGoProDB m, MonadIO m) => Query -> m ()
+ex_ q = goproDB >>= \db -> liftIO $ execute_ db q
+
+
 data ConfigOption = CfgBucket | CfgCopySQSQueue | CfgCopyFunc
   deriving (Eq, Ord, Show, Bounded, Enum)
 
@@ -123,10 +148,7 @@ loadConfig :: Connection -> IO (Map ConfigOption Text)
 loadConfig db = Map.fromList <$> query_ db "select key, value from config"
 
 updateConfig :: (HasGoProDB m, MonadIO m) => Map ConfigOption Text -> m ()
-updateConfig cfg = liftIO . up =<< goproDB
-  where up db = do
-          execute_ db "delete from config"
-          executeMany db "insert into config (key, value) values (?,?)" (Map.assocs cfg)
+updateConfig cfg = ex_ "delete from config" *> em "insert into config (key, value) values (?,?)" (Map.assocs cfg)
 
 upsertMediaStatement :: Query
 upsertMediaStatement = [sql|insert into media (media_id, camera_model, captured_at, created_at,
@@ -191,22 +213,10 @@ row_fileInfo :: Lens' MediaRow (Maybe FileInfo)
 row_fileInfo = lens (\(MediaRow _ _ v) -> J.decode v) (\(MediaRow m t _) x -> MediaRow m t (J.encode x))
 
 storeMedia :: (HasGoProDB m, MonadIO m) => [MediaRow] -> m ()
-storeMedia media = liftIO . up =<< goproDB
-  where up db = executeMany db upsertMediaStatement media
+storeMedia = em upsertMediaStatement
 
 instance FromRow MediaRow where
   fromRow = MediaRow <$> fromRow <*> field <*> field
-
--- A simple query.
-q_ :: (HasGoProDB m, MonadIO m, FromRow r) => Query -> m [r]
-q_ q = liftIO . flip query_ q =<< goproDB
-
--- A query that returns only a single column.
-oq_ :: (HasGoProDB m, MonadIO m, FromField r) => Query -> m [r]
-oq_ q = unonly <$> q_ q
-  where
-    unonly :: [Only a] -> [a]
-    unonly = coerce
 
 
 loadMediaRows :: (HasGoProDB m, MonadIO m) => m [MediaRow]
@@ -276,8 +286,7 @@ instance ToField MetadataType where
   toField NoMetadata = SQLText ""
 
 insertMetaBlob :: (HasGoProDB m, MonadIO m) => MediumID -> MetadataType -> Maybe BS.ByteString -> m ()
-insertMetaBlob mid fmt blob = liftIO . ins =<< goproDB
-  where ins db = execute db "insert into metablob (media_id, meta, format, meta_length) values (?, ?, ?, ?)" (
+insertMetaBlob mid fmt blob = ex "insert into metablob (media_id, meta, format, meta_length) values (?, ?, ?, ?)" (
           mid, blob, fmt, maybe 0 BS.length blob)
 
 metaTODO :: (HasGoProDB m, MonadIO m) => m [(MediumID, MetadataType, BS.ByteString)]
@@ -292,8 +301,7 @@ selectMetaBlob :: (HasGoProDB m, MonadIO m) => m [(MediumID, Maybe BS.ByteString
 selectMetaBlob = q_ "select media_id, meta from metablob where meta is not null"
 
 clearMetaBlob :: (HasGoProDB m, MonadIO m) => [MediumID] -> m ()
-clearMetaBlob ms = liftIO . up =<< goproDB
-  where up db = executeMany db "update metablob set meta = null, backedup = true where media_id = ?" [Only m | m <- ms]
+clearMetaBlob = em "update metablob set meta = null, backedup = true where media_id = ?" . fmap Only
 
 insertMeta :: (HasGoProDB m, MonadIO m) => MediumID -> MDSummary -> m ()
 insertMeta mid MDSummary{..} = liftIO . up =<< goproDB
@@ -369,12 +377,10 @@ selectAreas :: (HasGoProDB m, MonadIO m) => m [Area]
 selectAreas = q_ "select area_id, name, lat1, lon1, lat2, lon2 from areas"
 
 storeMoments :: (HasGoProDB m, MonadIO m) => MediumID -> [Moment] -> m ()
-storeMoments mid ms = liftIO . up =<< goproDB
-  where
-    up db = do
-      execute db "delete from moments where media_id = ?" (Only mid)
-      let vals = [(mid, _moment_id, _moment_time) | Moment{..} <- ms]
-      executeMany db "insert into moments (media_id, moment_id, timestamp) values (?,?,?)" vals
+storeMoments mid ms = do
+  ex "delete from moments where media_id = ?" (Only mid)
+  let vals = [(mid, _moment_id, _moment_time) | Moment{..} <- ms]
+  em "insert into moments (media_id, moment_id, timestamp) values (?,?,?)" vals
 
 loadMoments :: (HasGoProDB m, MonadIO m) => m (Map MediumID [Moment])
 loadMoments = Map.fromListWith (<>) . map (\(a,b,c) -> (a,[Moment b c]))
@@ -389,21 +395,17 @@ momentsTODO = oq_ [sql|
                          |]
 
 storeUpload :: (HasGoProDB m, MonadIO m) => FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> m ()
-storeUpload fp mid Upload{..} did partnum = liftIO . ins =<< goproDB
-  where
-    ins db = do
-      execute db "insert into uploads (filename, media_id, upid, did, partnum) values (?,?,?,?,?)" (
-        fp, mid, _uploadID, did, partnum)
-      let vals = [(mid, _uploadPart, partnum) | UploadPart{..} <- _uploadParts]
-      executeMany db "insert into upload_parts (media_id, part, partnum) values (?,?,?)" vals
+storeUpload fp mid Upload{..} did partnum = do
+  ex "insert into uploads (filename, media_id, upid, did, partnum) values (?,?,?,?,?)" (
+    fp, mid, _uploadID, did, partnum)
+  let vals = [(mid, _uploadPart, partnum) | UploadPart{..} <- _uploadParts]
+  em "insert into upload_parts (media_id, part, partnum) values (?,?,?)" vals
 
 completedUploadPart :: (HasGoProDB m, MonadIO m) => MediumID -> Integer -> Integer -> m ()
-completedUploadPart mid i p = liftIO . up =<< goproDB
-  where up db = execute db "delete from upload_parts where media_id = ? and part = ? and partnum = ?" (mid, i, p)
+completedUploadPart mid i p = ex "delete from upload_parts where media_id = ? and part = ? and partnum = ?" (mid, i, p)
 
 completedUpload :: (HasGoProDB m, MonadIO m) => MediumID -> Integer -> m ()
-completedUpload mid partnum = liftIO . up =<< goproDB
-  where up db = execute db "delete from uploads where media_id = ? and partnum = ?" (mid, partnum)
+completedUpload mid partnum = ex "delete from uploads where media_id = ? and partnum = ?" (mid, partnum)
 
 data PartialUpload = PartialUpload
   { _pu_filename  :: FilePath
@@ -447,14 +449,11 @@ listS3Waiting :: (HasGoProDB m, MonadIO m) => m [String]
 listS3Waiting = oq_ "select filename from s3backup where status is null"
 
 queuedCopyToS3 :: (HasGoProDB m, MonadIO m) => [(MediumID, String)] -> m ()
-queuedCopyToS3 stuff = liftIO . ins =<< goproDB
-  where ins db = executeMany db "insert into s3backup (media_id, filename) values (?,?)" stuff
+queuedCopyToS3 = em "insert into s3backup (media_id, filename) values (?,?)"
 
 markS3CopyComplete :: (HasGoProDB m, MonadIO m, ToJSON j) => [(Text, Bool, j)] -> m ()
-markS3CopyComplete stuffs = liftIO . up =<< goproDB
-  where
-    up db = executeMany db "update s3backup set status = ?, response = ? where filename = ?"
-            (fmap (\(fn, ok, res) -> (ok, J.encode res, fn)) stuffs)
+markS3CopyComplete stuffs = em "update s3backup set status = ?, response = ? where filename = ?"
+                            (fmap (\(fn, ok, res) -> (ok, J.encode res, fn)) stuffs)
 
 listToCopyLocally :: (HasGoProDB m, MonadIO m) => m [MediumID]
 listToCopyLocally = oq_ "select media_id from media order by created_at"
