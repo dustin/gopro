@@ -271,7 +271,7 @@ metaBlobTODO = q_ [sql|select media_id, media_type
                          where media_id not in (select media_id from metablob)
                          order by created_at desc|]
 
-data MetadataType = GPMF | EXIF | NoMetadata deriving Show
+data MetadataType = GPMF | EXIF | NoMetadata deriving (Show, Enum, Bounded, Eq)
 
 instance FromField MetadataType where
   fromField f = case fieldData f of

@@ -32,7 +32,7 @@ data MDSummary = MDSummary
     , _maxFaces     :: Int
     , _mainScene    :: Maybe (Location, Float)
     }
-    deriving (Generic, Show)
+    deriving (Generic, Show, Eq)
 
 instance ToJSON MDSummary where
   toJSON MDSummary{..} = object ["camera" .= _cameraModel,
