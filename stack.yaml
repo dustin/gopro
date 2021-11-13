@@ -17,7 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-18.14
+resolver: lts-18.16
 
 # qsem conflicts with newer base
 allow-newer: true
@@ -52,6 +52,7 @@ extra-deps:
 - amazonka-1.6.1@sha256:f58b63e83876f93aa03c54e54b3eb8ba9358af93819d41f4a5a8f8b7d8b8399c,3544
 - hsexif-0.6.1.8@sha256:8c213fc9a6ab0c959e68e5be736b19cb157739f784e24d63a0824dfb02687d76,2275
 - qsem-0.1.0.0@sha256:c9aa930c3f90936f88addace65d4d114d0730a1e72a7307d9146a355e0564673,720
+- network-3.1.2.5@sha256:433a5e076aaa8eb3e4158abae78fb409c6bd754e9af99bc2e87583d2bcd8404a,4888
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
