@@ -20,4 +20,4 @@ runGetConfig :: ConfigOption -> GoPro ()
 runGetConfig k = asks (configItem k) >>= liftIO . TIO.putStrLn
 
 runSetConfig :: ConfigOption -> Text -> GoPro ()
-runSetConfig k v = asks gpConfig >>= \cfg -> updateConfig (Map.insert k v cfg)
+runSetConfig k v = asks gpConfig >>= updateConfig . Map.insert k v
