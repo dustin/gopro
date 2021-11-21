@@ -4,7 +4,7 @@ module GoPro.Resolve where
 
 import           Control.Lens           hiding ((.=))
 import           Control.Monad.IO.Class (MonadIO (..))
-import           Data.Aeson             (FromJSON (..), ToJSON (..), Value (..), object, (.=))
+import           Data.Aeson             (ToJSON (..), Value (..), object, (.=))
 import           Data.Aeson.Lens
 import qualified Data.ByteString        as BS
 import           Data.Map.Strict        (Map)
@@ -45,9 +45,6 @@ instance ToJSON MDSummary where
                                   "scene" .= (show . fst <$> _mainScene),
                                   "sceneProb" .= (snd <$> _mainScene)
                                 ]
-
-instance FromJSON MDSummary where
-  parseJSON _ = pure (MDSummary "" Nothing Nothing Nothing Nothing Nothing 0 Nothing)
 
 parseDEVC :: BS.ByteString -> Either String [DEVC]
 parseDEVC = (fmap . mapMaybe) (uncurry mkDEVC) . parseGPMF
