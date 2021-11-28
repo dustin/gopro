@@ -2,7 +2,7 @@ name: "Nix Build"
 on:
   workflow_dispatch:
   push:
-    branches: [ master ]
+    branches: [ master, amazonka2 ]
   schedule:
   - cron: "3 11 13,27 * *"
 jobs:
