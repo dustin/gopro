@@ -125,9 +125,8 @@ runGetMeta = do
 
       fetchX :: (MediumID -> FilePath -> GoPro BS.ByteString)
              -> FileInfo -> MediumID -> String -> FilePath -> GoPro BS.ByteString
-      fetchX ex fi mid var fn = do
-        let mu = fi ^? fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url
-        case mu of
+      fetchX ex fi mid var fn =
+        case fi ^? fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url of
           Nothing -> empty
           Just u  -> ex mid =<< dlIf mid var u fn
 
@@ -151,16 +150,14 @@ runGetMeta = do
             policy = exponentialBackoff 2000000 <> limitRetries 9
 
       extractEXIF :: MediumID -> FilePath -> GoPro BS.ByteString
-      extractEXIF mid f = do
-        bs <- liftIO $ BL.readFile f
-        case minimalEXIF bs of
+      extractEXIF mid f = minimalEXIF <$> liftIO (BL.readFile f) >>=
+        \case
           Left s  -> logErrorL ["Can't find EXIF for ", tshow mid, tshow s] >> empty
           Right e -> pure (BL.toStrict e)
 
       extractGPMD :: MediumID -> FilePath -> GoPro BS.ByteString
-      extractGPMD mid f = do
-        ms <- liftIO $ findGPMDStream f
-        case ms of
+      extractGPMD mid f = liftIO (findGPMDStream f) >>=
+        \case
           Nothing -> logErrorL ["Can't find GPMD stream for ", tshow mid] >> empty
           Just s  -> liftIO $ extractGPMDStream f s
 
