@@ -53,7 +53,7 @@ extra-deps:
 - qsem-0.1.0.0@sha256:c9aa930c3f90936f88addace65d4d114d0730a1e72a7307d9146a355e0564673,720
 - network-3.1.2.5@sha256:433a5e076aaa8eb3e4158abae78fb409c6bd754e9af99bc2e87583d2bcd8404a,4888
 - github: brendanhay/amazonka
-  commit: 0ccede621e56fb6f240e4850e205cde82d0e4a4b
+  commit: e64638ae16dc6d549d6e7c21262245e29761ede7
   subdirs:
   - lib/amazonka
   - lib/amazonka-core
