@@ -91,7 +91,9 @@ initQueries = [
   (9, "insert into config values ('s3copySQSQueue', '')"),
   (10, "create unique index if not exists s3backup_by_file on s3backup(filename)"),
   (11, "alter table metablob add column meta_length int"),
-  (11, "update metablob set meta_length = length(meta)")
+  (11, "update metablob set meta_length = length(meta)"),
+  (12, "alter table uploads add column chunk_size int"),
+  (12, "update uploads set chunk_size = 6291456")
   ]
 
 initTables :: Connection -> IO ()
@@ -408,6 +410,7 @@ data PartialUpload = PartialUpload
   , _pu_upid      :: UploadID
   , _pu_did       :: DerivativeID
   , _pu_partnum   :: Integer
+  , _pu_chunkSize :: Integer
   , _pu_parts     :: [Integer]
   }
 
@@ -418,6 +421,7 @@ instance FromRow PartialUpload where
     <*> field -- upid
     <*> field -- did
     <*> field -- partnum
+    <*> field -- chunkSize
     <*> pure []
 
 -- Return in order of least work to do.
@@ -428,7 +432,7 @@ listPartialUploads = do
     sortOn (maximum . fmap (length . _pu_parts)) .
       groupOn _pu_medium_id .
       map (\p@PartialUpload{..} -> p{_pu_parts=Map.findWithDefault [] (_pu_medium_id, _pu_partnum) segs})
-      <$> q_ "select filename, media_id, upid, did, partnum from uploads order by media_id"
+      <$> q_ "select filename, media_id, upid, did, partnum, chunk_size from uploads order by media_id"
 
 listQueuedFiles :: (HasGoProDB m, MonadIO m) => m [FilePath]
 listQueuedFiles = oq_ "select filename from uploads"

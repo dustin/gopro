@@ -63,6 +63,7 @@ data Options = Options
     , optVerbose             :: Bool
     , optUploadConcurrency   :: Int
     , optDownloadConcurrency :: Int
+    , optChunkSize           :: Integer
     , optCommand             :: Command
     }
 

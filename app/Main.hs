@@ -16,11 +16,11 @@ import           Data.List                            (intercalate, sortOn)
 import           Data.List.NonEmpty                   (NonEmpty (..))
 import qualified Data.List.NonEmpty                   as NE
 import qualified Data.Text                            as T
-import           Options.Applicative                  (Parser, action, argument, auto, command, completeWith,
+import           Options.Applicative                  (Parser, ReadM, action, argument, auto, command, completeWith,
                                                        customExecParser, eitherReader, fullDesc, help, helper,
                                                        hsubparser, info, long, many, metavar, option, prefs, progDesc,
-                                                       short, showDefault, showHelpOnError, some, str, strOption,
-                                                       switch, value, (<**>))
+                                                       readerError, short, showDefault, showHelpOnError, some, str,
+                                                       strOption, switch, value, (<**>))
 import           Options.Applicative.Help.Levenshtein (editDistance)
 import           System.IO                            (hFlush, hGetEcho, hSetEcho, stdin, stdout)
 
@@ -36,6 +36,9 @@ import qualified GoPro.DB                             as DB
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
 
+atLeast :: (Read n, Show n, Ord n, Num n) => n -> ReadM n
+atLeast n = auto >>= \i -> if i >= n then pure i else readerError ("must be at least " <> show n)
+
 options :: Parser Options
 options = Options
   <$> strOption (long "dbpath" <> showDefault <> value "gopro.db" <> help "db path")
@@ -43,6 +46,8 @@ options = Options
   <*> switch (short 'v' <> long "verbose" <> help "enable debug logging")
   <*> option auto (short 'u' <> long "upload-concurrency" <> showDefault <> value 3 <> help "Upload concurrency")
   <*> option auto (short 'd' <> long "download-concurrency" <> showDefault <> value 11 <> help "Download concurrency")
+  <*> option (atLeast (5*1024*1024)) (short 's' <> long "chunk-size"
+                                      <> showDefault <> value (6*1024*1024) <> help "Upload chunk size.")
   <*> hsubparser (command "auth" (info (pure AuthCmd) (progDesc "Authenticate to GoPro"))
                   <> command "reauth" (info (pure ReauthCmd) (progDesc "Refresh authentication credentials"))
                   <> command "sync" (info (pure SyncCmd) (progDesc "Sync recent data from GoPro Plus"))

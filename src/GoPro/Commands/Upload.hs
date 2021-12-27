@@ -20,12 +20,6 @@ import           GoPro.DB
 import           GoPro.Plus.Media       (MediumID, MediumType)
 import           GoPro.Plus.Upload
 
-chunkSizeMB :: Num a => a
-chunkSizeMB = 16
-
-chunkSize :: Num a => a
-chunkSize = chunkSizeMB * 1024 * 1024
-
 uc :: FilePath -> MediumID -> Integer -> UploadPart -> Uploader GoPro ()
 uc fp mid partnum up@UploadPart{..} = do
   logDbgL ["Uploading part ", tshow _uploadPart, " of ", T.pack fp]
@@ -46,7 +40,7 @@ runCreateUploads filePaths = do
   mapConcurrentlyLimited_ c (upload db) todo
 
   where
-    upload db fp = runUpload (fp :| []) $ do
+    upload db fp = asks (optChunkSize . gpOptions) >>= \chunkSize -> runUpload (fp :| []) $ do
       setLogAction (logError . T.pack)
       setChunkSize chunkSize
       mid <- createMedium
@@ -63,7 +57,7 @@ runCreateMultipart typ fps = do
   runUpload fps $ do
     setMediumType typ
     setLogAction (logError . T.pack)
-    setChunkSize chunkSize
+    setChunkSize =<< asks (optChunkSize . gpOptions)
     mid <- createMedium
     did <- createSource (length fps)
     c <- asks (optUploadConcurrency . gpOptions)
@@ -86,7 +80,8 @@ runResumeUpload = do
   mapM_ upAll ups
   where
     pu_size = length . _pu_parts
-    pu_mb = (* chunkSizeMB) . pu_size
+    pu_mb :: PartialUpload -> Int
+    pu_mb p@PartialUpload{..} = (fromIntegral _pu_chunkSize `div` (1024*1024)) * pu_size p
     sumOf :: (a -> Int) -> [[a]] -> Int
     sumOf f = getSum . fold . foldMap (fmap (Sum . f))
 
@@ -104,7 +99,7 @@ runResumeUpload = do
       fsize <- fromIntegral . fileSize <$> (liftIO . getFileStatus) _pu_filename
       resumeUpload (_pu_filename :| []) _pu_medium_id $ do
         setLogAction (logError . T.pack)
-        setChunkSize chunkSize
+        setChunkSize _pu_chunkSize
         Upload{..} <- getUpload _pu_upid _pu_did part fsize
         let chunks = sortOn (Down . _uploadPart) $
                      filter (\UploadPart{..} -> _uploadPart `elem` _pu_parts) _uploadParts
