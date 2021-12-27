@@ -391,10 +391,10 @@ momentsTODO = oq_ [sql|
                           where m.moments_count != ifnull(moco, 0) ;
                          |]
 
-storeUpload :: (HasGoProDB m, MonadIO m) => FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> m ()
-storeUpload fp mid Upload{..} did partnum = do
-  ex "insert into uploads (filename, media_id, upid, did, partnum) values (?,?,?,?,?)" (
-    fp, mid, _uploadID, did, partnum)
+storeUpload :: (HasGoProDB m, MonadIO m) => FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> Integer -> m ()
+storeUpload fp mid Upload{..} did partnum chunkSize = do
+  ex "insert into uploads (filename, media_id, upid, did, partnum, chunk_size) values (?,?,?,?,?,?)" (
+    fp, mid, _uploadID, did, partnum, chunkSize)
   let vals = [(mid, _uploadPart, partnum) | UploadPart{..} <- _uploadParts]
   em "insert into upload_parts (media_id, part, partnum) values (?,?,?)" vals
 

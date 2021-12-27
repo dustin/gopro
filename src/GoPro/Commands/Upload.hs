@@ -49,7 +49,7 @@ runCreateUploads filePaths = do
       up@Upload{..} <- createUpload did 1 (fromInteger fsize)
       logInfoL ["Creating upload ", tshow fp, " (", tshow fsize, " bytes) as ",
                 mid, ": did=", did, ", upid=", _uploadID]
-      liftIO . withDB db $ storeUpload fp mid up did 1
+      liftIO . withDB db $ storeUpload fp mid up did 1 chunkSize
 
 runCreateMultipart :: MediumType -> NonEmpty FilePath -> GoPro ()
 runCreateMultipart typ fps = do
@@ -57,7 +57,8 @@ runCreateMultipart typ fps = do
   runUpload fps $ do
     setMediumType typ
     setLogAction (logError . T.pack)
-    setChunkSize =<< asks (optChunkSize . gpOptions)
+    chunkSize <- asks (optChunkSize . gpOptions)
+    setChunkSize chunkSize
     mid <- createMedium
     did <- createSource (length fps)
     c <- asks (optUploadConcurrency . gpOptions)
@@ -66,7 +67,7 @@ runCreateMultipart typ fps = do
               up@Upload{..} <- createUpload did n (fromInteger fsize)
               logInfoL ["Creating part ", tshow fp, " as ", mid, " part ", tshow n,
                         ": did=", did, ", upid=", _uploadID]
-              liftIO . withDB db $ storeUpload fp mid up did (fromIntegral n)
+              liftIO . withDB db $ storeUpload fp mid up did (fromIntegral n) chunkSize
           ) $ zip (NE.toList fps) [1..]
     logInfo "Multipart upload created.  Use the 'upload' command to complete the upload."
 
