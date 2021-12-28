@@ -21,7 +21,7 @@ jobs:
 
     - name: Cache Dependencies
       id: cache
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: ~/.stack
         key: ${{ matrix.os }}-${{ steps.cache_key.outputs.key }}
@@ -40,7 +40,7 @@ jobs:
         cp -r static dist
 
     - name: Store Artifact
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v2
       with:
         name: gopro-${{ matrix.os }}
         path: dist

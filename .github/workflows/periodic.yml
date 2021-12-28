@@ -26,7 +26,7 @@ jobs:
 
     - name: Cache Dependencies
       id: cache
-      uses: actions/cache@v1
+      uses: actions/cache@v2
       with:
         path: ~/.stack
         key: ${{ matrix.os }}-${{ matrix.plan.resolver }}-${{ steps.cache_key.outputs.key }}
