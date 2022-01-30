@@ -1,4 +1,4 @@
-module DBSpec (tests) where
+module DBSpec where
 
 import           Control.Lens                         hiding (elements)
 import           Control.Monad                        (forM_)
@@ -31,13 +31,13 @@ runDB a = withConnection ":memory:" $ \db -> do
   initTables db
   withDB db a
 
-testConfigOption :: Assertion
-testConfigOption = do
+unit_configOption :: Assertion
+unit_configOption = do
   forM_ [minBound..] $ \x -> assertEqual (show x) ((strOption . optionStr) x) (Just x)
   assertEqual "negative case" (strOption "garbage") Nothing
 
-testConfig :: Assertion
-testConfig = runDB $ do
+unit_config :: Assertion
+unit_config = runDB $ do
   orig <- goproDB >>= liftIO . loadConfig
   updateConfig (Map.insert CfgBucket "busket" orig)
   updated <- goproDB >>= liftIO . loadConfig
@@ -53,19 +53,19 @@ instance Arbitrary MediaRowSet where
   arbitrary = MediaRowSet . Map.elems . Map.fromList . fmap (\mr -> (mr ^. row_media . medium_id , mr))
               <$> listOf arbitrary
 
-storeLoadProperty :: MediaRowSet -> Property
-storeLoadProperty (MediaRowSet rows) = ioProperty $ do
+prop_storeLoad :: MediaRowSet -> Property
+prop_storeLoad (MediaRowSet rows) = ioProperty $ do
   got <- runDB (storeMedia rows *> loadMediaRows)
   pure $ (rows & traversed . row_media . medium_token .~ "") === got
 
-storeLoad2Property :: MediaRowSet -> Property
-storeLoad2Property (MediaRowSet rows) = ioProperty $ do
+prop_storeLoad2 :: MediaRowSet -> Property
+prop_storeLoad2 (MediaRowSet rows) = ioProperty $ do
   got <- runDB (storeMedia rows *> loadMedia)
   let media = sortOn (Down . _medium_captured_at) $ rows ^.. folded . row_media
   pure $ (media & traversed . medium_token .~ "") === got
 
-storeLoadIDsProperty :: MediaRowSet -> Property
-storeLoadIDsProperty (MediaRowSet rows) = ioProperty $ do
+prop_storeLoadIDs :: MediaRowSet -> Property
+prop_storeLoadIDs (MediaRowSet rows) = ioProperty $ do
   got <- runDB (storeMedia rows *> loadMediaIDs)
   pure $  (sortOn (Down . _medium_captured_at . _row_media) rows ^.. folded . row_media . medium_id) === got
 
@@ -85,8 +85,8 @@ instance Arbitrary MDSummary where
 instance Arbitrary Location where
   arbitrary = elements [Snow, Urban, Indoor, Water, Vegetation, Beach]
 
-metaBlobProperty :: Medium -> MetadataType -> ByteString -> Property
-metaBlobProperty m@(Medium{_medium_id}) mt bs = ioProperty . runDB $ do
+prop_metaBlob :: Medium -> MetadataType -> ByteString -> Property
+prop_metaBlob m@(Medium{_medium_id}) mt bs = ioProperty . runDB $ do
     storeMedia [MediaRow m Nothing ""]
     todo <- fmap fst <$> metaBlobTODO
     liftIO $ assertEqual "todo" [_medium_id] todo
@@ -110,21 +110,10 @@ metaBlobProperty m@(Medium{_medium_id}) mt bs = ioProperty . runDB $ do
     nullBlobs :: (HasGoProDB m, MonadIO m) => m Int
     nullBlobs = goproDB >>= \db -> fromOnly . head <$> liftIO (query_ db "select count(*) from metablob where meta is null")
 
-metaProperty :: Medium -> MetadataType -> ByteString -> MDSummary -> Property
-metaProperty m@(Medium{_medium_id}) mt bs md = ioProperty . runDB $ do
+prop_meta :: Medium -> MetadataType -> ByteString -> MDSummary -> Property
+prop_meta m@(Medium{_medium_id}) mt bs md = ioProperty . runDB $ do
     storeMedia [MediaRow m Nothing ""]
     insertMetaBlob _medium_id mt (Just bs)
     insertMeta _medium_id md
     nmd <- selectMeta
     liftIO $ assertEqual "summary metadata" (Map.singleton _medium_id md) nmd
-
-tests :: [TestTree]
-tests = [
-  testCase "config options round trip" testConfigOption,
-  testCase "config tests" testConfig,
-  testProperty "store/load" storeLoadProperty,
-  testProperty "store/load2" storeLoad2Property,
-  testProperty "store/load IDs" storeLoadIDsProperty,
-  testProperty "meta blob" metaBlobProperty,
-  testProperty "meta" metaProperty
-  ]

@@ -99,7 +99,7 @@ executables:
 
 tests:
   gopro-test:
-    main:                Spec.hs
+    main:                Main.hs
     source-dirs:         test
     ghc-options:
     - -threaded
@@ -109,6 +109,7 @@ tests:
     - gopro
     - HUnit
     - tasty
+    - tasty-discover
     - tasty-hunit
     - tasty-quickcheck
     - quickcheck-instances

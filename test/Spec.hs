@@ -1,3 +1,5 @@
+module Spec where
+
 import           Control.Lens
 import qualified Data.Aeson            as J
 import qualified Data.ByteString.Lazy  as BL
@@ -11,8 +13,8 @@ import           GoPro.Plus.Media
 
 import qualified DBSpec
 
-testExtractMedia :: Assertion
-testExtractMedia = do
+unit_extractMedia :: Assertion
+unit_extractMedia = do
   Just fi <- J.decode <$> BL.readFile "test/mediaex.json" :: IO (Maybe FileInfo)
   assertEqual (show fi) [("derivatives/xxx/xxx-var-timelapse_video.mp4","hhttp://d/","http://d/"),
                          ("derivatives/xxx/xxx-var-high_res_proxy_mp4.mp4","hhttp://e/","http://e/"),
@@ -23,8 +25,8 @@ testExtractMedia = do
                          ] $
     extractMedia "xxx" fi
 
-testExtractOrig :: Assertion
-testExtractOrig = do
+unit_extractOrig :: Assertion
+unit_extractOrig = do
   Just fi <- J.decode <$> BL.readFile "test/mediaex.json" :: IO (Maybe FileInfo)
   assertEqual (show fi) [("derivatives/xxx/xxx-files-1.JPG", "hhttp://a/", "http://a/"),
                          ("derivatives/xxx/xxx-files-2.JPG", "hhttp://aprime/", "http://aprime/")
@@ -35,15 +37,3 @@ testExtractOrig = do
   assertEqual (show fi) [("derivatives/xxx/xxx-var-source.mp4", "hhttp://k/", "http://k/")
                          ] $
     extractOrig "xxx" fiv
-
-tests :: [TestTree]
-tests = [
-  testCase "extracting all media" testExtractMedia,
-  testCase "extracting orig media" testExtractOrig
-  ]
-
-main :: IO ()
-main = defaultMain $ testGroup "All Tests" [
-  testGroup "Misc" tests,
-  testGroup "DB" DBSpec.tests
-  ]
