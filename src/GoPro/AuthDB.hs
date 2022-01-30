@@ -1,11 +1,11 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards   #-}
 
 module GoPro.AuthDB (updateAuth, loadAuth) where
 
-import           Control.Monad          (guard)
 import           Control.Monad.IO.Class (MonadIO (..))
-import           Data.Text              (Text)
+import           Database.SQLite.Simple.ToField
 import           Database.SQLite.Simple hiding (bind, close)
 
 import           GoPro.Plus.Auth        (AuthInfo (..))
@@ -16,24 +16,19 @@ createStatement = "create table if not exists authinfo (ts, owner_id, access_tok
 insertStatement :: Query
 insertStatement = "insert into authinfo(ts, owner_id, access_token, refresh_token, expires_in) values(current_timestamp, ?, ?, ?, ?)"
 
-deleteStatement :: Query
-deleteStatement = "delete from authinfo"
+instance ToRow AuthInfo where
+  toRow (AuthInfo a b c d) = [toField a, toField b, toField c, toField d]
 
-selectStatement :: Query
-selectStatement = "select owner_id, access_token, refresh_token, expires_in from authinfo"
+instance FromRow AuthInfo where
+  fromRow = AuthInfo <$> field <*> field <*> field <*> field
 
 updateAuth :: MonadIO m => Connection -> AuthInfo -> m ()
-updateAuth db AuthInfo{..} = liftIO up
+updateAuth db ai = liftIO up
   where up = do
           execute_ db createStatement
           withTransaction db $ do
-            execute_ db deleteStatement
-            execute db insertStatement (_resource_owner_id, _access_token, _refresh_token, _expires_in)
+            execute_ db "delete from authinfo"
+            execute db insertStatement ai
 
 loadAuth :: MonadIO m => Connection -> m AuthInfo
-loadAuth db = liftIO up
-  where up = do
-          rows <- query_ db selectStatement :: IO [(Text, Text, Text, Int)]
-          guard (length rows == 1)
-          let [(_resource_owner_id, _access_token, _refresh_token, _expires_in)] = rows
-          pure $ AuthInfo{..}
+loadAuth db = liftIO (head <$> query_ db "select owner_id, access_token, refresh_token, expires_in from authinfo")
