@@ -17,7 +17,7 @@ insertStatement :: Query
 insertStatement = "insert into authinfo(ts, owner_id, access_token, refresh_token, expires_in) values(current_timestamp, ?, ?, ?, ?)"
 
 instance ToRow AuthInfo where
-  toRow (AuthInfo a b c d) = [toField a, toField b, toField c, toField d]
+  toRow AuthInfo{..} = [toField _resource_owner_id, toField _access_token, toField _refresh_token, toField _expires_in]
 
 instance FromRow AuthInfo where
   fromRow = AuthInfo <$> field <*> field <*> field <*> field
@@ -31,4 +31,4 @@ updateAuth db ai = liftIO up
             execute db insertStatement ai
 
 loadAuth :: MonadIO m => Connection -> m AuthInfo
-loadAuth db = liftIO (head <$> query_ db "select owner_id, access_token, refresh_token, expires_in from authinfo")
+loadAuth db = liftIO (head <$> query_ db "select access_token, expires_in, refresh_token, owner_id from authinfo")
