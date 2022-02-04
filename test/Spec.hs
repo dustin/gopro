@@ -65,3 +65,9 @@ unit_extractOrigConcat = do
   assertEqual (show eciv) (Right [("derivatives/xxx/xxx-var-concat.mp4", "hhttp://AAK", "http://AAK")
                                  ]) $
     extractOrig "xxx" <$> eciv
+
+unit_extractMediaDedup :: Assertion
+unit_extractMediaDedup = do
+  e <- J.eitherDecode <$> BL.readFile "test/trailing.json" :: IO (Either String FileInfo)
+  assertEqual (show e) (Right [("derivatives/xxx/xxx-var-source.jpg", "hhttp://a","http://a")]
+                       ) $ extractMedia "xxx" <$> e

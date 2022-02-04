@@ -1,0 +1,29 @@
+{
+    "_embedded": {
+        "files": [
+            {
+                "camera_position": "default",
+                "head": "hhttp://a",
+                "height": 3000,
+                "item_number": 1,
+                "orientation": 1,
+                "url": "http://a",
+                "width": 4000
+            }
+        ],
+        "sidecar_files": [],
+        "sprites": [],
+        "variations": [
+            {
+                "head": "hhttp://a",
+                "height": 3000,
+                "label": "source",
+                "quality": "3000p",
+                "type": "jpg",
+                "url": "http://a",
+                "width": 4000
+            }
+        ]
+    },
+    "filename": ""
+}

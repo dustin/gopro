@@ -20,6 +20,7 @@ import           Control.Retry         (RetryStatus (..), exponentialBackoff, li
 import qualified Data.Aeson            as J
 import           Data.Aeson.Lens
 import qualified Data.ByteString.Lazy  as BL
+import           Data.List (nubBy)
 import           Data.Foldable         (fold)
 import           Data.Generics.Product (field)
 import           Data.List.Extra       (chunksOf)
@@ -109,10 +110,11 @@ instance Numbered SidecarFile where item_num = lens (const Nothing) (\x -> const
 instance Numbered Variation where item_num = media_item_number
 
 extractMedia :: Extractor
-extractMedia mid fi = fold [ ex "var" variations,
-                             ex "sidecar" sidecar_files,
-                             otherFiles mid fi
-                           ]
+extractMedia mid fi = nubBy (\(_,_,u1) (_,_,u2) -> u1 == u2) $
+                        fold [ ex "var" variations,
+                               ex "sidecar" sidecar_files,
+                               otherFiles mid fi
+                             ]
   where
 
     ex p l = fi ^.. fileStuff . l . folded . to conv . folded
