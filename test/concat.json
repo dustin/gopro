@@ -1,0 +1,152 @@
+{
+    "_embedded": {
+        "files": [
+            {
+                "camera_position": "default",
+                "head": "hhttp://AAA",
+                "height": 1080,
+                "item_number": 1,
+                "orientation": 1,
+                "url": "http://AAA",
+                "width": 1920
+            }
+        ],
+        "sidecar_files": [
+            {
+                "fps": 29.97003,
+                "head": "hhttp://AAB",
+                "label": "gpmf",
+                "type": "1.mp4",
+                "url": "http://AAB"
+            },
+            {
+                "fps": 29.97003,
+                "head": "hhttp://AAC",
+                "label": "gpmf",
+                "type": "antishake.json",
+                "url": "http://AAC"
+            },
+            {
+                "fps": 29.97003,
+                "head": "hhttp://AAD",
+                "label": "gpmf",
+                "type": "antishake_horizon.json",
+                "url": "http://AAD"
+            },
+            {
+                "fps": 29.97003,
+                "head": "hhttp://AAE",
+                "label": "gpmf",
+                "type": "antishake_horizon_worldlock.json",
+                "url": "http://AAE"
+            },
+            {
+                "fps": 29.97003,
+                "head": "hhttp://AAF",
+                "label": "gpmf",
+                "type": "antishake_worldlock.json",
+                "url": "http://AAF"
+            },
+            {
+                "fps": 29.97003,
+                "head": "hhttp://AAG",
+                "label": "gpmf",
+                "type": "proxy_antishake.json",
+                "url": "http://AAG"
+            },
+            {
+                "fps": 29.97003,
+                "head": "hhttp://AAH",
+                "label": "gpmf",
+                "type": "proxy_horizon_worldlock.json",
+                "url": "http://AAH"
+            },
+            {
+                "fps": 29.97003,
+                "head": "hhttp://AAI",
+                "label": "gpmf",
+                "type": "proxy_worldlock.json",
+                "url": "http://AAI"
+            }
+        ],
+        "sprites": [
+            {
+                "fps": 29.97003,
+                "frame": {
+                    "count": 10,
+                    "height": 56,
+                    "width": 100
+                },
+                "heads": ["http://AAJ"],
+                "height": 56,
+                "total_count": 1,
+                "type": "jpg",
+                "urls": ["http://AAJ"],
+                "width": 1000
+            }
+        ],
+        "variations": [
+            {
+                "head": "hhttp://AAK",
+                "height": 2160,
+                "label": "concat",
+                "quality": "2160p",
+                "type": "mp4",
+                "url": "http://AAK",
+                "width": 3840
+            },
+            {
+                "camera_position": "default",
+                "head": "hhttp://AAL",
+                "height": 2160,
+                "item_number": 1,
+                "label": "source",
+                "quality": "2160p",
+                "type": "mp4",
+                "url": "http://AAL",
+                "width": 3840
+            },
+            {
+                "camera_position": "default",
+                "head": "hhttp://AAM",
+                "height": 2160,
+                "item_number": 2,
+                "label": "source",
+                "quality": "2160p",
+                "type": "mp4",
+                "url": "http://AAM",
+                "width": 3840
+            },
+            {
+                "camera_position": "default",
+                "head": "hhttp://AAN",
+                "height": 2160,
+                "item_number": 3,
+                "label": "source",
+                "quality": "2160p",
+                "type": "mp4",
+                "url": "http://AAN",
+                "width": 3840
+            },
+            {
+                "head": "hhttp://AAO",
+                "height": 1080,
+                "label": "high_res_proxy_mp4",
+                "quality": "1080p",
+                "type": "mp4",
+                "url": "http://AAO",
+                "width": 1920
+            },
+            {
+                "head": "hhttp://AAP",
+                "height": 240,
+                "label": "mp4_low",
+                "quality": "240p",
+                "type": "mp4",
+                "url": "http://AAP",
+                "width": 426
+            }
+        ]
+    },
+    "filename": "GX010639.MP4"
+}

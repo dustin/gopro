@@ -12,6 +12,7 @@ import           Amazonka.Lambda       (InvocationType (..), newInvoke)
 import           Amazonka.S3           (BucketName (..))
 import           Amazonka.SQS          (newDeleteMessageBatch, newDeleteMessageBatchRequestEntry, newReceiveMessage)
 import           Conduit
+import           Control.Applicative   ((<|>))
 import           Control.Lens
 import           Control.Monad         (unless, void)
 import           Control.Monad.Reader  (asks)
@@ -100,6 +101,13 @@ downloadLocally path extract mid = do
           dir = takeDirectory dest
           policy = exponentialBackoff 2000000 <> limitRetries 9
 
+class Numbered c where
+  item_num :: Lens' c (Maybe Int)
+
+instance Numbered SidecarFile where item_num = lens (const Nothing) (\x -> const x)
+
+instance Numbered Variation where item_num = media_item_number
+
 extractMedia :: Extractor
 extractMedia mid fi = fold [ ex "var" variations,
                              ex "sidecar" sidecar_files,
@@ -114,7 +122,8 @@ extractMedia mid fi = fold [ ex "var" variations,
           typ <- v ^? media_type
           let h = v ^. media_head
               u = v ^. media_url
-          pure (fromString $ mconcat ["derivatives/", unpack mid, "/", unpack mid, "-", p, "-", lbl, ".", typ],
+              inum = maybe "" (\x -> "-" <> show x) (v ^. item_num)
+          pure (fromString $ mconcat ["derivatives/", unpack mid, "/", unpack mid, "-", p, "-", lbl, inum, ".", typ],
                 fromString h,
                 u)
 
@@ -131,14 +140,15 @@ otherFiles mid fi = fi ^.. fileStuff . files . folded . to conv
                  u)
 
 extractOrig :: Extractor
-extractOrig mid fi = maybe (otherFiles mid fi) (:[]) source
+extractOrig mid fi = maybe (otherFiles mid fi) (:[]) (srcd "concat" <|> srcd "source")
   where
-    source = fi ^? fileStuff . variations . folded . filtered (has (var_label . only "source")) . to conv . folded
-    conv v = do
+    srcd lbl = fi ^? fileStuff . variations . folded . filtered (has (var_label . only lbl)) . to conv . folded
+      where
+        conv v = do
           typ <- v ^? media_type
           let h = v ^. media_head
               u = v ^. media_url
-          pure (fromString $ mconcat ["derivatives/", unpack mid, "/" , unpack mid, "-var-source.", typ],
+          pure (fromString $ mconcat ["derivatives/", unpack mid, "/" , unpack mid, "-var-", lbl, ".", typ],
                 fromString h,
                 u)
 

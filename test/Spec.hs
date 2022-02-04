@@ -37,3 +37,31 @@ unit_extractOrig = do
   assertEqual (show fi) [("derivatives/xxx/xxx-var-source.mp4", "hhttp://k/", "http://k/")
                          ] $
     extractOrig "xxx" fiv
+
+unit_extractMediaConcat :: Assertion
+unit_extractMediaConcat = do
+  efi <- J.eitherDecode <$> BL.readFile "test/concat.json" :: IO (Either String FileInfo)
+  assertEqual (show efi) (Right [("derivatives/xxx/xxx-var-concat.mp4","hhttp://AAK","http://AAK"),
+                                 ("derivatives/xxx/xxx-var-source-1.mp4","hhttp://AAL","http://AAL"),
+                                 ("derivatives/xxx/xxx-var-source-2.mp4","hhttp://AAM","http://AAM"),
+                                 ("derivatives/xxx/xxx-var-source-3.mp4","hhttp://AAN","http://AAN"),
+                                 ("derivatives/xxx/xxx-var-high_res_proxy_mp4.mp4","hhttp://AAO","http://AAO"),
+                                 ("derivatives/xxx/xxx-var-mp4_low.mp4","hhttp://AAP","http://AAP"),
+                                 ("derivatives/xxx/xxx-sidecar-gpmf.1.mp4","hhttp://AAB","http://AAB"),
+                                 ("derivatives/xxx/xxx-sidecar-gpmf.antishake.json","hhttp://AAC","http://AAC"),
+                                 ("derivatives/xxx/xxx-sidecar-gpmf.antishake_horizon.json","hhttp://AAD","http://AAD"),
+                                 ("derivatives/xxx/xxx-sidecar-gpmf.antishake_horizon_worldlock.json","hhttp://AAE","http://AAE"),
+                                 ("derivatives/xxx/xxx-sidecar-gpmf.antishake_worldlock.json","hhttp://AAF","http://AAF"),
+                                 ("derivatives/xxx/xxx-sidecar-gpmf.proxy_antishake.json","hhttp://AAG","http://AAG"),
+                                 ("derivatives/xxx/xxx-sidecar-gpmf.proxy_horizon_worldlock.json","hhttp://AAH","http://AAH"),
+                                 ("derivatives/xxx/xxx-sidecar-gpmf.proxy_worldlock.json","hhttp://AAI","http://AAI"),
+                                 ("derivatives/xxx/xxx-files-1.MP4","hhttp://AAA","http://AAA")]
+    ) $
+    extractMedia "xxx" <$> efi
+
+unit_extractOrigConcat :: Assertion
+unit_extractOrigConcat = do
+  eciv <- J.eitherDecode <$> BL.readFile "test/concat.json" :: IO (Either String FileInfo)
+  assertEqual (show eciv) (Right [("derivatives/xxx/xxx-var-concat.mp4", "hhttp://AAK", "http://AAK")
+                                 ]) $
+    extractOrig "xxx" <$> eciv
