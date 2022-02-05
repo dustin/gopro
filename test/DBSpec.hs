@@ -4,6 +4,7 @@ import           Control.Lens                         hiding (elements)
 import           Control.Monad                        (forM_)
 import           Control.Monad.IO.Class               (MonadIO (..))
 import           Control.Monad.Reader                 (ReaderT (..))
+import qualified Data.Aeson                           as J
 import           Data.ByteString                      (ByteString)
 import           Data.List                            (sortOn)
 import           Data.Map.Strict                      (Map)
@@ -24,7 +25,7 @@ import           GoPro.DB
 import           GoPro.Resolve
 
 instance Arbitrary MediaRow where
-  arbitrary = MediaRow <$> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = MediaRow <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 runDB :: ReaderT Connection IO a -> IO a
 runDB a = withConnection ":memory:" $ \db -> do
@@ -87,7 +88,7 @@ instance Arbitrary Location where
 
 prop_metaBlob :: Medium -> MetadataType -> ByteString -> Property
 prop_metaBlob m@(Medium{_medium_id}) mt bs = ioProperty . runDB $ do
-    storeMedia [MediaRow m Nothing ""]
+    storeMedia [MediaRow m Nothing "" (J.encode m)]
     todo <- fmap fst <$> metaBlobTODO
     liftIO $ assertEqual "todo" [_medium_id] todo
     insertMetaBlob _medium_id mt (Just bs)
@@ -112,7 +113,7 @@ prop_metaBlob m@(Medium{_medium_id}) mt bs = ioProperty . runDB $ do
 
 prop_meta :: Medium -> MetadataType -> ByteString -> MDSummary -> Property
 prop_meta m@(Medium{_medium_id}) mt bs md = ioProperty . runDB $ do
-    storeMedia [MediaRow m Nothing ""]
+    storeMedia [MediaRow m Nothing "" (J.encode m)]
     insertMetaBlob _medium_id mt (Just bs)
     insertMeta _medium_id md
     nmd <- selectMeta

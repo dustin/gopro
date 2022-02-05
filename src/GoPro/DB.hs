@@ -9,7 +9,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadMediaRows, loadThumbnail,
-                 MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_variants,
+                 MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_variants, row_raw_json,
                  storeMoments, loadMoments, momentsTODO,
                  metaBlobTODO, insertMetaBlob, selectMetaBlob, clearMetaBlob,
                  metaTODO, insertMeta, selectMeta,
@@ -93,7 +93,8 @@ initQueries = [
   (11, "alter table metablob add column meta_length int"),
   (11, "update metablob set meta_length = length(meta)"),
   (12, "alter table uploads add column chunk_size int"),
-  (12, "update uploads set chunk_size = 6291456")
+  (12, "update uploads set chunk_size = 6291456"),
+  (13, "alter table media add column raw_json blob")
   ]
 
 initTables :: Connection -> IO ()
@@ -155,19 +156,26 @@ updateConfig cfg = ex_ "delete from config" *> em "insert into config (key, valu
 upsertMediaStatement :: Query
 upsertMediaStatement = [sql|insert into media (media_id, camera_model, captured_at, created_at,
                                                file_size, moments_count, source_duration, media_type,
-                                               width, height, ready_to_view, thumbnail, variants)
-                                        values(?,?,?,?,?,?,?,?,?,?,?,?,?)
+                                               width, height, ready_to_view, thumbnail, variants, raw_json)
+                                        values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                               on conflict (media_id)
                                  do update
                                    set moments_count = excluded.moments_count,
                                        ready_to_view = excluded.ready_to_view,
-                                       variants = excluded.variants
+                                       variants = excluded.variants,
+                                       raw_json = excluded.raw_json
                               |]
+
+instance J.FromJSON MediaRow where
+  parseJSON o = do
+    m <- J.parseJSON o
+    pure $ MediaRow m Nothing "" (J.encode o)
 
 data MediaRow = MediaRow
     { _row_media     :: Medium
     , _row_thumbnail :: Maybe BL.ByteString
     , _row_variants  :: BL.ByteString
+    , _row_raw_json  :: BL.ByteString
     } deriving (Show, Eq)
 makeLenses ''MediaRow
 
@@ -195,7 +203,7 @@ instance FromField MediumType where
   fromField = jsonFromField "medium type"
 
 instance ToRow MediaRow where
-  toRow (MediaRow Medium{..} thumbnail vars) = [
+  toRow (MediaRow Medium{..} thumbnail vars raw) = [
     toField _medium_id,
     toField _medium_camera_model,
     toField _medium_captured_at,
@@ -208,21 +216,22 @@ instance ToRow MediaRow where
     toField _medium_height,
     toField _medium_ready_to_view,
     toField thumbnail,
-    toField vars
+    toField vars,
+    toField raw
     ]
 
 row_fileInfo :: Lens' MediaRow (Maybe FileInfo)
-row_fileInfo = lens (\(MediaRow _ _ v) -> J.decode v) (\(MediaRow m t _) x -> MediaRow m t (J.encode x))
+row_fileInfo = lens (\(MediaRow _ _ v _) -> J.decode v) (\(MediaRow m t _ r) x -> MediaRow m t (J.encode x) r)
 
 storeMedia :: (HasGoProDB m, MonadIO m) => [MediaRow] -> m ()
 storeMedia = em upsertMediaStatement
 
 instance FromRow MediaRow where
-  fromRow = MediaRow <$> fromRow <*> field <*> field
+  fromRow = MediaRow <$> fromRow <*> field <*> field <*> field
 
 
 loadMediaRows :: (HasGoProDB m, MonadIO m) => m [MediaRow]
-loadMediaRows = q_ "select media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view, source_duration, media_type, width, height, thumbnail, variants from media"
+loadMediaRows = q_ "select media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view, source_duration, media_type, width, height, thumbnail, variants, raw_json from media"
 
 loadMediaIDs :: (HasGoProDB m, MonadIO m) => m [MediumID]
 loadMediaIDs = oq_ "select media_id from media order by captured_at desc"

@@ -49,7 +49,12 @@ runFetch stype = do
   unless (null ms) $ logDbgL ["new items: ", tshow (ms ^.. folded . medium_id)]
   mapM_ storeSome $ chunksOf 100 ms
 
-    where resolve m = MediaRow m <$> optional (fetchThumbnail m) <*> (J.encode <$> fetchVariantsSansURLs (_medium_id m))
+    where resolve m = do
+            MediaRow m' _ _ r <- medium (_medium_id m)
+            MediaRow m' <$> optional (fetchThumbnail m)
+              <*> (J.encode <$> fetchVariantsSansURLs (_medium_id m))
+              <*> pure r
+
           todo seen = filter (\m -> notSeen m && wanted m) <$> listWhile (listPred stype)
             where
               notSeen = (`Set.notMember` seen) . _medium_id
@@ -182,7 +187,9 @@ refreshMedia = mapM_ refreshSome . chunksOf 100 . NE.toList
   where
     one mid = do
       logDbgL ["Refreshing ", mid]
-      MediaRow <$> medium mid <*> pure mempty <*> (J.encode <$> fetchVariantsSansURLs mid)
+      MediaRow m _ _ r <- medium mid
+      tn <- optional (fetchThumbnail m)
+      MediaRow m tn <$> (J.encode <$> fetchVariantsSansURLs mid) <*> pure r
 
     refreshSome mids = do
       c <- asks (optDownloadConcurrency . gpOptions)
