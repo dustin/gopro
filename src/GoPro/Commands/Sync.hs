@@ -49,11 +49,15 @@ runFetch stype = do
   unless (null ms) $ logDbgL ["new items: ", tshow (ms ^.. folded . medium_id)]
   mapM_ storeSome $ chunksOf 100 ms
 
-    where resolve m = do
+    where resolve m = recoverAll policy $ \rt -> do
+            unless (rsIterNumber rt == 0) $ logInfoL ["Retrying fetch of ", _medium_id m,
+                                                      " attempt ", tshow (rsIterNumber rt)]
             MediaRow m' _ _ r <- medium (_medium_id m)
             MediaRow m' <$> optional (fetchThumbnail m)
               <*> (J.encode <$> fetchVariantsSansURLs (_medium_id m))
               <*> pure r
+
+          policy = exponentialBackoff 2000000 <> limitRetries 3
 
           todo seen = filter (\m -> notSeen m && wanted m) <$> listWhile (listPred stype)
             where
