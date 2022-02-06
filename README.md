@@ -320,3 +320,4 @@ space if you have a lot of video assets.
 
 [stack]: https://docs.haskellstack.org/en/stable/install_and_upgrade/
 [blog]: http://dustin.sallings.org/2020/04/29/gopro-plus.html
+[ffmpeg]: https://ffmpeg.org
