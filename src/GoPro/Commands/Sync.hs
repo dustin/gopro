@@ -17,6 +17,7 @@ import qualified Data.Aeson            as J
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as BL
 import           Data.Foldable         (asum, fold)
+import           Data.List             (isSuffixOf)
 import           Data.List.Extra       (chunksOf)
 import           Data.List.NonEmpty    (NonEmpty (..))
 import qualified Data.List.NonEmpty    as NE
@@ -95,12 +96,20 @@ runGrokTel = mapM_ ud =<< metaTODO
 
 -- | extract a list of metadata source candidates.
 metadataSources :: FileInfo -> [(String, String)]
-metadataSources fi = fold [variation "mp4_low" "low",
+metadataSources fi = fold [sidecar "gpmf" "gpmf",
+                           variation "mp4_low" "low",
                            variation "high_res_proxy_mp4" "high",
                            variation "source" "src"]
   where
     variation var t =
       case fi ^? fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url of
+        Nothing -> []
+        Just u  -> [(u, t)]
+
+    sidecar var t =
+      case fi ^? fileStuff . sidecar_files . folded
+                 . filtered (\x -> has (sidecar_label . only var) x
+                                   && ".mp4" `isSuffixOf` (x ^. sidecar_type)) . sidecar_url of
         Nothing -> []
         Just u  -> [(u, t)]
 

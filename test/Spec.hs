@@ -81,5 +81,9 @@ unit_metadataSources = do
 unit_gpmfGuesses :: Assertion
 unit_gpmfGuesses = do
   e <- J.eitherDecode <$> BL.readFile "test/gpmf.json" :: IO (Either String FileInfo)
-  assertEqual (show e) (Right [("https://P","low"),("https://O","high"),("https://L","src")]) $ metadataSources <$> e
+  assertEqual (show e) (Right [
+                           ("https://B","gpmf"),
+                           ("https://P","low"),
+                           ("https://O","high"),
+                           ("https://L","src")]) $ metadataSources <$> e
 
