@@ -115,7 +115,8 @@ runGetMeta = do
   needs <- metaBlobTODO
   logInfoL ["Fetching meta ", tshow (length needs)]
   logDbgL ["Need meta: ", tshow needs]
-  mapM_ process needs
+  c <- asks (optDownloadConcurrency . gpOptions)
+  mapConcurrentlyLimited_ c process needs
     where
       process :: (MediumID, String) -> GoPro ()
       process mtyp@(mid,typ) = do
