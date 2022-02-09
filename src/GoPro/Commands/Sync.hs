@@ -99,20 +99,16 @@ metadataSources :: FileInfo -> [(String, String)]
 metadataSources fi = fold [sidecar "gpmf" "gpmf",
                            variation "mp4_low" "low",
                            variation "high_res_proxy_mp4" "high",
+                           variation "concat" "concat",
                            variation "source" "src"]
   where
-    variation var t =
-      case fi ^? fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url of
-        Nothing -> []
-        Just u  -> [(u, t)]
+    ls l t = (,t) <$> toListOf l fi
 
-    sidecar var t =
-      case fi ^? fileStuff . sidecar_files . folded
-                 . filtered (\x -> has (sidecar_label . only var) x
-                                   && ".mp4" `isSuffixOf` (x ^. sidecar_type)) . sidecar_url of
-        Nothing -> []
-        Just u  -> [(u, t)]
+    variation var = ls (fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url)
 
+    sidecar var = ls (fileStuff . sidecar_files . folded
+                      . filtered (\x -> has (sidecar_label . only var) x
+                                        && ".mp4" `isSuffixOf` (x ^. sidecar_type)) . sidecar_url)
 
 runGetMeta :: GoPro ()
 runGetMeta = do
