@@ -1,0 +1,156 @@
+{
+    "_embedded": {
+        "files": [
+            {
+                "camera_position": "default",
+                "head": "https://A",
+                "height": 1080,
+                "item_number": 1,
+                "orientation": 1,
+                "url": "https://A",
+                "width": 1920
+            }
+        ],
+        "sidecar_files": [
+            {
+                "fps": 29.97003,
+                "head": "https://B",
+                "label": "gpmf",
+                "type": "1.mp4",
+                "url": "https://B"
+            },
+            {
+                "fps": 29.97003,
+                "head": "https://C",
+                "label": "gpmf",
+                "type": "antishake.json",
+                "url": "https://C"
+            },
+            {
+                "fps": 29.97003,
+                "head": "https://D",
+                "label": "gpmf",
+                "type": "antishake_horizon.json",
+                "url": "https://D"
+            },
+            {
+                "fps": 29.97003,
+                "head": "https://E",
+                "label": "gpmf",
+                "type": "antishake_horizon_worldlock.json",
+                "url": "https://E"
+            },
+            {
+                "fps": 29.97003,
+                "head": "https://F",
+                "label": "gpmf",
+                "type": "antishake_worldlock.json",
+                "url": "https://F"
+            },
+            {
+                "fps": 29.97003,
+                "head": "https://G",
+                "label": "gpmf",
+                "type": "proxy_antishake.json",
+                "url": "https://G"
+            },
+            {
+                "fps": 29.97003,
+                "head": "https://H",
+                "label": "gpmf",
+                "type": "proxy_horizon_worldlock.json",
+                "url": "https://H"
+            },
+            {
+                "fps": 29.97003,
+                "head": "https://I",
+                "label": "gpmf",
+                "type": "proxy_worldlock.json",
+                "url": "https://I"
+            }
+        ],
+        "sprites": [
+            {
+                "fps": 29.97003,
+                "frame": {
+                    "count": 10,
+                    "height": 56,
+                    "width": 100
+                },
+                "heads": [
+                    "https://J"
+                ],
+                "height": 56,
+                "total_count": 1,
+                "type": "jpg",
+                "urls": [
+                    "https://J"
+                ],
+                "width": 1000
+            }
+        ],
+        "variations": [
+            {
+                "head": "https://K",
+                "height": 2160,
+                "label": "concat",
+                "quality": "2160p",
+                "type": "mp4",
+                "url": "https://K",
+                "width": 3840
+            },
+            {
+                "camera_position": "default",
+                "head": "https://L",
+                "height": 2160,
+                "item_number": 1,
+                "label": "source",
+                "quality": "2160p",
+                "type": "mp4",
+                "url": "https://L",
+                "width": 3840
+            },
+            {
+                "camera_position": "default",
+                "head": "https://M",
+                "height": 2160,
+                "item_number": 2,
+                "label": "source",
+                "quality": "2160p",
+                "type": "mp4",
+                "url": "https://M",
+                "width": 3840
+            },
+            {
+                "camera_position": "default",
+                "head": "https://N",
+                "height": 2160,
+                "item_number": 3,
+                "label": "source",
+                "quality": "2160p",
+                "type": "mp4",
+                "url": "https://N",
+                "width": 3840
+            },
+            {
+                "head": "https://O",
+                "height": 1080,
+                "label": "high_res_proxy_mp4",
+                "quality": "1080p",
+                "type": "mp4",
+                "url": "https://O",
+                "width": 1920
+            },
+            {
+                "head": "https://P",
+                "height": 240,
+                "label": "mp4_low",
+                "quality": "240p",
+                "type": "mp4",
+                "url": "https://P",
+                "width": 426
+            }
+        ]
+    },
+    "filename": "GX010639.MP4"
+}

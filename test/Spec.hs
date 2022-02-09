@@ -9,6 +9,7 @@ import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck as QC
 
 import           GoPro.Commands.Backup (extractMedia, extractOrig)
+import           GoPro.Commands.Sync   (metadataSources)
 import           GoPro.Plus.Media
 
 import qualified DBSpec
@@ -71,3 +72,14 @@ unit_extractMediaDedup = do
   e <- J.eitherDecode <$> BL.readFile "test/trailing.json" :: IO (Either String FileInfo)
   assertEqual (show e) (Right [("derivatives/xxx/xxx-var-source.jpg", "hhttp://a","http://a")]
                        ) $ extractMedia "xxx" <$> e
+
+unit_metadataSources :: Assertion
+unit_metadataSources = do
+  e <- J.eitherDecode <$> BL.readFile "test/mediaex.json" :: IO (Either String FileInfo)
+  assertEqual (show e) (Right [("http://f/","low"),("http://e/","high")]) $ metadataSources <$> e
+
+unit_gpmfGuesses :: Assertion
+unit_gpmfGuesses = do
+  e <- J.eitherDecode <$> BL.readFile "test/gpmf.json" :: IO (Either String FileInfo)
+  assertEqual (show e) (Right [("https://P","low"),("https://O","high"),("https://L","src")]) $ metadataSources <$> e
+

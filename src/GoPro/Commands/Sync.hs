@@ -16,7 +16,7 @@ import           Control.Retry         (RetryStatus (..), exponentialBackoff, li
 import qualified Data.Aeson            as J
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as BL
-import           Data.Foldable         (asum)
+import           Data.Foldable         (asum, fold)
 import           Data.List.Extra       (chunksOf)
 import           Data.List.NonEmpty    (NonEmpty (..))
 import qualified Data.List.NonEmpty    as NE
@@ -93,6 +93,18 @@ runGrokTel = mapM_ ud =<< metaTODO
       summarize EXIF bs      = summarizeEXIF <$> parseExif (BL.fromStrict bs)
       summarize NoMetadata _ = Left "Can't summarize with no metadata"
 
+-- | extract a list of metadata source candidates.
+metadataSources :: FileInfo -> [(String, String)]
+metadataSources fi = fold [variation "mp4_low" "low",
+                           variation "high_res_proxy_mp4" "high",
+                           variation "source" "src"]
+  where
+    variation var t =
+      case fi ^? fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url of
+        Nothing -> []
+        Just u  -> [(u, t)]
+
+
 runGetMeta :: GoPro ()
 runGetMeta = do
   needs <- metaBlobTODO
@@ -113,15 +125,11 @@ runGetMeta = do
 
           where
             processEx fi ex fmt fx = do
-              let fv :: String -> FilePath -> GoPro (Maybe BS.ByteString)
-                  fv s p = Just <$> fetchX ex fi mid s p
+              let fv :: String -> String -> FilePath -> GoPro (Maybe BS.ByteString)
+                  fv u v p = Just <$> fetchX ex mid v u p
                   fn v = ".cache" </> T.unpack mid <> "-" <> v <> fx
-              ms <- asum [
-                Just . BL.toStrict <$> getMetaBlob mid,
-                fv "mp4_low" (fn "low"),
-                fv "high_res_proxy_mp4" (fn "high"),
-                fv "source" (fn "src"),
-                pure Nothing]
+                  candidates = [ fv u l (fn l) | (u,l) <- metadataSources fi]
+              ms <- asum $ (Just . BL.toStrict <$> getMetaBlob mid) : candidates <> [pure Nothing]
               case ms of
                 Nothing -> do
                   logInfoL ["Found no metadata for ", tshow mtyp]
@@ -130,14 +138,11 @@ runGetMeta = do
                   logInfoL ["MetaData stream for ", tshow mtyp, " is ", tshow (BS.length s), " bytes"]
                   insertMetaBlob mid fmt (Just s)
                   -- Clean up in the success case.
-                  mapM_ ((\f -> asum [liftIO (removeFile f), pure ()]) . fn) ["low", "high", "src"]
+                  mapM_ ((\f -> asum [liftIO (removeFile f), pure ()]) . fn . snd) (metadataSources fi)
 
       fetchX :: (MediumID -> FilePath -> GoPro BS.ByteString)
-             -> FileInfo -> MediumID -> String -> FilePath -> GoPro BS.ByteString
-      fetchX ex fi mid var fn =
-        case fi ^? fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url of
-          Nothing -> empty
-          Just u  -> ex mid =<< dlIf mid var u fn
+             -> MediumID -> String -> String -> FilePath -> GoPro BS.ByteString
+      fetchX ex mid var u fn = ex mid =<< dlIf mid var u fn
 
       dlIf :: MediumID -> String -> String -> FilePath -> GoPro FilePath
       dlIf mid var u dest = liftIO (doesFileExist dest) >>=
