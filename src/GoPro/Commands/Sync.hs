@@ -143,8 +143,9 @@ runGetMeta = do
                 Just s -> do
                   logInfoL ["MetaData stream for ", tshow mtyp, " is ", tshow (BS.length s), " bytes"]
                   insertMetaBlob mid fmt (Just s)
-                  -- Clean up in the success case.
-                  mapM_ ((\f -> asum [liftIO (removeFile f), pure ()]) . fn . snd) (metadataSources fi)
+
+              -- Always clean up (should make this optional at some point).
+              mapM_ ((\f -> asum [liftIO (removeFile f), pure ()]) . fn . snd) (metadataSources fi)
 
       fetchX :: (MediumID -> FilePath -> GoPro BS.ByteString)
              -> MediumID -> String -> String -> FilePath -> GoPro BS.ByteString
