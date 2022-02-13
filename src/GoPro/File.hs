@@ -4,13 +4,15 @@ module GoPro.File where
 https://community.gopro.com/t5/en/GoPro-Camera-File-Naming-Convention/ta-p/390220
 -}
 
-import           Data.Char             (toLower)
-import           Data.List             (groupBy, sortOn)
-import           Data.List.NonEmpty    (NonEmpty (..))
-import qualified Data.List.NonEmpty    as NE
-import           Data.Maybe            (fromMaybe, mapMaybe)
-import           System.FilePath.Posix (takeBaseName, takeExtension)
-import           Text.Read             (readMaybe)
+import           Data.Char               (toLower)
+import           Data.List               (groupBy, sortOn)
+import           Data.List.NonEmpty      (NonEmpty (..))
+import qualified Data.List.NonEmpty      as NE
+import           Data.Maybe              (fromMaybe)
+import           Data.Semigroup.Foldable (foldMap1)
+import           Data.These              (These (..))
+import           System.FilePath.Posix   (takeBaseName, takeExtension)
+import           Text.Read               (readMaybe)
 
 data VideoCodec = GoProAVC | GoProHEVC | GoProJPG deriving (Eq, Show, Bounded, Enum)
 
@@ -34,8 +36,10 @@ parseGPFileName fn
       _             -> Nothing
 parseGPFileName _ = Nothing
 
-parseAndGroup :: [FilePath] -> [NonEmpty File]
-parseAndGroup = mapMaybe NE.nonEmpty . groupFiles . sortFiles . mapMaybe parseGPFileName
+-- | Parse a list of file paths into grouped files, rejecting those that don't match known patterns.
+parseAndGroup :: NonEmpty FilePath -> These [FilePath] [NonEmpty File]
+parseAndGroup = fmap (fmap NE.fromList . groupFiles . sortFiles) . foldMap1 that
   where
+    that fp = maybe (This [fp]) (That . (:[])) (parseGPFileName fp)
     sortFiles = sortOn (\x -> (_gpFileNumber x, _gpChapter x))
     groupFiles = groupBy (\a b -> _gpFileNumber a == _gpFileNumber b)

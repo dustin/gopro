@@ -1,9 +1,11 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE TupleSections    #-}
 
 module GoPro.Commands.Upload (
   runCreateUploads, runCreateMultipart, runResumeUpload
   ) where
 
+import           Control.Monad          (when)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Reader   (asks)
 import           Data.Foldable          (fold)
@@ -13,6 +15,7 @@ import qualified Data.List.NonEmpty     as NE
 import           Data.Monoid            (Sum (..))
 import           Data.Ord               (Down (..))
 import qualified Data.Text              as T
+import           Data.These             (These (..), these)
 import           System.Posix.Files     (fileSize, getFileStatus)
 
 import           GoPro.Commands
@@ -35,11 +38,14 @@ runCreateUploads filePaths = do
   -- up-enter, but it also prevents one from uploading a file if it's
   -- already included in a multipart upload.
   queued <- listQueuedFiles
-  let todo = parseAndGroup $ filter (`notElem` queued) (NE.toList filePaths)
+  let candidates = filter (`notElem` queued) (NE.toList filePaths)
+      (bad, good) = these (,[]) ([],) (,) $ maybe (This []) parseAndGroup (NE.nonEmpty candidates)
+
+  when (not . null $ bad) $ logInfoL ["Ignoring some unknown files: ", tshow bad]
 
   db <- goproDB
   c <- asks (optUploadConcurrency . gpOptions)
-  mapConcurrentlyLimited_ c (upload db) todo
+  mapConcurrentlyLimited_ c (upload db) good
 
   where
     upload db files = asks (optChunkSize . gpOptions) >>= \chunkSize -> runUpload (_gpFilePath <$> files) $ do

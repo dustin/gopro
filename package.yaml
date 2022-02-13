@@ -74,6 +74,8 @@ dependencies:
 - monad-loops
 - zlib
 - stm
+- these
+- semigroupoids
 
 library:
   source-dirs: src
