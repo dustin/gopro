@@ -17,7 +17,8 @@ import           System.Posix.Files     (fileSize, getFileStatus)
 
 import           GoPro.Commands
 import           GoPro.DB
-import           GoPro.Plus.Media       (MediumID, MediumType)
+import           GoPro.File
+import           GoPro.Plus.Media       (MediumID, MediumType (..))
 import           GoPro.Plus.Upload
 
 uc :: FilePath -> MediumID -> Integer -> UploadPart -> Uploader GoPro ()
@@ -34,22 +35,32 @@ runCreateUploads filePaths = do
   -- up-enter, but it also prevents one from uploading a file if it's
   -- already included in a multipart upload.
   queued <- listQueuedFiles
-  let todo = filter (`notElem` queued) (NE.toList filePaths)
+  let todo = parseAndGroup $ filter (`notElem` queued) (NE.toList filePaths)
+
   db <- goproDB
   c <- asks (optUploadConcurrency . gpOptions)
   mapConcurrentlyLimited_ c (upload db) todo
 
   where
-    upload db fp = asks (optChunkSize . gpOptions) >>= \chunkSize -> runUpload (fp :| []) $ do
+    upload db files = asks (optChunkSize . gpOptions) >>= \chunkSize -> runUpload (_gpFilePath <$> files) $ do
+      setMediumType (typeOf (NE.head files))
       setLogAction (logError . T.pack)
       setChunkSize chunkSize
       mid <- createMedium
-      did <- createSource 1
-      fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
-      up@Upload{..} <- createUpload did 1 (fromInteger fsize)
-      logInfoL ["Creating upload ", tshow fp, " (", tshow fsize, " bytes) as ",
-                mid, ": did=", did, ", upid=", _uploadID]
-      liftIO . withDB db $ storeUpload fp mid up did 1 chunkSize
+      did <- createSource (length files)
+      c <- asks (optUploadConcurrency . gpOptions)
+      mapConcurrentlyLimited_ c (\(File{_gpFilePath},n) -> do
+                                    fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) _gpFilePath
+                                    up@Upload{..} <- createUpload did n (fromInteger fsize)
+                                    logInfoL ["Creating part ", tshow _gpFilePath, " as ", mid, " part ", tshow n,
+                                              ": did=", did, ", upid=", _uploadID]
+                                    liftIO . withDB db $ storeUpload _gpFilePath mid up did (fromIntegral n) chunkSize
+                                ) $ zip (NE.toList files) [1..]
+      logInfo "Multipart upload created.  Use the 'upload' command to complete the upload."
+
+    typeOf File{_gpCodec=GoProAVC}  = Video
+    typeOf File{_gpCodec=GoProHEVC} = Video
+    typeOf File{_gpCodec=GoProJPG}  = Photo
 
 runCreateMultipart :: MediumType -> NonEmpty FilePath -> GoPro ()
 runCreateMultipart typ fps = do

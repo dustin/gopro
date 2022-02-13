@@ -3,6 +3,7 @@ module Spec where
 import           Control.Lens
 import qualified Data.Aeson            as J
 import qualified Data.ByteString.Lazy  as BL
+import qualified Data.List.NonEmpty    as NE
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -10,7 +11,8 @@ import           Test.Tasty.QuickCheck as QC
 
 import           GoPro.Commands.Backup (extractMedia, extractOrig)
 import           GoPro.Commands.Sync   (metadataSources)
-import           GoPro.Plus.Media
+import           GoPro.File
+import           GoPro.Plus.Media      (FileInfo)
 
 import qualified DBSpec
 
@@ -89,3 +91,44 @@ unit_gpmfGuesses = do
                                ("https://M","src"),
                                ("https://N","src")]) $ metadataSources <$> e
 
+unit_fileParseGroup :: Assertion
+unit_fileParseGroup = do
+  let fns = [
+        "/some/path/GL010644.LRV",
+        "/some/path/GL010646.LRV",
+        "/some/path/GL010647.LRV",
+        "/some/path/GL010648.LRV",
+        "/some/path/GL010649.LRV",
+        "/some/path/GL020648.LRV",
+        "/some/path/GL020649.LRV",
+        "/some/path/GOPR0645.GPR",
+        "/some/path/GOPR0645.JPG",
+        "/some/path/GOPR0650.GPR",
+        "/some/path/GOPR0650.JPG",
+        "/some/path/GX010644.MP4",
+        "/some/path/GX010644.THM",
+        "/some/path/GX010646.MP4",
+        "/some/path/GX010646.THM",
+        "/some/path/GX010647.MP4",
+        "/some/path/GX010647.THM",
+        "/some/path/GX010648.MP4",
+        "/some/path/GX010648.THM",
+        "/some/path/GX010649.MP4",
+        "/some/path/GX010649.THM",
+        "/some/path/GX020648.MP4",
+        "/some/path/GX020648.THM",
+        "/some/path/GX020649.MP4",
+        "/some/path/GX020649.THM",
+        "/some/path/Get_started_with_GoPro.url",
+        "/some/path/leinfo.sav"]
+      grouped = NE.toList <$> parseAndGroup fns
+  assertEqual (show grouped) (
+    [[File {_gpFilePath = "/some/path/GX010644.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 644, _gpChapter = 1}],
+     [File {_gpFilePath = "/some/path/GOPR0645.JPG", _gpCodec = GoProJPG,  _gpFileNumber = 645, _gpChapter = 0}],
+     [File {_gpFilePath = "/some/path/GX010646.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 646, _gpChapter = 1}],
+     [File {_gpFilePath = "/some/path/GX010647.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 647, _gpChapter = 1}],
+     [File {_gpFilePath = "/some/path/GX010648.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 648, _gpChapter = 1},
+      File {_gpFilePath = "/some/path/GX020648.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 648, _gpChapter = 2}],
+     [File {_gpFilePath = "/some/path/GX010649.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 649, _gpChapter = 1},
+      File {_gpFilePath = "/some/path/GX020649.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 649, _gpChapter = 2}],
+     [File {_gpFilePath = "/some/path/GOPR0650.JPG", _gpCodec = GoProJPG,  _gpFileNumber = 650, _gpChapter = 0}]]) grouped
