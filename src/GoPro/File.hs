@@ -4,14 +4,14 @@ module GoPro.File where
 https://community.gopro.com/t5/en/GoPro-Camera-File-Naming-Convention/ta-p/390220
 -}
 
-import           Data.Char               (toLower)
+import           Data.Char               (toUpper)
 import           Data.List               (groupBy, sortOn)
 import           Data.List.NonEmpty      (NonEmpty (..))
 import qualified Data.List.NonEmpty      as NE
 import           Data.Maybe              (fromMaybe)
 import           Data.Semigroup.Foldable (foldMap1)
 import           Data.These              (These (..))
-import           System.FilePath.Posix   (takeBaseName, takeExtension)
+import           System.FilePath.Posix   (takeFileName)
 import           Text.Read               (readMaybe)
 
 data VideoCodec = GoProAVC | GoProHEVC | GoProJPG deriving (Eq, Show, Bounded, Enum)
@@ -24,17 +24,12 @@ data File = File {
   } deriving (Eq, Show)
 
 parseGPFileName :: FilePath -> Maybe File
-parseGPFileName fn
-  | fmap toLower (takeExtension fn) == ".mp4" =
-      case takeBaseName fn of
-        ('G':'H':a:b:n) -> File fn GoProAVC <$> readMaybe n <*> readMaybe [a,b]
-        ('G':'X':a:b:n) -> File fn GoProHEVC <$> readMaybe n <*> readMaybe [a,b]
-        _               -> Nothing
-  | fmap toLower (takeExtension fn) == ".jpg" =
-    case takeBaseName fn of
-      ('G':a:b:c:n) -> File fn GoProJPG <$> readMaybe n <*> pure (fromMaybe 0 (readMaybe [a,b,c]))
-      _             -> Nothing
-parseGPFileName _ = Nothing
+parseGPFileName fn =
+  case fmap toUpper (takeFileName fn) of
+    ('G':'H':a:b:w:x:y:z:".MP4") -> File fn GoProAVC <$> readMaybe [w,x,y,z] <*> readMaybe [a,b]
+    ('G':'X':a:b:w:x:y:z:".MP4") -> File fn GoProHEVC <$> readMaybe [w,x,y,z] <*> readMaybe [a,b]
+    ('G': a: b:c:w:x:y:z:".JPG") -> File fn GoProJPG <$> readMaybe [w,x,y,z] <*> pure (fromMaybe 0 (readMaybe [a,b,c]))
+    _                            -> Nothing
 
 -- | Parse a list of file paths into grouped files, rejecting those that don't match known patterns.
 parseAndGroup :: NonEmpty FilePath -> These [FilePath] [NonEmpty File]
