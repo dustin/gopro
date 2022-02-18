@@ -125,13 +125,14 @@ unit_fileParseGroup = do
        "/some/path/GX020649.THM",
        "/some/path/Get_started_with_GoPro.url",
        "/some/path/leinfo.sav"]
-      [[File {_gpFilePath = "/some/path/GX010644.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 644, _gpChapter = 1}],
-          [File {_gpFilePath = "/some/path/GOPR0645.JPG", _gpCodec = GoProJPG,  _gpFileNumber = 645, _gpChapter = 0}],
-          [File {_gpFilePath = "/some/path/GX010646.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 646, _gpChapter = 1}],
-          [File {_gpFilePath = "/some/path/GX010647.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 647, _gpChapter = 1}],
-          [File {_gpFilePath = "/some/path/GX010648.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 648, _gpChapter = 1},
-           File {_gpFilePath = "/some/path/GX020648.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 648, _gpChapter = 2}],
-          [File {_gpFilePath = "/some/path/GX010649.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 649, _gpChapter = 1},
-           File {_gpFilePath = "/some/path/GX020649.MP4", _gpCodec = GoProHEVC, _gpFileNumber = 649, _gpChapter = 2}],
-          [File {_gpFilePath = "/some/path/GOPR0650.JPG", _gpCodec = GoProJPG,  _gpFileNumber = 650, _gpChapter = 0}]])
+      [[File {_gpFilePath = "/some/path/GOPR0645.JPG", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 645}],
+       [File {_gpFilePath = "/some/path/GOPR0650.JPG", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 650}],
+       [File {_gpFilePath = "/some/path/GX010644.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 1 644}],
+       [File {_gpFilePath = "/some/path/GX010646.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 1 646}],
+       [File {_gpFilePath = "/some/path/GX010647.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 1 647}],
+       [File {_gpFilePath = "/some/path/GX010648.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 1 648},
+        File {_gpFilePath = "/some/path/GX020648.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 2 648}],
+       [File {_gpFilePath = "/some/path/GX010649.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 1 649},
+        File {_gpFilePath = "/some/path/GX020649.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 2 649}]]
+    )
     grouped
