@@ -136,3 +136,30 @@ unit_fileParseGroup = do
         File {_gpFilePath = "/some/path/GX020649.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 2 649}]]
     )
     grouped
+
+unit_fileParseGroupLoop :: Assertion
+unit_fileParseGroupLoop = do
+  let fns = NE.fromList [
+        "leinfo.sav",
+        "Get_started_with_GoPro.url",
+        "GXAA0658.MP4",
+        "GXAA0659.MP4",
+        "GXAA0660.MP4",
+        "GXAA0661.MP4",
+        "GXAA0662.MP4",
+        "GXAA0663.MP4",
+        "GLAA0658.LRV",
+        "GXAA0663.THM"
+        ]
+      grouped = fmap NE.toList <$> parseAndGroup fns
+  assertEqual (show grouped) (
+    These
+      ["leinfo.sav","Get_started_with_GoPro.url","GLAA0658.LRV","GXAA0663.THM"]
+      [[File {_gpFilePath = "GXAA0658.MP4", _gpCodec = GoProHEVC, _gpGrouping = LoopGrouping 658 "AA"},
+        File {_gpFilePath = "GXAA0659.MP4", _gpCodec = GoProHEVC, _gpGrouping = LoopGrouping 659 "AA"},
+        File {_gpFilePath = "GXAA0660.MP4", _gpCodec = GoProHEVC, _gpGrouping = LoopGrouping 660 "AA"},
+        File {_gpFilePath = "GXAA0661.MP4", _gpCodec = GoProHEVC, _gpGrouping = LoopGrouping 661 "AA"},
+        File {_gpFilePath = "GXAA0662.MP4", _gpCodec = GoProHEVC, _gpGrouping = LoopGrouping 662 "AA"},
+        File {_gpFilePath = "GXAA0663.MP4", _gpCodec = GoProHEVC, _gpGrouping = LoopGrouping 663 "AA"}]]
+    )
+    grouped

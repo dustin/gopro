@@ -41,8 +41,12 @@ sameGroup _ _ = False
 parseGPFileName :: FilePath -> Maybe File
 parseGPFileName fn =
   case fmap toUpper (takeFileName fn) of
-    ('G':'H':a:b:w:x:y:z:".MP4") -> File fn GoProAVC <$> (BasicGrouping <$> readMaybe [a,b] <*> readMaybe [w,x,y,z])
-    ('G':'X':a:b:w:x:y:z:".MP4") -> File fn GoProHEVC <$> (BasicGrouping <$> readMaybe [a,b] <*> readMaybe [w,x,y,z])
+    ('G':'H':a:b:w:x:y:z:".MP4") -> case readMaybe [a,b] of
+                                      Just n -> File fn GoProAVC <$> (BasicGrouping n <$> readMaybe [w,x,y,z])
+                                      Nothing -> File fn GoProAVC <$> (LoopGrouping <$> readMaybe [w,x,y,z] <*> pure [a,b])
+    ('G':'X':a:b:w:x:y:z:".MP4") -> case readMaybe [a,b] of
+                                      Just n -> File fn GoProHEVC <$> (BasicGrouping n <$> readMaybe [w,x,y,z])
+                                      Nothing -> File fn GoProHEVC <$> (LoopGrouping <$> readMaybe [w,x,y,z] <*> pure [a,b])
     ('G': _: _:_:w:x:y:z:".JPG") -> File fn GoProJPG <$> (NoGrouping <$> readMaybe [w,x,y,z])
     _                            -> Nothing
 
