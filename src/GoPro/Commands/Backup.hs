@@ -128,13 +128,6 @@ downloadLocally path extract mid = do
           dir = takeDirectory dest
           policy = exponentialBackoff 2000000 <> limitRetries 9
 
-class Numbered c where
-  item_num :: Lens' c (Maybe Int)
-
-instance Numbered SidecarFile where item_num = lens (const Nothing) (\x -> const x)
-
-instance Numbered Variation where item_num = media_item_number
-
 extractMedia :: Extractor
 extractMedia mid fi = nubBy (\(_,_,u1) (_,_,u2) -> u1 == u2) $
                         fold [ ex "var" variations,
@@ -150,7 +143,7 @@ extractMedia mid fi = nubBy (\(_,_,u1) (_,_,u2) -> u1 == u2) $
           typ <- v ^? media_type
           let h = v ^. media_head
               u = v ^. media_url
-              inum = maybe "" (\x -> "-" <> show x) (v ^. item_num)
+              inum = maybe "" (\x -> "-" <> show x) (v ^. media_item_number)
           pure (fromString $ mconcat ["derivatives/", unpack mid, "/", unpack mid, "-", p, "-", lbl, inum, ".", typ],
                 fromString h,
                 u)
