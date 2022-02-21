@@ -41,6 +41,7 @@ dependencies:
 - extra
 - monad-logger
 - filepath
+- pathwalk
 - scotty
 - http-types
 - warp
@@ -76,6 +77,8 @@ dependencies:
 - stm
 - these
 - semigroupoids
+- safe
+- shelly
 
 library:
   source-dirs: src

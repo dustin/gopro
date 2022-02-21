@@ -20,16 +20,20 @@ import           Control.Retry         (RetryStatus (..), exponentialBackoff, li
 import qualified Data.Aeson            as J
 import           Data.Aeson.Lens
 import qualified Data.ByteString.Lazy  as BL
-import           Data.List (nubBy)
 import           Data.Foldable         (fold)
 import           Data.Generics.Product (field)
+import           Data.List             (nubBy, sort)
 import           Data.List.Extra       (chunksOf)
-import           Data.Maybe            (fromJust, maybeToList)
+import qualified Data.List.NonEmpty    as NE
+import qualified Data.Map.Strict       as Map
+import           Data.Maybe            (fromJust, fromMaybe, mapMaybe, maybeToList)
 import qualified Data.Set              as Set
 import           Data.String           (fromString)
-import           Data.Text             (Text, pack, stripPrefix, unpack)
+import           Data.Text             (Text, isInfixOf, pack, stripPrefix, unpack)
 import qualified Data.Text.Encoding    as TE
 import           Network.HTTP.Simple   (getResponseBody, httpSource, parseRequest)
+import           Safe.Exact            (zipWithExactMay)
+import qualified Shelly                as Sh
 import           System.Directory      (createDirectoryIfMissing, doesFileExist, listDirectory, renameDirectory,
                                         renameFile)
 import           System.FilePath.Posix (takeDirectory, takeExtension, (</>))
@@ -37,6 +41,7 @@ import           UnliftIO              (concurrently, mapConcurrently, mapConcur
 
 import           GoPro.Commands
 import           GoPro.DB
+import qualified GoPro.File            as GPF
 import           GoPro.Plus.Media
 import           GoPro.S3
 
@@ -72,7 +77,13 @@ copyMedia λ extract mid = do
 downloadLocally :: FilePath -> Extractor -> MediumID -> GoPro ()
 downloadLocally path extract mid = do
   logInfoL ["Beginning backup of ", tshow mid]
-  todo <- extract mid <$> retryRetrieve mid
+  vars <- retryRetrieve mid
+  refdir <- asks (optReferenceDir . gpOptions)
+  locals <- fromMaybe mempty <$> traverse GPF.fromDirectory refdir
+  let todo = extract mid vars
+      srcs = maybe [] NE.toList $ Map.lookup (vars ^. filename) locals
+  copyLocal todo srcs
+
   mapConcurrentlyLimited_ 5 copynew todo
   -- This is mildly confusing since the path inherently has the mid in the path.
   liftIO $ renameDirectory (tmpdir </> unpack mid) midPath
@@ -82,12 +93,27 @@ downloadLocally path extract mid = do
     midPath = path </> unpack mid
     tmpdir = path </> "tmp"
 
+    tmpFilename k = tmpdir </> (unpack . fromJust . stripPrefix "derivatives/") k
+
+    copyLocal :: [(Text, String, String)] -> [GPF.File] -> GoPro ()
+    copyLocal devs refs = do
+      let srcdevs = sort $ mapMaybe (\(a,_,_) -> case "-var-source" `isInfixOf` a of
+                                                   True  -> Just a
+                                                   False -> Nothing
+                                    ) devs
+
+      case zipWithExactMay (\a b -> (GPF._gpFilePath b, tmpFilename a)) srcdevs refs of
+        Nothing      -> logDbgL ["no match", tshow ((\(a,_,_) -> a) <$> devs), tshow refs]
+        Just aligned -> do
+          logInfoL ["Copying local files", tshow aligned]
+          void . Sh.shelly $ traverse (\(s,d) -> Sh.mkdir_p (takeDirectory d) *> Sh.cp s d ) aligned
+
     copynew argh@(k, _, _) = liftIO (doesFileExist dest) >>= \exists ->
       if exists then (logDbgL ["Using existing file: ", tshow dest] >> pure dest)
       else copy argh dest
 
         where
-          dest = tmpdir </> (unpack . fromJust . stripPrefix "derivatives/") k
+          dest = tmpFilename k
 
     copy (k, _, u) dest = recoverAll policy $ \r -> do
       liftIO $ createDirectoryIfMissing True dir

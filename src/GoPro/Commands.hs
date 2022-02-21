@@ -65,6 +65,7 @@ data Options = Options
     , optUploadConcurrency   :: Int
     , optDownloadConcurrency :: Int
     , optChunkSize           :: Integer
+    , optReferenceDir        :: Maybe FilePath
     , optCommand             :: Command
     }
 
