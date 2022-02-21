@@ -44,6 +44,8 @@ parseGPFileName fn =
     ('G':'H':a:b:w:x:y:z:".MP4") -> vid GoProAVC [a,b] [w,x,y,z]
     ('G':'X':a:b:w:x:y:z:".MP4") -> vid GoProHEVC [a,b] [w,x,y,z]
     ('G': _: _:_:w:x:y:z:".JPG") -> File fn GoProJPG <$> (NoGrouping <$> readMaybe [w,x,y,z])
+    ('G':'O':'P':'R':w:x:y:z:".MP4") -> vid GoProAVC "0" [w,x,y,z]
+    ('G':'P':a:b:w:x:y:z:".MP4") -> vid GoProAVC [a,b] [w,x,y,z]
     _                            -> Nothing
 
   where vid x ab wxyz = case readMaybe ab of

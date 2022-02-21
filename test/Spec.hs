@@ -163,3 +163,21 @@ unit_fileParseGroupLoop = do
         File {_gpFilePath = "GXAA0663.MP4", _gpCodec = GoProHEVC, _gpGrouping = LoopGrouping 663 "AA"}]]
     )
     grouped
+
+unit_fileParseGroupSession5 :: Assertion
+unit_fileParseGroupSession5 = do
+  let fns = NE.fromList [
+        "GOPR2016.LRV",
+        "GOPR2016.MP4",
+        "GOPR2016.THM",
+        "GP012016.LRV",
+        "GP012016.MP4"
+        ]
+      grouped = fmap NE.toList <$> parseAndGroup fns
+  assertEqual (show grouped) (
+    These
+      ["GOPR2016.LRV", "GOPR2016.THM", "GP012016.LRV"]
+      [[File {_gpFilePath = "GOPR2016.MP4", _gpCodec = GoProAVC, _gpGrouping = BasicGrouping 0 2016},
+        File {_gpFilePath = "GP012016.MP4", _gpCodec = GoProAVC, _gpGrouping = BasicGrouping 1 2016}]]
+    )
+    grouped
