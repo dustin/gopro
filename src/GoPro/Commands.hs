@@ -35,6 +35,7 @@ import           GoPro.Plus.Auth
 import           GoPro.Plus.Media        (FileInfo, MediumID, MediumType)
 
 -- Extractor function for deciding which files to download for backing up.
+-- (medium id, head url, url)
 type Extractor = MediumID -> FileInfo -> [(T.Text, String, String)]
 
 data Command = AuthCmd
