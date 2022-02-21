@@ -108,7 +108,7 @@ metadataSources fi = fold [sidecar "gpmf" "gpmf",
 
     sidecar var = ls (fileStuff . sidecar_files . folded
                       . filtered (\x -> has (sidecar_label . only var) x
-                                        && ".mp4" `isSuffixOf` (x ^. sidecar_type)) . sidecar_url)
+                                        && "mp4" `isSuffixOf` (x ^. sidecar_type)) . sidecar_url)
 
 runGetMeta :: GoPro ()
 runGetMeta = do
