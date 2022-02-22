@@ -96,8 +96,7 @@ runGrokTel = mapM_ ud =<< metaTODO
 
 -- | extract a list of metadata source candidates.
 metadataSources :: FileInfo -> [(String, String)]
-metadataSources fi = fold [sidecar "gpmf" "gpmf",
-                           variation "mp4_low" "low",
+metadataSources fi = fold [variation "mp4_low" "low",
                            variation "high_res_proxy_mp4" "high",
                            variation "concat" "concat",
                            variation "source" "src"]
