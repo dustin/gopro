@@ -19,8 +19,8 @@ findGPMDStream filename =
     j ^? _Just . key "streams" . values . filtered (has (key "codec_tag_string" . _String.only "gpmd"))
       . key "index" . _Integer . to fromIntegral
 
-extractGPMDStream :: FilePath -> Int -> IO BS.ByteString
-extractGPMDStream filename stream = readCmd "ffmpeg" ["-y", "-i", filename, "-loglevel", "-8",
-                                                      "-codec", "copy", "-map", "0:" <> show stream,
-                                                      "-f", "rawvideo", "-"] id
-
+extractGPMDStream :: [FilePath] -> Int -> IO BS.ByteString
+extractGPMDStream files stream = readCmd "ffmpeg" (fileArgs <> extractArgs) id
+  where
+    fileArgs = foldMap (\f -> ["-i", f]) files
+    extractArgs = ["-y", "-loglevel", "-8", "-codec", "copy", "-map", "0:" <> show stream, "-f", "rawvideo", "-"]

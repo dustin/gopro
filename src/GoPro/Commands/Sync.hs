@@ -180,7 +180,7 @@ runGetMeta = do
       extractGPMD mid f = liftIO (findGPMDStream f) >>=
         \case
           Nothing -> logErrorL ["Can't find GPMD stream for ", tshow mid] >> empty
-          Just s  -> liftIO $ extractGPMDStream f s
+          Just s  -> liftIO $ extractGPMDStream [f] s
 
 runWaitForUploads :: GoPro ()
 runWaitForUploads = whileM_ inProgress (sleep 15)
