@@ -186,8 +186,9 @@ runWaitForUploads :: GoPro ()
 runWaitForUploads = whileM_ inProgress (sleep 15)
   where
     inProgress = do
-      ms <- toListOf (folded . filtered ((`elem` interesting) . view medium_ready_to_view)) . fst <$> list 10 1
-      let breakdown = Map.fromListWith (<>) [(i ^. medium_ready_to_view . to tshow, [i ^. medium_id]) | i <- ms]
+      ms <- toListOf (folded . filtered ((`elem` interesting) . view medium_ready_to_view)) <$> notReady
+      let breakdown = Map.fromListWith (<>) [(i ^. medium_ready_to_view . to tshow,
+                                              [(i ^. medium_id, i ^. medium_filename . _Just)]) | i <- ms]
       traverse_ (\(t, ids) -> logInfoL [t, ": ", tshow ids]) (Map.assocs breakdown)
       pure $ (not.null) (filter (not . when ViewFailure) ms)
 

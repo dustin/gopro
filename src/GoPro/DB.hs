@@ -94,7 +94,9 @@ initQueries = [
   (11, "update metablob set meta_length = length(meta)"),
   (12, "alter table uploads add column chunk_size int"),
   (12, "update uploads set chunk_size = 6291456"),
-  (13, "alter table media add column raw_json blob")
+  (13, "alter table media add column raw_json blob"),
+  (14, "alter table media add column filename text"),
+  (14, "update media set filename = json_extract(raw_json, \"$.filename\")")
   ]
 
 initTables :: Connection -> IO ()
@@ -156,8 +158,8 @@ updateConfig cfg = ex_ "delete from config" *> em "insert into config (key, valu
 upsertMediaStatement :: Query
 upsertMediaStatement = [sql|insert into media (media_id, camera_model, captured_at, created_at,
                                                file_size, moments_count, source_duration, media_type,
-                                               width, height, ready_to_view, thumbnail, variants, raw_json)
-                                        values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                                               width, height, ready_to_view, filename, thumbnail, variants, raw_json)
+                                        values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                               on conflict (media_id)
                                  do update
                                    set moments_count = excluded.moments_count,
@@ -215,6 +217,7 @@ instance ToRow MediaRow where
     toField _medium_width,
     toField _medium_height,
     toField _medium_ready_to_view,
+    toField _medium_filename,
     toField thumbnail,
     toField vars,
     toField raw
@@ -231,7 +234,7 @@ instance FromRow MediaRow where
 
 
 loadMediaRows :: (HasGoProDB m, MonadIO m) => m [MediaRow]
-loadMediaRows = q_ "select media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view, source_duration, media_type, width, height, thumbnail, variants, raw_json from media"
+loadMediaRows = q_ "select media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view, source_duration, media_type, width, height, filename, thumbnail, variants, raw_json from media"
 
 loadMediaIDs :: (HasGoProDB m, MonadIO m) => m [MediumID]
 loadMediaIDs = oq_ "select media_id from media order by captured_at desc"
@@ -247,7 +250,8 @@ selectMediaStatement = [sql|select media_id,
                                    source_duration,
                                    media_type,
                                    width,
-                                   height
+                                   height,
+                                   filename
                                from media
                                order by captured_at desc|]
 
@@ -265,6 +269,7 @@ instance FromRow Medium where
     <*> pure "" -- _medium_token
     <*> field -- _medium_width
     <*> field -- _medium_height
+    <*> field -- filename
 
 loadMedia :: (HasGoProDB m, MonadIO m) => m [Medium]
 loadMedia = q_ selectMediaStatement
