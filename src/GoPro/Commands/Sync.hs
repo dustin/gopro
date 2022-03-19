@@ -187,9 +187,9 @@ runWaitForUploads = whileM_ inProgress (sleep 15)
   where
     inProgress = do
       ms <- notReady
-      let breakdown = Map.fromListWith (<>) [(i ^. medium_ready_to_view . to tshow,
+      let breakdown = Map.fromListWith (<>) [(i ^. medium_ready_to_view . to show,
                                               [(i ^. medium_id, i ^. medium_filename . _Just)]) | i <- ms]
-      traverse_ display (Map.assocs breakdown)
+      traverse_ (liftIO . display) (Map.assocs breakdown)
       pure $ (not.null) (filter (not . when ViewFailure) ms)
 
     when x Medium{_medium_ready_to_view} = x == _medium_ready_to_view
@@ -197,8 +197,8 @@ runWaitForUploads = whileM_ inProgress (sleep 15)
     seconds = (* 1000000)
 
     display (t, things) = do
-      logInfoL [t, ":"]
-      traverse_ (\(i, fn) -> logInfoL ["  ", tshow i, " - ", tshow fn]) things
+      putStrLn $ fold [drop 4 t, ":"]
+      traverse_ (\(i, fn) -> putStrLn $ fold ["  ", T.unpack i, " - ", show fn]) things
 
 refreshMedia :: NonEmpty MediumID -> GoPro ()
 refreshMedia = mapM_ refreshSome . chunksOf 100 . NE.toList
