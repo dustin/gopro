@@ -16,11 +16,12 @@ import           Control.Retry         (RetryStatus (..), exponentialBackoff, li
 import qualified Data.Aeson            as J
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as BL
-import           Data.Foldable         (asum, fold)
+import           Data.Foldable         (asum, fold, traverse_)
 import           Data.List             (isSuffixOf)
 import           Data.List.Extra       (chunksOf)
 import           Data.List.NonEmpty    (NonEmpty (..))
 import qualified Data.List.NonEmpty    as NE
+import qualified Data.Map.Strict       as Map
 import           Data.Maybe            (isJust)
 import qualified Data.Set              as Set
 import qualified Data.Text             as T
@@ -185,17 +186,15 @@ runWaitForUploads :: GoPro ()
 runWaitForUploads = whileM_ inProgress (sleep 15)
   where
     inProgress = do
-      ms <- toListOf (folded . filtered ((`elem` [ViewUploading, ViewTranscoding]) . view medium_ready_to_view)) . fst <$> list 10 1
-      let ups = filter (when ViewUploading) ms
-          ts = filter (when ViewTranscoding) ms
-      unless (null ups) $ logInfoL ["Still uploading: ", tshow (ids ups)]
-      unless (null ts) $ logInfoL ["Still transcoding: ", tshow (ids ts)]
-      pure $ (not.null) (ups <> ts)
+      ms <- toListOf (folded . filtered ((`elem` interesting) . view medium_ready_to_view)) . fst <$> list 10 1
+      let breakdown = Map.fromListWith (<>) [(i ^. medium_ready_to_view . to tshow, [i ^. medium_id]) | i <- ms]
+      traverse_ (\(t, ids) -> logInfoL [t, ": ", tshow ids]) (Map.assocs breakdown)
+      pure $ (not.null) (filter (not . when ViewFailure) ms)
 
-    ids = toListOf (folded . medium_id)
     when x Medium{_medium_ready_to_view} = x == _medium_ready_to_view
     sleep = liftIO . threadDelay . seconds
     seconds = (* 1000000)
+    interesting = [ViewRegistered, ViewUploading, ViewTranscoding, ViewProcessing, ViewPreTranscoding, ViewFailure]
 
 refreshMedia :: NonEmpty MediumID -> GoPro ()
 refreshMedia = mapM_ refreshSome . chunksOf 100 . NE.toList
