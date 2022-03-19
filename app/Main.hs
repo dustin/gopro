@@ -100,7 +100,7 @@ some1 :: Parser a -> Parser (NonEmpty a)
 some1 p = NE.fromList <$> some p
 
 runCleanup :: GoPro ()
-runCleanup = mapM_ rm =<< (filter wanted <$> listAll)
+runCleanup = mapM_ rm =<< (filter wanted <$> notReady)
     where
       wanted Medium{..} = _medium_ready_to_view `elem` [ViewUploading, ViewFailure]
       rm Medium{..} = do
