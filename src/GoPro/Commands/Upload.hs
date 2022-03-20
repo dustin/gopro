@@ -50,7 +50,6 @@ runCreateUploads filePaths = do
   where
     upload db files = asks (optChunkSize . gpOptions) >>= \chunkSize -> runUpload (_gpFilePath <$> files) $ do
       setMediumType (typeOf (NE.head files))
-      setLogAction (logError . T.pack)
       setChunkSize chunkSize
       mid <- createMedium
       did <- createSource (length files)
@@ -73,7 +72,6 @@ runCreateMultipart typ fps = do
   db <- goproDB
   runUpload fps $ do
     setMediumType typ
-    setLogAction (logError . T.pack)
     chunkSize <- asks (optChunkSize . gpOptions)
     setChunkSize chunkSize
     mid <- createMedium
@@ -116,7 +114,6 @@ runResumeUpload = do
       let part = fromIntegral _pu_partnum
       fsize <- fromIntegral . fileSize <$> (liftIO . getFileStatus) _pu_filename
       resumeUpload (_pu_filename :| []) _pu_medium_id $ do
-        setLogAction (logError . T.pack)
         setChunkSize _pu_chunkSize
         Upload{..} <- getUpload _pu_upid _pu_did part fsize
         let chunks = sortOn (Down . _uploadPart) $

@@ -15,11 +15,11 @@ import           Control.Monad.Reader           (ask, asks, lift)
 import qualified Data.Aeson                     as J
 import           Data.Aeson.Lens                (_Object)
 import           Data.Cache                     (insert)
-import qualified Data.HashMap.Strict            as HM
 import           Data.List.NonEmpty             (NonEmpty (..))
 import qualified Data.Map.Strict                as Map
 import           Data.String                    (fromString)
 import qualified Data.Text                      as T
+import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Text.Lazy                 as LT
 import qualified Data.Vector                    as V
 import           Network.HTTP.Types.Status      (noContent204)
@@ -127,12 +127,12 @@ runServer = do
             ts = J.String . T.pack
             jn = J.Number . fromIntegral
             encd FileStuff{..} = J.Array . V.fromList . fmap J.Object $ (
-              map (\f -> HM.fromList [("url", ts (f ^. file_url)),
+              map (\f -> KM.fromList [("url", ts (f ^. file_url)),
                                       ("name", ts "file"),
                                       ("width", jn (f ^. file_width)),
                                       ("height", jn (f ^. file_height)),
                                       ("desc", J.String $ wh (f ^. file_width) (f ^. file_height))]) _files
-              <> map (\f -> HM.fromList [("url", ts (f ^. var_url)),
+              <> map (\f -> KM.fromList [("url", ts (f ^. var_url)),
                                          ("name", ts (f ^. var_label)),
                                          ("desc", J.String $ "var " <> wh (f ^. var_width) (f ^. var_height)),
                                          ("width", jn (f ^. var_width)),
