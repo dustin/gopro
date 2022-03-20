@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedLabels  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications  #-}
 
@@ -21,7 +22,7 @@ import qualified Data.Aeson            as J
 import           Data.Aeson.Lens
 import qualified Data.ByteString.Lazy  as BL
 import           Data.Foldable         (fold)
-import           Data.Generics.Product (field)
+import           Data.Generics.Labels  ()
 import           Data.List             (nubBy, sort)
 import           Data.List.Extra       (chunksOf)
 import qualified Data.List.NonEmpty    as NE
@@ -63,7 +64,7 @@ copyMedia λ extract mid = do
     copy (k, h, u) = do
       b <- s3Bucket
       logDbgL ["Queueing copy of ", mid, " to ", tshow k]
-      inAWS $ \env -> void . send env $ newInvoke λ (encodeCopyRequest (pack h) (pack u) b k) & field @"invocationType" ?~ InvocationType_Event
+      inAWS $ \env -> void . send env $ newInvoke λ (encodeCopyRequest (pack h) (pack u) b k) & #invocationType ?~ InvocationType_Event
 
     encodeCopyRequest hd src (BucketName bname) k = BL.toStrict . J.encode $ jbod
       where
@@ -215,14 +216,14 @@ runReceiveS3CopyQueue = do
       go _ [] = logInfo "Not waiting for any results"
       go qrl w = do
         logInfoL ["Waiting for ", tshow (length w), " files to finish copying"]
-        msgs <- toListOf (folded . field @"messages" . folded) <$> getmsgs qrl (length w)
+        msgs <- toListOf (folded . #messages . folded) <$> getmsgs qrl (length w)
 
         logInfoL ["Processing ", tshow (length msgs), " responses"]
         let results = computeResults <$> msgs
         mapM_ (\(fn, ok, _) -> logDbgL ["Finished ", fn, " with status: ", tshow ok]) results
         markS3CopyComplete results
 
-        let mids = msgs ^.. folded . folded . field @"receiptHandle" . _Just
+        let mids = msgs ^.. folded . folded . #receiptHandle . _Just
             deletes = zipWith (newDeleteMessageBatchRequestEntry . tshow) [1 :: Int ..] mids
         unless (null deletes) $ do
           logDbg "Deleting processed messages from SQS."
@@ -241,15 +242,15 @@ runReceiveS3CopyQueue = do
           -- trickle in, but we want to be able to burst support for
           -- lots of messages.
           someMessages n = inAWS $ \env -> send env $ newReceiveMessage qrl
-                           & field @"maxNumberOfMessages" ?~ 10
-                           & field @"waitTimeSeconds" ?~ (if n == 0 then 20 else 0)
-                           & field @"visibilityTimeout" ?~ 60
+                           & #maxNumberOfMessages ?~ 10
+                           & #waitTimeSeconds ?~ (if n == 0 then 20 else 0)
+                           & #visibilityTimeout ?~ 60
 
       delMessages qrl = mapConcurrently_ batch . chunksOf 10
-        where batch dels = inAWS $ \env -> void . send env $ newDeleteMessageBatch qrl & field @"entries" .~ dels
+        where batch dels = inAWS $ \env -> void . send env $ newDeleteMessageBatch qrl & #entries .~ dels
 
       computeResults m = do
-        let Just bodBytes = m ^? folded . field @"body" . _Just . to (BL.fromStrict . TE.encodeUtf8)
+        let Just bodBytes = m ^? folded . #body . _Just . to (BL.fromStrict . TE.encodeUtf8)
             Just bod = J.decode bodBytes :: Maybe J.Value
             modbod = bod & key "requestPayload" . _Object %~ sans "src" . sans "head"
             Just condition = bod ^? key "requestContext" . key "condition" . _String

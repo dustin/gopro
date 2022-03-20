@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE OverloadedLabels  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications  #-}
 
@@ -19,7 +20,7 @@ import           Data.Conduit                 (runConduit, (.|))
 import qualified Data.Conduit.Binary          as CB
 import qualified Data.Conduit.List            as CL
 import           Data.Conduit.Zlib            (ungzip)
-import           Data.Generics.Product        (field)
+import           Data.Generics.Labels         ()
 import           Data.Maybe                   (fromMaybe)
 import           Data.String                  (fromString)
 import           Data.Text                    (Text, isSuffixOf, pack, unpack)
@@ -33,7 +34,7 @@ import           GoPro.Plus.Media
 type Derivative = (MediumID, Text)
 
 inAWS :: MonadUnliftIO m => (Amazonka.Env -> ResourceT m b) -> m b
-inAWS a = (newEnv Discover <&> set (field @"_envRegion") Oregon) >>= runResourceT . a
+inAWS a = (newEnv Discover <&> set #_envRegion Oregon) >>= runResourceT . a
 
 s3Bucket :: GoPro BucketName
 s3Bucket = do
@@ -42,9 +43,9 @@ s3Bucket = do
 
 allDerivatives :: GoPro [Derivative]
 allDerivatives = s3Bucket >>= \b -> inAWS $ \env ->
-  runConduit $ paginate env (newListObjectsV2 b & field @"prefix" ?~ "derivatives/")
-    .| CL.concatMap (view (field @"contents" . _Just))
-    .| CL.map (view ((field @"key") . _ObjectKey))
+  runConduit $ paginate env (newListObjectsV2 b & #prefix ?~ "derivatives/")
+    .| CL.concatMap (view (#contents . _Just))
+    .| CL.map (view (#key . _ObjectKey))
     .| CL.filter (not . ("/" `isSuffixOf`))
     .| CL.map toDir
     .| CL.consume
@@ -59,7 +60,7 @@ getMetaBlob mid = do
   logDbgL ["Requesting metablob from S3: ", tshow key]
   inAWS $ \env -> do
     rs <- send env (newGetObject b key)
-    (rs ^. field @"body") `sinkBody` (ungzip .| CB.sinkLbs)
+    (rs ^. #body) `sinkBody` (ungzip .| CB.sinkLbs)
 
 storeMetaBlob :: MediumID -> Maybe BL.ByteString -> GoPro ()
 storeMetaBlob mid blob = do
@@ -67,13 +68,13 @@ storeMetaBlob mid blob = do
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
   logInfoL ["Storing metadata blob at ", tshow key]
   inAWS $ \env -> void . send env $ newPutObject b key (Hashed . toHashed . compress . fromMaybe "" $ blob) &
-    field @"storageClass" ?~ StorageClass' "STANDARD_IA"
+    #storageClass ?~ StorageClass' "STANDARD_IA"
 
 listMetaBlobs :: GoPro [MediumID]
 listMetaBlobs = s3Bucket >>= \b -> inAWS $ \env ->
-  runConduit $ paginate env (newListObjectsV2 b & field @"prefix" ?~ "metablob/")
-    .| CL.concatMap (view (field @"contents" . _Just))
-    .| CL.map (view (field @"key" . _ObjectKey))
+  runConduit $ paginate env (newListObjectsV2 b & #prefix ?~ "metablob/")
+    .| CL.concatMap (view (#contents . _Just))
+    .| CL.map (view (#key . _ObjectKey))
     .| CL.filter (".gz" `isSuffixOf`)
     .| CL.map (pack . takeBaseName . unpack)
     .| CL.consume
