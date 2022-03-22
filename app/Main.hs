@@ -61,6 +61,7 @@ options = Options
                   <> command "cleanup" (info (pure CleanupCmd) (progDesc "Clean up any outstanding ops"))
                   <> command "serve" (info (pure ServeCmd) (progDesc "Run the UI web server"))
                   <> command "wait" (info (pure WaitCmd) (progDesc "Wait for outstanding uploads to complete"))
+                  <> command "reprocess" (info reprocessCmd (progDesc "Reprocess failed uploads"))
                   <> command "backup" (info (pure $ BackupCmd extractOrig) (progDesc "Backup original media to S3"))
                   <> command "clearmeta" (info (pure ClearMetaCmd) (progDesc "Remove local, backed-up metadata"))
                   <> command "backupall" (info (pure $ BackupCmd extractMedia) (progDesc "Backup all media to S3"))
@@ -71,6 +72,7 @@ options = Options
                  )
   where
     refreshCmd = RefreshCmd <$> some1 (argument str (metavar "mIDs..."))
+    reprocessCmd = ReprocessCmd <$> some1 (argument str (metavar "mIDs..."))
     createUpCmd = CreateUploadCmd <$> some1 (argument str (metavar "file..." <> action "file"))
     uploadCmd = UploadCmd <$> many (argument str (metavar "file..." <> action "file"))
     createMultiCmd = CreateMultiCmd <$> argument mediumType (metavar "Mediumtype" <> completeWith mtypes)
@@ -144,6 +146,7 @@ run CleanupCmd            = runCleanup
 run (FixupCmd q)          = runFixup q
 run ServeCmd              = runServer
 run WaitCmd               = runWaitForUploads
+run (ReprocessCmd ms)     = runReprocessCmd ms
 run (BackupCmd x)         = runBackup x >> runReceiveS3CopyQueue
 run ProcessSQSCmd         = runReceiveS3CopyQueue
 run (BackupLocalCmd x p)  = runLocalBackup x p

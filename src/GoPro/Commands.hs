@@ -50,6 +50,7 @@ data Command = AuthCmd
              | FixupCmd Query
              | ServeCmd
              | WaitCmd
+             | ReprocessCmd (NonEmpty MediumID)
              | BackupCmd Extractor
              | ProcessSQSCmd
              | BackupLocalCmd Extractor FilePath

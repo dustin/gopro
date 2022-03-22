@@ -2,7 +2,7 @@
 {-# LANGUAGE TupleSections    #-}
 
 module GoPro.Commands.Upload (
-  runCreateUploads, runCreateMultipart, runResumeUpload
+  runCreateUploads, runCreateMultipart, runResumeUpload, runReprocessCmd
   ) where
 
 import           Control.Monad          (when)
@@ -21,7 +21,7 @@ import           System.Posix.Files     (fileSize, getFileStatus)
 import           GoPro.Commands
 import           GoPro.DB
 import           GoPro.File
-import           GoPro.Plus.Media       (MediumID, MediumType (..))
+import           GoPro.Plus.Media       (MediumID, MediumType (..), reprocess)
 import           GoPro.Plus.Upload
 
 uc :: FilePath -> MediumID -> Integer -> UploadPart -> Uploader GoPro ()
@@ -125,3 +125,6 @@ runResumeUpload = do
         _ <- mapConcurrentlyLimited c (uc _pu_filename _pu_medium_id _pu_partnum) chunks
         completeUpload _uploadID _pu_did part (fromIntegral fsize)
       completedUpload _pu_medium_id _pu_partnum
+
+runReprocessCmd :: NonEmpty MediumID -> GoPro ()
+runReprocessCmd = mapM_ reprocess

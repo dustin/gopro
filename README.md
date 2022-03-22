@@ -214,6 +214,11 @@ The `wait` command just waits for in-progress uploads and (GoPro-side)
 transcoding to finish.  `sync` does this automatically, but if you
 want to wait for some other reason without syncing, this will do it.
 
+### reprocess
+
+The `reprocess` command tells the GoPro cloud service to reprocess any
+uploads that fell into a failed state (as seen by the `wait` command.
+
 ### fixup
 
 The fixup command allows you to write a SQL query against your local
