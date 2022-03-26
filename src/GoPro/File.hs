@@ -8,7 +8,7 @@ https://community.gopro.com/t5/en/GoPro-Camera-File-Naming-Convention/ta-p/39022
 
 import           Control.Monad.IO.Class    (MonadIO (..))
 import           Data.Char                 (toUpper)
-import           Data.List                 (groupBy, sortOn)
+import           Data.List                 (groupBy, isSuffixOf, sortOn)
 import           Data.List.NonEmpty        (NonEmpty (..))
 import qualified Data.List.NonEmpty        as NE
 import           Data.Map                  (Map)
@@ -52,7 +52,10 @@ parseGPFileName fn =
     ('G': _: _:_:w:x:y:z:".JPG")     -> File fn GoProJPG <$> (NoGrouping <$> readMaybe [w,x,y,z])
     ('G':'O':'P':'R':w:x:y:z:".MP4") -> vid GoProAVC "0" [w,x,y,z]
     ('G':'P':a:b:w:x:y:z:".MP4")     -> vid GoProAVC [a,b] [w,x,y,z]
-    _                                -> Nothing
+    other                            -> if ".JPG" `isSuffixOf` other then
+                                          Just (File fn GoProJPG (NoGrouping 0))
+                                        else
+                                          Nothing
 
   where vid x ab wxyz = case readMaybe ab of
                           Just n  -> File fn x <$> (BasicGrouping n <$> readMaybe wxyz)

@@ -180,3 +180,21 @@ unit_fileParseGroupSession5 = do
         File {_gpFilePath = "GP012016.MP4", _gpCodec = GoProAVC, _gpGrouping = BasicGrouping 1 2016}]]
     )
     grouped
+
+unit_fileParseGroupNonstdJPG :: Assertion
+unit_fileParseGroupNonstdJPG = do
+  let fns = NE.fromList [
+        "GOPR2016.LRV",
+        "file1.jpg",
+        "file2.jpg",
+        "IMG_8008.JPG"
+        ]
+      grouped = fmap NE.toList <$> parseAndGroup fns
+  assertEqual (show grouped) (
+    These
+      ["GOPR2016.LRV"]
+      [[File {_gpFilePath = "file1.jpg", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 0}],
+       [File {_gpFilePath = "file2.jpg", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 0}],
+       [File {_gpFilePath = "IMG_8008.JPG", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 0}]]
+    )
+    grouped
