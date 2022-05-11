@@ -1,27 +1,30 @@
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE LambdaCase       #-}
 {-# LANGUAGE TupleSections    #-}
 
 module GoPro.Commands.Upload (
   runCreateUploads, runCreateMultipart, runResumeUpload, runReprocessCmd
   ) where
 
-import           Control.Monad          (when)
-import           Control.Monad.IO.Class (MonadIO (..))
-import           Control.Monad.Reader   (asks)
-import           Data.Foldable          (fold)
-import           Data.List              (sortOn)
-import           Data.List.NonEmpty     (NonEmpty (..))
-import qualified Data.List.NonEmpty     as NE
-import           Data.Monoid            (Sum (..))
-import           Data.Ord               (Down (..))
-import qualified Data.Text              as T
-import           Data.These             (These (..), these)
-import           System.Posix.Files     (fileSize, getFileStatus)
+import           Control.Monad             (when)
+import           Control.Monad.IO.Class    (MonadIO (..))
+import           Control.Monad.Reader      (asks)
+import           Data.Foldable             (fold)
+import           Data.List                 (sortOn)
+import           Data.List.NonEmpty        (NonEmpty (..))
+import qualified Data.List.NonEmpty        as NE
+import           Data.Monoid               (Sum (..))
+import           Data.Ord                  (Down (..))
+import qualified Data.Text                 as T
+import           Data.These                (These (..), these)
+import           System.Directory.PathWalk (pathWalkAccumulate)
+import           System.FilePath.Posix     ((</>))
+import           System.Posix.Files        (fileSize, getFileStatus, isDirectory)
 
 import           GoPro.Commands
 import           GoPro.DB
 import           GoPro.File
-import           GoPro.Plus.Media       (MediumID, MediumType (..), reprocess)
+import           GoPro.Plus.Media          (MediumID, MediumType (..), reprocess)
 import           GoPro.Plus.Upload
 
 uc :: FilePath -> MediumID -> Integer -> UploadPart -> Uploader GoPro ()
@@ -32,13 +35,14 @@ uc fp mid partnum up@UploadPart{..} = do
   logDbgL ["Finished part ", tshow _uploadPart, " of ", T.pack fp]
 
 runCreateUploads :: NonEmpty FilePath -> GoPro ()
-runCreateUploads filePaths = do
+runCreateUploads inFilePaths = do
+  filePaths <- fold <$> traverse expand (NE.toList inFilePaths)
   -- Exclude any commandline params for files that are already being
   -- uploaded.  This prevents duplicate uploads if you just hit
   -- up-enter, but it also prevents one from uploading a file if it's
   -- already included in a multipart upload.
   queued <- listQueuedFiles
-  let candidates = filter (`notElem` queued) (NE.toList filePaths)
+  let candidates = filter (`notElem` queued) filePaths
       (bad, good) = these (,[]) ([],) (,) $ maybe (This []) parseAndGroup (NE.nonEmpty candidates)
 
   when (not . null $ bad) $ logInfoL ["Ignoring some unknown files: ", tshow bad]
@@ -48,6 +52,10 @@ runCreateUploads filePaths = do
   mapConcurrentlyLimited_ c (upload db) good
 
   where
+    expand fp = liftIO (isDir fp) >>= \case
+      True  -> liftIO $ pathWalkAccumulate fp (\d _ fs -> pure (fmap (d </>) fs))
+      False -> pure [fp]
+    isDir = fmap isDirectory . getFileStatus
     upload db files = asks (optChunkSize . gpOptions) >>= \chunkSize -> runUpload (_gpFilePath <$> files) $ do
       setMediumType (typeOf (NE.head files))
       setChunkSize chunkSize
