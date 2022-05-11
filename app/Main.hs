@@ -102,13 +102,13 @@ some1 :: Parser a -> Parser (NonEmpty a)
 some1 p = NE.fromList <$> some p
 
 runCleanup :: GoPro ()
-runCleanup = mapM_ rm =<< (filter wanted <$> notReady)
-    where
-      wanted Medium{..} = _medium_ready_to_view `elem` [ViewUploading, ViewFailure]
-      rm Medium{..} = do
-        liftIO . putStrLn $ "Removing " <> T.unpack _medium_id <> " (" <> show _medium_ready_to_view <> ")"
-        errs <- delete _medium_id
-        unless (null errs) . liftIO . putStrLn $ " error: " <> show errs
+runCleanup = DB.clearUploads *> (mapM_ rm =<< (filter wanted <$> notReady))
+  where
+    wanted Medium{..} = _medium_ready_to_view `elem` [ViewUploading, ViewFailure]
+    rm Medium{..} = do
+      liftIO . putStrLn $ "Removing " <> T.unpack _medium_id <> " (" <> show _medium_ready_to_view <> ")"
+      errs <- delete _medium_id
+      unless (null errs) . liftIO . putStrLn $ " error: " <> show errs
 
 runAuth :: GoPro ()
 runAuth = do

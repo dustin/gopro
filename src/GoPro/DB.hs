@@ -16,6 +16,7 @@ module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadMediaRows, loadThumbna
                  Area(..), area_id, area_name, area_nw, area_se, selectAreas,
                  HasGoProDB(..),
                  storeUpload, completedUploadPart, completedUpload, listPartialUploads, PartialUpload(..),
+                 clearUploads,
                  listQueuedFiles,
                  listToCopyToS3, queuedCopyToS3, markS3CopyComplete, listS3Waiting,
                  listToCopyLocally,
@@ -471,3 +472,5 @@ markS3CopyComplete stuffs = em "update s3backup set status = ?, response = ? whe
 listToCopyLocally :: (HasGoProDB m, MonadIO m) => m [MediumID]
 listToCopyLocally = oq_ "select media_id from media order by created_at"
 
+clearUploads :: (HasGoProDB m, MonadIO m) => m ()
+clearUploads = ex_ "delete from upload_parts" *> ex_ "delete from uploads"

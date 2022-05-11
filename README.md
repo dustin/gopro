@@ -184,11 +184,14 @@ deleted some data from `gopro.db`.
 
 ### cleanup
 
-The `cleanup` command cleans data on the GoPro side.  If you've ever
-tried to upload things from the web UI and had it tell you the media's
-already been upload (when it hasn't), or if you started an upload you
-don't intend to finish and want to get rid of in-progress stuff, the
-`cleanup` command will delete all of these in-progress things.
+The `cleanup` command cleans unprocessed data both on the GoPro side
+as well as the local state regarding what is being uploaded.
+
+If you've ever tried to upload things from the web UI and had it tell
+you the media's already been upload (when it hasn't), or if you
+started an upload you don't intend to finish and want to get rid of
+in-progress stuff, the `cleanup` command will delete all of these
+in-progress things.
 
 ### config
 
