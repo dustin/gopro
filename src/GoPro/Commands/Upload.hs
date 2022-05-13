@@ -15,6 +15,7 @@ import           Data.List.NonEmpty        (NonEmpty (..))
 import qualified Data.List.NonEmpty        as NE
 import           Data.Monoid               (Sum (..))
 import           Data.Ord                  (Down (..))
+import qualified Data.Set                  as Set
 import qualified Data.Text                 as T
 import           Data.These                (These (..), these)
 import           System.Directory.PathWalk (pathWalkAccumulate)
@@ -36,7 +37,7 @@ uc fp mid partnum up@UploadPart{..} = do
 
 runCreateUploads :: NonEmpty FilePath -> GoPro ()
 runCreateUploads inFilePaths = do
-  filePaths <- fold <$> traverse expand (NE.toList inFilePaths)
+  filePaths <- Set.toList . fold <$> traverse expand (NE.toList inFilePaths)
   -- Exclude any commandline params for files that are already being
   -- uploaded.  This prevents duplicate uploads if you just hit
   -- up-enter, but it also prevents one from uploading a file if it's
@@ -53,8 +54,8 @@ runCreateUploads inFilePaths = do
 
   where
     expand fp = liftIO (isDir fp) >>= \case
-      True  -> liftIO $ pathWalkAccumulate fp (\d _ fs -> pure (fmap (d </>) fs))
-      False -> pure [fp]
+      True  -> liftIO $ pathWalkAccumulate fp (\d _ fs -> pure (Set.fromList ((d </>) <$> fs)))
+      False -> pure (Set.singleton fp)
     isDir = fmap isDirectory . getFileStatus
     upload db files = asks (optChunkSize . gpOptions) >>= \chunkSize -> runUpload (_gpFilePath <$> files) $ do
       setMediumType (typeOf (NE.head files))
