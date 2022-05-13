@@ -6,26 +6,24 @@ module GoPro.Commands.Upload (
   runCreateUploads, runCreateMultipart, runResumeUpload, runReprocessCmd
   ) where
 
-import           Control.Monad             (when)
-import           Control.Monad.IO.Class    (MonadIO (..))
-import           Control.Monad.Reader      (asks)
-import           Data.Foldable             (fold)
-import           Data.List                 (sortOn)
-import           Data.List.NonEmpty        (NonEmpty (..))
-import qualified Data.List.NonEmpty        as NE
-import           Data.Monoid               (Sum (..))
-import           Data.Ord                  (Down (..))
-import qualified Data.Set                  as Set
-import qualified Data.Text                 as T
-import           Data.These                (These (..), these)
-import           System.Directory.PathWalk (pathWalkAccumulate)
-import           System.FilePath.Posix     ((</>))
-import           System.Posix.Files        (fileSize, getFileStatus, isDirectory)
+import           Control.Monad          (when)
+import           Control.Monad.IO.Class (MonadIO (..))
+import           Control.Monad.Reader   (asks)
+import           Data.Foldable          (fold)
+import           Data.List              (sortOn)
+import           Data.List.NonEmpty     (NonEmpty (..))
+import qualified Data.List.NonEmpty     as NE
+import           Data.Monoid            (Sum (..))
+import           Data.Ord               (Down (..))
+import qualified Data.Set               as Set
+import qualified Data.Text              as T
+import           Data.These             (These (..), these)
+import           System.Posix.Files     (fileSize, getFileStatus, isDirectory)
 
 import           GoPro.Commands
 import           GoPro.DB
 import           GoPro.File
-import           GoPro.Plus.Media          (MediumID, MediumType (..), reprocess)
+import           GoPro.Plus.Media       (MediumID, MediumType (..), reprocess)
 import           GoPro.Plus.Upload
 
 uc :: FilePath -> MediumID -> Integer -> UploadPart -> Uploader GoPro ()
@@ -54,7 +52,7 @@ runCreateUploads inFilePaths = do
 
   where
     expand fp = liftIO (isDir fp) >>= \case
-      True  -> liftIO $ pathWalkAccumulate fp (\d _ fs -> pure (Set.fromList ((d </>) <$> fs)))
+      True  -> findFiles fp
       False -> pure (Set.singleton fp)
     isDir = fmap isDirectory . getFileStatus
     upload db files = asks (optChunkSize . gpOptions) >>= \chunkSize -> runUpload (_gpFilePath <$> files) $ do

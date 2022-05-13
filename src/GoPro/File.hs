@@ -14,6 +14,8 @@ import qualified Data.List.NonEmpty        as NE
 import           Data.Map                  (Map)
 import qualified Data.Map.Strict           as Map
 import           Data.Semigroup.Foldable   (foldMap1)
+import           Data.Set                  (Set)
+import qualified Data.Set                  as Set
 import           Data.These                (These (..), these)
 import           System.Directory.PathWalk (pathWalkAccumulate)
 import           System.FilePath.Posix     (takeFileName, (</>))
@@ -76,9 +78,10 @@ parseAndGroup = fmap (fmap NE.fromList . groupFiles . sortFiles) . foldMap1 that
 -- without having to re-download source data you already have locally.
 fromDirectory :: MonadIO m => FilePath -> m (Map String (NonEmpty File))
 fromDirectory dir = do
-  files <- findFiles
+  files <- Set.toList <$> findFiles dir
   let (_, good) = these (,[]) ([],) (,) $ maybe (This []) parseAndGroup (NE.nonEmpty files)
   pure $ Map.fromList [(takeFileName (_gpFilePath (NE.head f)), f) | f <- good]
 
-  where
-    findFiles = pathWalkAccumulate dir $ \d _ fs -> pure (fmap (d </>) fs)
+-- | Find the Set of all files under the given file path.
+findFiles :: MonadIO m => FilePath -> m (Set FilePath)
+findFiles dir =  pathWalkAccumulate dir (\d _ fs -> pure (Set.fromList ((d </>) <$> fs)))
