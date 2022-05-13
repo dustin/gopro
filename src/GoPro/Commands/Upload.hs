@@ -98,21 +98,21 @@ runResumeUpload = do
   ups <- listPartialUploads
   logInfoL ["Have ", tshow (length ups), " media items to upload in ",
             tshow (sum $ fmap length ups), " parts with a total of ",
-            tshow (sumOf pu_size ups), " chunks (",
-            tshow (sumOf pu_mb ups), " MB)"]
+            tshow (sumOf pu_size (fold ups)), " chunks (",
+            tshow (sumOf pu_mb (fold ups)), " MB)"]
   mapM_ upAll ups
   where
     pu_size = length . _pu_parts
     pu_mb :: PartialUpload -> Int
     pu_mb p@PartialUpload{..} = (fromIntegral _pu_chunkSize `div` (1024*1024)) * pu_size p
-    sumOf :: (a -> Int) -> [[a]] -> Int
-    sumOf f = getSum . fold . foldMap (fmap (Sum . f))
+    sumOf :: Foldable t => (a -> Int) -> t a -> Int
+    sumOf f = getSum . foldMap (Sum . f)
 
     upAll [] = pure ()
 
     upAll xs@(PartialUpload{..}:_) = do
-      logInfoL ["Uploading ", tshow _pu_medium_id, " in ", tshow (sumOf pu_size [xs]),
-                " chunks (", tshow (sum . fmap pu_mb $ xs), " MB)"]
+      logInfoL ["Uploading ", tshow _pu_medium_id, " in ", tshow (sumOf pu_size xs),
+                " chunks (", tshow (sumOf pu_mb xs), " MB)"]
       mapM_ up xs
       logInfoL ["Finished uploading ", tshow _pu_medium_id]
       resumeUpload (_pu_filename :| []) _pu_medium_id $ markAvailable _pu_did
