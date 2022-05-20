@@ -11,7 +11,7 @@ import           Control.Monad                        (unless)
 import           Control.Monad.Catch                  (bracket_)
 import           Control.Monad.IO.Class               (MonadIO (..))
 import           Control.Monad.Reader                 (asks)
-import           Data.Foldable                        (fold)
+import           Data.Foldable                        (fold, traverse_)
 import           Data.List                            (intercalate, sortOn)
 import           Data.List.NonEmpty                   (NonEmpty (..))
 import qualified Data.List.NonEmpty                   as NE
@@ -157,9 +157,7 @@ run ClearMetaCmd          = runClearMeta
 
 -- Perform an action on a list if the list is non-empty
 ifne :: Monad m => [a] -> (NonEmpty a -> m ()) -> m ()
-ifne [] _     = pure ()
-ifne (x:xs) a = a (x :| xs)
-
+ifne l a = traverse_ a (NE.nonEmpty l)
 
 main :: IO ()
 main = do
