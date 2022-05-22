@@ -180,7 +180,7 @@ runBackup ex = do
   todo <- take 5 <$> listToCopyToS3
   logDbgL ["todo: ", tshow todo]
   c <- asks (optUploadConcurrency . gpOptions)
-  void $ mapConcurrentlyLimited c (copyMedia λ ex) todo
+  mapConcurrentlyLimited_ c (copyMedia λ ex) todo
 
 runLocalBackup :: Extractor -> FilePath -> GoPro ()
 runLocalBackup ex path = do
@@ -188,7 +188,7 @@ runLocalBackup ex path = do
   todo <- filter (`Set.notMember` have) <$> listToCopyLocally
   logDbgL ["todo: ", tshow todo]
   c <- asks (optDownloadConcurrency . gpOptions)
-  void $ mapConcurrentlyLimited c (downloadLocally path ex) todo
+  mapConcurrentlyLimited_ c (downloadLocally path ex) todo
 
 runStoreMeta :: GoPro ()
 runStoreMeta = do
