@@ -68,7 +68,7 @@ storeMetaBlob mid blob = do
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
   logInfoL ["Storing metadata blob at ", tshow key]
   inAWS $ \env -> void . send env $ newPutObject b key (Hashed . toHashed . compress . fromMaybe "" $ blob) &
-    #storageClass ?~ StorageClass' "STANDARD_IA"
+    #storageClass ?~ StorageClass_STANDARD_IA
 
 listMetaBlobs :: GoPro [MediumID]
 listMetaBlobs = s3Bucket >>= \b -> inAWS $ \env ->
