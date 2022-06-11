@@ -16,12 +16,13 @@ import           Conduit
 import           Control.Applicative   ((<|>))
 import           Control.Lens
 import           Control.Monad         (unless, void)
+import           Control.Monad.Logger  (MonadLogger)
 import           Control.Monad.Reader  (asks)
 import           Control.Retry         (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
 import qualified Data.Aeson            as J
 import           Data.Aeson.Lens
 import qualified Data.ByteString.Lazy  as BL
-import           Data.Foldable         (fold)
+import           Data.Foldable         (fold, traverse_)
 import           Data.Generics.Labels  ()
 import           Data.List             (nubBy, sort)
 import           Data.List.Extra       (chunksOf)
@@ -85,7 +86,7 @@ downloadLocally path extract mid = do
       srcs = maybe [] NE.toList $ Map.lookup (vars ^. filename) locals
   copyLocal todo srcs
 
-  mapConcurrentlyLimited_ 5 copynew todo
+  mapConcurrentlyLimited_ 5 downloadNew todo
   -- This is mildly confusing since the path inherently has the mid in the path.
   liftIO $ renameDirectory (tmpdir </> unpack mid) midPath
   logInfoL ["Completed backup of ", tshow mid]
@@ -95,6 +96,14 @@ downloadLocally path extract mid = do
     tmpdir = path </> "tmp"
 
     tmpFilename k = tmpdir </> (unpack . fromJust . stripPrefix "derivatives/") k
+
+    store :: (MonadLogger m, MonadIO m) => FilePath -> (FilePath -> m ()) -> m ()
+    store dest a = liftIO (doesFileExist dest) >>= \exists ->
+      if exists then logDbgL ["Using existing file: ", tshow dest]
+      else a tmpfile *> liftIO (renameFile tmpfile dest)
+
+      where
+        tmpfile = dest <> ".tmp"
 
     copyLocal :: [(Text, String, String)] -> [GPF.File] -> GoPro ()
     copyLocal devs refs = do
@@ -107,25 +116,18 @@ downloadLocally path extract mid = do
         Nothing      -> logDbgL ["no match", tshow ((\(a,_,_) -> a) <$> devs), tshow refs]
         Just aligned -> do
           logInfoL ["Copying local files", tshow aligned]
-          void . Sh.shelly $ traverse (\(s,d) -> Sh.mkdir_p (takeDirectory d) *> Sh.cp s d ) aligned
+          void . Sh.shelly $ traverse (\(_,d) -> Sh.mkdir_p (takeDirectory d)) (Set.toList $ Set.fromList aligned)
+          traverse_ (\(s,d) -> store d (\t -> liftIO . Sh.shelly $ Sh.cp s t)) aligned
 
-    copynew argh@(k, _, _) = liftIO (doesFileExist dest) >>= \exists ->
-      if exists then (logDbgL ["Using existing file: ", tshow dest] >> pure dest)
-      else copy argh dest
+    downloadNew argh@(k, _, _) = store (tmpFilename k) $ download argh
 
-        where
-          dest = tmpFilename k
-
-    copy (k, _, u) dest = recoverAll policy $ \r -> do
+    download (k, _, u) dest = recoverAll policy $ \r -> do
       liftIO $ createDirectoryIfMissing True dir
       logDbgL ["Fetching ", tshow mid, " ", k, " attempt ", tshow (rsIterNumber r)]
       req <- parseRequest u
-      liftIO $ runConduitRes (httpSource req getResponseBody .| sinkFile tmpfile) >>
-        renameFile tmpfile dest
-      pure dest
+      liftIO $ runConduitRes (httpSource req getResponseBody .| sinkFile dest)
 
         where
-          tmpfile = dest <> ".tmp"
           dir = takeDirectory dest
           policy = exponentialBackoff 2000000 <> limitRetries 9
 
