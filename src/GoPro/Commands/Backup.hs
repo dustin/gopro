@@ -22,7 +22,7 @@ import           Control.Retry         (RetryStatus (..), exponentialBackoff, li
 import qualified Data.Aeson            as J
 import           Data.Aeson.Lens
 import qualified Data.ByteString.Lazy  as BL
-import           Data.Foldable         (fold, traverse_)
+import           Data.Foldable         (asum, fold, traverse_)
 import           Data.Generics.Labels  ()
 import           Data.List             (nubBy, sort)
 import           Data.List.Extra       (chunksOf)
@@ -39,6 +39,7 @@ import qualified Shelly                as Sh
 import           System.Directory      (createDirectoryIfMissing, doesFileExist, listDirectory, renameDirectory,
                                         renameFile)
 import           System.FilePath.Posix (takeDirectory, takeExtension, (</>))
+import           System.Posix.Files    (createLink)
 import           UnliftIO              (concurrently, mapConcurrently, mapConcurrently_)
 
 import           GoPro.Commands
@@ -117,7 +118,9 @@ downloadLocally path extract mid = do
         Just aligned -> do
           logInfoL ["Copying local files", tshow aligned]
           void . Sh.shelly $ traverse (\(_,d) -> Sh.mkdir_p (takeDirectory d)) (Set.toList $ Set.fromList aligned)
-          traverse_ (\(s,d) -> store d (\t -> liftIO . Sh.shelly $ Sh.cp s t)) aligned
+          traverse_ (\(s,d) -> store d (\t -> liftIO $ asum [createLink s t,
+                                                             Sh.shelly (Sh.cp s t)
+                                                             ])) aligned
 
     downloadNew argh@(k, _, _) = store (tmpFilename k) $ download argh
 
