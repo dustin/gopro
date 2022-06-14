@@ -13,13 +13,15 @@ import           Control.Monad                  (forever)
 import           Control.Monad.IO.Class         (MonadIO (..))
 import           Control.Monad.Reader           (ask, asks, lift)
 import qualified Data.Aeson                     as J
+import qualified Data.Aeson.KeyMap              as KM
 import           Data.Aeson.Lens                (_Object)
 import           Data.Cache                     (insert)
+import           Data.Foldable                  (fold)
 import           Data.List.NonEmpty             (NonEmpty (..))
 import qualified Data.Map.Strict                as Map
+import           Data.Maybe                     (mapMaybe)
 import           Data.String                    (fromString)
 import qualified Data.Text                      as T
-import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Text.Lazy                 as LT
 import qualified Data.Vector                    as V
 import           Network.HTTP.Types.Status      (noContent204)
@@ -31,7 +33,11 @@ import qualified Network.WebSockets             as WS
 import           System.FilePath.Posix          ((</>))
 import           UnliftIO                       (async)
 import           Web.Scotty.Trans               (ScottyT, file, get, json, middleware, param, post, raw, scottyAppT,
-                                                 setHeader, status)
+                                                 setHeader, status, text)
+
+import           GoPro.DEVC
+import           GoPro.GPMF
+
 
 import           GoPro.AuthDB
 import           GoPro.Commands
@@ -41,6 +47,9 @@ import           GoPro.Notification
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
 import           GoPro.Resolve
+
+ltshow :: Show a => a -> LT.Text
+ltshow = LT.pack . show
 
 runServer :: GoPro ()
 runServer = do
@@ -117,6 +126,23 @@ runServer = do
       get "/api/retrieve/:id" do
         imgid <- param "id"
         json @J.Value =<< lift (retrieve imgid)
+
+      get "/api/gpslog/:id" do
+        [(GPMF, Just bs)] <- loadMetaBlob =<< param "id"
+        gpmf <- either error pure $ parseGPMF bs
+        let devs = mapMaybe (uncurry mkDEVC) gpmf
+        text $ fold [
+          "time,dilution,lat,lon,alt,speed2d,speed3d\n",
+          foldMap (\DEVC{..} ->
+                     let Just Telemetry{..} = Map.lookup "GPS (Lat., Long., Alt., 2D speed, 3D speed)" _dev_telems
+                         (TVGPS GPS{..}) = _tele_values in
+                       foldMap (\GPSReading{..} -> LT.intercalate "," [ltshow _gps_time, ltshow _gps_p,
+                                  ltshow _gpsr_lat, ltshow _gpsr_lon,
+                                  ltshow _gpsr_alt,
+                                  ltshow _gpsr_speed2d,
+                                  ltshow _gpsr_speed3d] <> "\n")
+                       _gps_readings
+                  ) devs]
 
       get "/api/retrieve2/:id" do
         imgid <- param "id"

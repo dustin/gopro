@@ -11,7 +11,7 @@
 module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadMediaRows, loadThumbnail,
                  MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_variants, row_raw_json,
                  storeMoments, loadMoments, momentsTODO,
-                 metaBlobTODO, insertMetaBlob, selectMetaBlob, clearMetaBlob,
+                 metaBlobTODO, insertMetaBlob, loadMetaBlob, selectMetaBlob, clearMetaBlob,
                  metaTODO, insertMeta, selectMeta,
                  Area(..), area_id, area_name, area_nw, area_se, selectAreas,
                  HasGoProDB(..),
@@ -111,6 +111,9 @@ initTables db = do
 -- A simple query.
 q_ :: (HasGoProDB m, MonadIO m, FromRow r) => Query -> m [r]
 q_ q = liftIO . flip query_ q =<< goproDB
+
+q' :: (HasGoProDB m, MonadIO m, ToRow p, FromRow r) => Query -> p -> m [r]
+q' qq p = goproDB >>= \db -> liftIO $ query db qq p
 
 -- A query that returns only a single column.
 oq_ :: (HasGoProDB m, MonadIO m, FromField r) => Query -> m [r]
@@ -316,6 +319,9 @@ metaTODO = q_ [sql|
 
 selectMetaBlob :: (HasGoProDB m, MonadIO m) => m [(MediumID, Maybe BS.ByteString)]
 selectMetaBlob = q_ "select media_id, meta from metablob where meta is not null"
+
+loadMetaBlob :: (HasGoProDB m, MonadIO m) => MediumID -> m [(MetadataType, Maybe BS.ByteString)]
+loadMetaBlob mid = q' "select format, meta from metablob where media_id = ?" (Only mid)
 
 clearMetaBlob :: (HasGoProDB m, MonadIO m) => [MediumID] -> m ()
 clearMetaBlob = em "update metablob set meta = null, backedup = true where media_id = ?" . fmap Only

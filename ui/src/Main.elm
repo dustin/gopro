@@ -301,15 +301,18 @@ renderIcon m mdls =
                        [source [ H.src v.url, H.type_ "video/mp4" ] []])
         _ -> thumb
 
-renderMetaData : MetaData -> List (Html Msg)
-renderMetaData g = (case (g.lat, g.lon) of
+renderMetaData : Medium -> MetaData -> List (Html Msg)
+renderMetaData m g = (case (g.lat, g.lon) of
                         (Just lat, Just lon) -> [dts "Location",
                                                  dd []
                                                  [a [ H.href ("https://www.google.com/maps/search/?api=1&query=" ++
                                                               String.fromFloat lat ++ "," ++
                                                               String.fromFloat lon)]
                                                       [ text (String.fromFloat lat ++ "," ++
-                                                              String.fromFloat lon) ]]]
+                                                              String.fromFloat lon) ]],
+                                                     text " ",
+                                                     a [ H.href ("/api/gpslog/" ++ m.id)]
+                                                     [text "GPS log"]]
                         _ -> [])
                ++ (case g.scene of
                       Nothing -> []
@@ -363,7 +366,7 @@ renderOverlay z (mm, mdls) =
                                             , dd [] [text (F.millis (Maybe.withDefault 0 m.source_duration))]])
                           ++ (case m.metaData of
                                   Nothing -> []
-                                  Just g -> renderMetaData g))
+                                  Just g -> renderMetaData m g))
                    ] ++ case mdls of
                             Nothing -> []
                             Just (Err err) -> [div [ H.class "dls" ]
