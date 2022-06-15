@@ -311,8 +311,8 @@ renderMetaData m g = (case (g.lat, g.lon) of
                                                       [ text (String.fromFloat lat ++ "," ++
                                                               String.fromFloat lon) ]],
                                                      text " ",
-                                                     a [ H.href ("/api/gpslog/" ++ m.id)]
-                                                     [text "GPS log"]]
+                                                     a [ H.href ("/api/gpslog/" ++ m.id)] [text "GPS log"], text " ",
+                                                     a [ H.href ("/api/gpssummary/" ++ m.id)] [text "GPS Summary"]]
                         _ -> [])
                ++ (case g.scene of
                       Nothing -> []

@@ -79,6 +79,8 @@ dependencies:
 - semigroupoids
 - safe
 - shelly
+- geodetics
+- dimensional
 
 library:
   source-dirs: src
