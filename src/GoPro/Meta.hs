@@ -78,8 +78,7 @@ instance ToJSON GPSSummary where
                                   <> geob "last" (getLast _gps_last))
     where
       geob _ Nothing                       = []
-      geob k (Just (Geodetic lat lon _ _)) = [k .= object ["lat" .= (lat D./~ degree),
-                                                           "lon" .= (lon D./~ degree)]]
+      geob k (Just (Geodetic lat lon _ _)) = [k .= [lat D./~ degree, lon D./~ degree]]
 
 summarizeGPS :: [GPSReading] -> GPSSummary
 summarizeGPS = foldr f mempty . filter (\GPSReading{..} -> _gps_precision < 200)
