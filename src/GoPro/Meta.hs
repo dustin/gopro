@@ -1,14 +1,17 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE StrictData         #-}
 module GoPro.Meta where
 
-import           Control.Monad.State
 import           Data.Aeson
 import qualified Data.ByteString                   as BS
 import qualified Data.Map.Strict                   as Map
 import           Data.Maybe                        (mapMaybe)
+import           Data.Monoid                       (First (..), Last (..), Sum (..))
+import           Data.Semigroup                    (Max (..))
 import           Data.Time.Clock
-import           Geodetics.Geodetic                (WGS84 (..), groundDistance, readGroundPosition)
-import           GHC.Generics
+import           Geodetics.Geodetic                (Geodetic (..), WGS84 (..), groundDistance, readGroundPosition)
 import qualified GoPro.DEVC                        as GPMF
 import qualified GoPro.GPMF                        as GPMF
 import qualified Numeric.Units.Dimensional         as D
@@ -46,20 +49,46 @@ extractReadings = fmap extract . GPMF.parseGPMF
     someTel _ = []
 
 data GPSSummary = GPSSummary {
-  _gps_total_distance :: Double
-  } deriving (Eq, Show, Generic)
+  _gps_home             :: First (Geodetic WGS84)
+  , _gps_last           :: Last (Geodetic WGS84)
+  , _gps_max_distance   :: Max Double
+  , _gps_max_speed      :: Max Double
+  , _gps_total_distance :: Sum Double
+  }
+  deriving stock Show
+
+instance Semigroup GPSSummary where
+  a <> b = GPSSummary
+             (_gps_home a <> _gps_home b)
+             (_gps_last a <> _gps_last b)
+             (_gps_max_distance a <> _gps_max_distance b)
+             (_gps_max_speed a <> _gps_max_speed b)
+             (_gps_total_distance a <> _gps_total_distance b)
+
+instance Monoid GPSSummary where
+  mempty = GPSSummary (First Nothing) (Last Nothing) 0 0 0
 
 instance ToJSON GPSSummary where
-  toJSON = genericToJSON defaultOptions{ fieldLabelModifier = dropWhile (== '_') }
+  toJSON GPSSummary{..} = object ([
+                                  "total_distance" .= getSum _gps_total_distance
+                                  , "max_distance" .= getMax _gps_max_distance
+                                  , "max_speed" .= getMax _gps_max_speed
+                                  ]
+                                  <> geob "home" (getFirst _gps_home)
+                                  <> geob "last" (getLast _gps_last))
+    where
+      geob _ Nothing                       = []
+      geob k (Just (Geodetic lat lon _ _)) = [k .= object ["lat" .= (lat D./~ degree),
+                                                           "lon" .= (lon D./~ degree)]]
 
 summarizeGPS :: [GPSReading] -> GPSSummary
-summarizeGPS rs = GPSSummary $ evalState f Nothing
+summarizeGPS = foldr f mempty . filter (\GPSReading{..} -> _gps_precision < 200)
   where
-    f = foldM (\o GPSReading{..} -> do
-                  mprev <- get
-                  let parsed = readGroundPosition WGS84 (show _gps_lat <> " " <> show _gps_lon)
-                  put parsed
-                  pure $ case (mprev, parsed) of
-                    (Just prev, Just p) -> o + maybe 0 (\(a,_,_) -> a D./~ meter) (groundDistance prev p)
-                    _                   -> o
-                 ) 0 $ filter (\GPSReading{..} -> _gps_precision < 200) rs
+    f GPSReading{..} o = o <> GPSSummary (First parsed) (Last parsed) (Max (dist hprev)) (Max _gps_speed2d) (Sum (dist mprev))
+      where
+        parsed = readGroundPosition WGS84 (show _gps_lat <> " " <> show _gps_lon)
+        mprev = getLast (_gps_last o)
+        hprev = getFirst (_gps_home o)
+        dist mp = case (mp, parsed) of
+                 (Just p, Just c) -> maybe 0 (\(a,_,_) -> a D./~ meter) (groundDistance p c)
+                 _                -> 0
