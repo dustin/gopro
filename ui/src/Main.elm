@@ -137,7 +137,7 @@ type alias Model =
     , zone  : Time.Zone
     , overlay : ScreenOverlay.ScreenOverlay
     , toasties : Toasty.Stack Toasty.Defaults.Toast
-    , current : (Maybe Medium, Maybe (Result Http.Error DLOpts), Maybe (Result Http.Error GPSSummary))
+    , current : (Maybe Medium, Maybe (Result Http.Error DLOpts))
     , datePicker : Picker.State
     , camerasChecked : Set.Set String
     , typesChecked : Set.Set String
@@ -156,7 +156,7 @@ emptyState = { httpError = Nothing
              , zone = Time.utc
              , overlay = ScreenOverlay.initOverlay
              , toasties = Toasty.initialState
-             , current = (Nothing, Nothing, Nothing)
+             , current = (Nothing, Nothing)
              , datePicker = let cfg = Picker.defaultConfig in
                             Picker.init {cfg | noRangeCaption = "All Time",
                                                allowFuture = False} Nothing
@@ -176,7 +176,6 @@ type BackendCommand
 type Msg
   = SomeMedia (Result Http.Error (List Medium))
   | SomeDLOpts (Result Http.Error DLOpts)
-  | SomeGPSInfo (Result Http.Error GPSSummary)
   | SomeAreas (Result Http.Error (List Area))
   | SomeNotifications (Result Http.Error (List Notification))
   | ZoneHere Time.Zone
@@ -303,23 +302,6 @@ renderIcon m mdls =
                        [source [ H.src v.url, H.type_ "video/mp4" ] []])
         _ -> thumb
 
-type alias GPSSummary =
-    { home : Maybe Point
-    , last : Maybe Point
-    , maxDistance : Float
-    , maxSpeed : Float
-    , totalDistance : Float
-    }
-
-gpsSummaryDecoder : Decoder GPSSummary
-gpsSummaryDecoder =
-    Decode.succeed GPSSummary
-        |> optional "home" (nullable pointDecoder) Nothing
-        |> optional "last" (nullable pointDecoder) Nothing
-        |> required "max_distance" float
-        |> required "max_speed" float
-        |> required "total_distance" float
-
 renderMetaData : Medium -> MetaData -> List (Html Msg)
 renderMetaData m g = (case (g.lat, g.lon) of
                         (Just lat, Just lon) -> [dts "Location",
@@ -330,9 +312,23 @@ renderMetaData m g = (case (g.lat, g.lon) of
                                                       [ text (String.fromFloat lat ++ "," ++
                                                               String.fromFloat lon) ]],
                                                      text " ",
-                                                     a [ H.href ("/api/gpslog/" ++ m.id)] [text "GPS log"], text " ",
-                                                     a [ H.href ("/api/gpssummary/" ++ m.id)] [text "GPS Summary"]]
+                                                     a [ H.href ("/api/gpslog/" ++ m.id)] [text "GPS log"]]
                         _ -> [])
+               ++ (case g.totalDistance of
+                       Nothing -> []
+                       Just d -> [ dts "Total Distance",
+                                       dd [ ]
+                                       [ span [] [text (F.float d), text " m"]]])
+               ++ (case g.maxDistance of
+                       Nothing -> []
+                       Just d -> [ dts "Max Distance",
+                                       dd [ ]
+                                       [ span [] [text (F.float d), text " m"]]])
+               ++ (case g.maxSpeed2d of
+                       Nothing -> []
+                       Just d -> [ dts "Max Speed",
+                                       dd [ ]
+                                       [ span [] [text (F.float (3.6 * d)), text " kph"]]])
                ++ (case g.scene of
                       Nothing -> []
                       Just c -> [ dts "Scene",
@@ -350,19 +346,8 @@ toastConfig = Toasty.Defaults.config
             |> Toasty.delay 5000
             |> Toasty.containerAttrs [ H.class "toastol" ]
 
-renderGPSSummary : Result Http.Error GPSSummary -> List (Html Msg)
-renderGPSSummary rg = case rg of
-                         Err x -> [text ("Error parsing gps summary")]
-                         Ok g -> [dts "Total Distance"
-                                 , dd [] [text ((F.float g.totalDistance) ++ " m")]
-                                 , dts "Max Distance"
-                                 , dd [] [text ((F.float g.maxDistance) ++ " m")]
-                                 , dts "Max Speed"
-                                 , dd [] [text ((F.float (3.6 * g.maxSpeed)) ++ " kph")]
-                                 ]
-
-renderOverlay : Time.Zone -> (Maybe Medium, Maybe (Result Http.Error DLOpts), Maybe (Result Http.Error GPSSummary)) -> Html Msg
-renderOverlay z (mm, mdls, mgpsSumary) =
+renderOverlay : Time.Zone -> (Maybe Medium, Maybe (Result Http.Error DLOpts)) -> Html Msg
+renderOverlay z (mm, mdls) =
     case mm of
         Nothing -> text "nothing to see here"
         Just m -> div [ H.class "details" ]
@@ -394,9 +379,6 @@ renderOverlay z (mm, mdls, mgpsSumary) =
                                   Just 0 -> []
                                   Just x -> [ dts "Duration"
                                             , dd [] [text (F.millis (Maybe.withDefault 0 m.source_duration))]])
-                          ++ (case mgpsSumary of
-                                  Nothing -> []
-                                  Just g -> renderGPSSummary g)
                           ++ (case m.metaData of
                                   Nothing -> []
                                   Just g -> renderMetaData m g))
@@ -512,8 +494,8 @@ gotMedia model meds =
         types = Set.fromList (List.map (\m -> mediaTypeStr m.media_type) meds)
         years = Set.fromList <| List.map (Time.toYear z << .captured_at) meds
         c = case model.current of
-                (Nothing, x, g) -> (Nothing, x, g)
-                (Just m, x, g) -> (List.head (List.filter (\mn -> mn.id == m.id) meds), x, g)
+                (Nothing, x) -> (Nothing, x)
+                (Just m, x) -> (List.head (List.filter (\mn -> mn.id == m.id) meds), x)
     in
         filter {model | media = Just (Media meds (Set.toList cameras) (Set.toList types) years []),
                     camerasChecked = cameras,
@@ -563,11 +545,8 @@ update msg model =
                 Err x ->
                     ({model | httpError = Just x}, Cmd.none)
 
-        SomeDLOpts result -> let (m, _, i) = model.current in
-                             ({model | current = (m, Just result, i)}, Cmd.none)
-
-        SomeGPSInfo result -> let (m, i, _) = model.current in
-                              ({model | current = (m, i, Just result)}, Cmd.none)
+        SomeDLOpts result -> let (m, _) = model.current in
+                             ({model | current = (m, Just result)}, Cmd.none)
 
         SomeNotifications result ->
             case result of
@@ -589,15 +568,11 @@ update msg model =
             ({model | zone = z}, Task.perform FirstTime Time.now)
 
         OpenOverlay m ->
-            ({ model | overlay = ScreenOverlay.show model.overlay, current = (Just m, Nothing, Nothing) },
+            ({ model | overlay = ScreenOverlay.show model.overlay, current = (Just m, Nothing) },
              Cmd.batch [lockScroll Nothing,
                         Http.get
                             { url = "/api/retrieve2/" ++ m.id
                             , expect = Http.expectJson SomeDLOpts dloptsDecoder
-                            },
-                        Http.get
-                            { url = "/api/gpssummary/" ++ m.id
-                            , expect = Http.expectJson SomeGPSInfo gpsSummaryDecoder
                             }
                        ])
 
@@ -628,7 +603,7 @@ update msg model =
 
         CloseOverlay ->
             ({ model | overlay = ScreenOverlay.hide model.overlay,
-                   current = (Nothing, Nothing, Nothing) }, unlockScroll Nothing )
+                   current = (Nothing, Nothing) }, unlockScroll Nothing )
 
         ToastyMsg submsg -> Toasty.update toastConfig ToastyMsg submsg model
 

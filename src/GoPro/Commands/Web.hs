@@ -140,11 +140,6 @@ runServer = do
                    ) readings
           ]
 
-      get "/api/gpssummary/:id" do
-        [(GPMF, Just bs)] <- loadMetaBlob =<< param "id"
-        readings <- either fail pure $ extractReadings bs
-        json $ summarizeGPS readings
-
       get "/api/retrieve2/:id" do
         imgid <- param "id"
         fi <- _fileStuff <$> lift (retrieve imgid)

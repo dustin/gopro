@@ -28,9 +28,11 @@ data GPSReading = GPSReading {
   } deriving (Eq, Show)
 
 extractReadings :: BS.ByteString -> Either String [GPSReading]
-extractReadings = fmap extract . GPMF.parseGPMF
+extractReadings = fmap (extractFromDEVC . mapMaybe (uncurry GPMF.mkDEVC)) . GPMF.parseGPMF
+
+extractFromDEVC :: [GPMF.DEVC] -> [GPSReading]
+extractFromDEVC = foldMap expand
   where
-    extract = foldMap expand . mapMaybe (uncurry GPMF.mkDEVC)
     expand devc = foldMap (someTel . GPMF._tele_values) (Map.elems $ GPMF._dev_telems devc)
     someTel (GPMF.TVGPS g) = zipWith (\r n ->
                                GPSReading{

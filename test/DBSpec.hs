@@ -82,6 +82,8 @@ instance Arbitrary MDSummary where
               <*> arbitrary
               <*> arbitrary
               <*> arbitrary
+              <*> arbitrary
+              <*> arbitrary
 
 instance Arbitrary Location where
   arbitrary = elements [Snow, Urban, Indoor, Water, Vegetation, Beach]

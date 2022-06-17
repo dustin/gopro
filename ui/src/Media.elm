@@ -74,6 +74,8 @@ type alias MetaData =
     , maxFaces : Int
     , scene : Maybe Location
     , sceneProb : Maybe Float
+    , maxDistance : Maybe Float
+    , totalDistance : Maybe Float
     }
 
 metaDataDecoder : Decoder MetaData
@@ -88,6 +90,8 @@ metaDataDecoder =
         |> required "maxFaces" int
         |> required "scene" (nullable (Decode.map strLocation string))
         |> required "sceneProb" (nullable float)
+        |> optional "maxDistance" (nullable float)  Nothing
+        |> optional "totalDistance" (nullable float) Nothing
 
 type alias Medium =
     { id : String

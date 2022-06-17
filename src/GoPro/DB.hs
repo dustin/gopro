@@ -97,7 +97,9 @@ initQueries = [
   (12, "update uploads set chunk_size = 6291456"),
   (13, "alter table media add column raw_json blob"),
   (14, "alter table media add column filename text"),
-  (14, "update media set filename = json_extract(raw_json, \"$.filename\")")
+  (14, "update media set filename = json_extract(raw_json, \"$.filename\")"),
+  (15, "alter table meta add column max_distance real"),
+  (15, "alter table meta add column total_distance real")
   ]
 
 initTables :: Connection -> IO ()
@@ -332,10 +334,10 @@ insertMeta mid MDSummary{..} = liftIO . up =<< goproDB
     q = [sql|
           insert into meta (media_id, camera_model, captured_at, lat, lon,
                             max_speed_2d, max_speed_3d, max_faces,
-                            main_scene, main_scene_prob)
+                            main_scene, main_scene_prob, max_distance, total_distance)
                       values (:mid, :cam, :ts, :lat, :lon,
                               :speed2, :speed3, :maxface,
-                              :scene, :scene_prob)
+                              :scene, :scene_prob, :max_distance, :total_distance)
           |]
     up db = executeNamed db q
       [":cam" := _cameraModel,
@@ -347,7 +349,9 @@ insertMeta mid MDSummary{..} = liftIO . up =<< goproDB
        ":maxface" := _maxFaces,
        ":scene" := (show . fst <$> _mainScene),
        ":scene_prob" := (snd <$> _mainScene),
-       ":mid" := mid]
+       ":mid" := mid,
+       ":max_distance" := _maxDistance,
+       ":total_distance" := _totDistance]
 
 newtype NamedSummary = NamedSummary (MediumID, MDSummary)
 
@@ -364,6 +368,8 @@ instance FromRow NamedSummary where
     loc <- fmap read <$> field
     prob <- field
     let _mainScene = liftA2 (,) loc prob
+    _maxDistance <- field
+    _totDistance <- field
     pure $ NamedSummary (mid, MDSummary{..})
 
 selectMeta :: forall m. (HasGoProDB m, MonadIO m) => m (Map MediumID MDSummary)
@@ -371,7 +377,8 @@ selectMeta = Map.fromList . coerce <$> (q_ q :: m [NamedSummary])
   where
     q = [sql|select media_id, camera_model, captured_at, lat, lon,
                     max_speed_2d, max_speed_3d,
-                    max_faces, main_scene, main_scene_prob
+                    max_faces, main_scene, main_scene_prob,
+                    max_distance, total_distance
              from meta
              where camera_model is not null |]
 
