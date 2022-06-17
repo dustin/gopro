@@ -45,8 +45,7 @@ unit_extractOrig = do
 unit_extractMediaConcat :: Assertion
 unit_extractMediaConcat = do
   efi <- J.eitherDecode <$> BL.readFile "test/concat.json" :: IO (Either String FileInfo)
-  assertEqual (show efi) (Right [("derivatives/xxx/xxx-var-concat.mp4","hhttp://AAK","http://AAK"),
-                                 ("derivatives/xxx/xxx-var-source-1.mp4","hhttp://AAL","http://AAL"),
+  assertEqual (show efi) (Right [("derivatives/xxx/xxx-var-source-1.mp4","hhttp://AAL","http://AAL"),
                                  ("derivatives/xxx/xxx-var-source-2.mp4","hhttp://AAM","http://AAM"),
                                  ("derivatives/xxx/xxx-var-source-3.mp4","hhttp://AAN","http://AAN"),
                                  ("derivatives/xxx/xxx-var-high_res_proxy_mp4.mp4","hhttp://AAO","http://AAO"),

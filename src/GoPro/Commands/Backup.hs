@@ -31,7 +31,7 @@ import qualified Data.Map.Strict       as Map
 import           Data.Maybe            (fromJust, fromMaybe, mapMaybe, maybeToList)
 import qualified Data.Set              as Set
 import           Data.String           (fromString)
-import           Data.Text             (Text, isInfixOf, pack, stripPrefix, unpack)
+import           Data.Text             (Text, isInfixOf, pack, stripPrefix, isSuffixOf, unpack)
 import qualified Data.Text.Encoding    as TE
 import           Network.HTTP.Simple   (getResponseBody, httpSource, parseRequest)
 import           Safe.Exact            (zipWithExactMay)
@@ -135,12 +135,15 @@ downloadLocally path extract mid = do
           policy = exponentialBackoff 2000000 <> limitRetries 9
 
 extractMedia :: Extractor
-extractMedia mid fi = nubBy (\(_,_,u1) (_,_,u2) -> u1 == u2) $
-                        fold [ ex "var" variations,
-                               ex "sidecar" sidecar_files,
-                               otherFiles mid fi
-                             ]
+extractMedia mid fi = filter desirable . nubBy (\(_,_,u1) (_,_,u2) -> u1 == u2) $
+                                          fold [ ex "var" variations,
+                                                 ex "sidecar" sidecar_files,
+                                                 otherFiles mid fi
+                                               ]
   where
+
+    -- Explicitly ignoring concats because they're derived and huge.
+    desirable (fn,_,_) = not ("-concat.mp4" `isSuffixOf` fn)
 
     ex p l = fi ^.. fileStuff . l . folded . to conv . folded
       where
