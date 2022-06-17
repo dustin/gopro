@@ -1,9 +1,11 @@
-module Formats exposing (comma, millis, time, day, bytes, httpErr)
+module Formats exposing (comma, millis, time, day, bytes, httpErr, float)
 
 import Time
 import List.Extra exposing (groupWhile, unfoldr)
 import Filesize
 import Http
+import FormatNumber exposing (format)
+import FormatNumber.Locales exposing (usLocale)
 
 comma : Int -> String
 comma i = let seg x = String.padLeft (if x >= 1000 then 3 else 0) '0' (String.fromInt (modBy 1000 x))
@@ -57,3 +59,6 @@ bytes n = let cfg = Filesize.defaultSettings
                        else 2
           in
               Filesize.formatWith {cfg | decimalPlaces=decies} n
+
+float : Float -> String
+float = format usLocale

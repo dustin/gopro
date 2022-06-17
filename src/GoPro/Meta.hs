@@ -17,7 +17,6 @@ import qualified GoPro.GPMF                        as GPMF
 import qualified Numeric.Units.Dimensional         as D
 import           Numeric.Units.Dimensional.SIUnits
 
-
 data GPSReading = GPSReading {
   _gps_time        :: UTCTime
   , _gps_lat       :: Double

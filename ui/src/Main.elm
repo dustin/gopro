@@ -354,11 +354,11 @@ renderGPSSummary : Result Http.Error GPSSummary -> List (Html Msg)
 renderGPSSummary rg = case rg of
                          Err x -> [text ("Error parsing gps summary")]
                          Ok g -> [dts "Total Distance"
-                                 , dd [] [text ((String.fromFloat g.totalDistance) ++ " m")]
+                                 , dd [] [text ((F.float g.totalDistance) ++ " m")]
                                  , dts "Max Distance"
-                                 , dd [] [text ((String.fromFloat g.maxDistance) ++ " m")]
+                                 , dd [] [text ((F.float g.maxDistance) ++ " m")]
                                  , dts "Max Speed"
-                                 , dd [] [text ((String.fromFloat g.maxSpeed) ++ " kph")]
+                                 , dd [] [text ((F.float (3.6 * g.maxSpeed)) ++ " kph")]
                                  ]
 
 renderOverlay : Time.Zone -> (Maybe Medium, Maybe (Result Http.Error DLOpts), Maybe (Result Http.Error GPSSummary)) -> Html Msg
