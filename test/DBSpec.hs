@@ -1,3 +1,5 @@
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module DBSpec where
 
 import           Control.Lens                         hiding (elements)
@@ -48,7 +50,8 @@ unit_config = runDB $ do
   liftIO $ assertEqual "restored" orig restored
 
 -- MediaRow with unique media
-newtype MediaRowSet = MediaRowSet [MediaRow] deriving (Eq, Show)
+newtype MediaRowSet = MediaRowSet [MediaRow]
+  deriving newtype (Eq, Show)
 
 instance Arbitrary MediaRowSet where
   arbitrary = MediaRowSet . Map.elems . Map.fromList . fmap (\mr -> (mr ^. row_media . medium_id , mr))
@@ -59,6 +62,13 @@ prop_storeLoad (MediaRowSet rows) = ioProperty $ do
   got <- runDB (storeMedia rows *> loadMediaRows)
   pure $ (rows & traversed . row_media . medium_token .~ "") === got
 
+prop_storeLoadOne :: MediaRowSet -> Property
+prop_storeLoadOne (MediaRowSet rows) = ioProperty $ do
+  runDB $ storeMedia rows
+  forM_ rows $ \MediaRow{_row_media=m@Medium{..}} -> do
+    got <- runDB $ loadMedium _medium_id
+    pure (got === Just m)
+
 prop_storeLoad2 :: MediaRowSet -> Property
 prop_storeLoad2 (MediaRowSet rows) = ioProperty $ do
   got <- runDB (storeMedia rows *> loadMedia)
@@ -68,7 +78,7 @@ prop_storeLoad2 (MediaRowSet rows) = ioProperty $ do
 prop_storeLoadIDs :: MediaRowSet -> Property
 prop_storeLoadIDs (MediaRowSet rows) = ioProperty $ do
   got <- runDB (storeMedia rows *> loadMediaIDs)
-  pure $  (sortOn (Down . _medium_captured_at . _row_media) rows ^.. folded . row_media . medium_id) === got
+  pure $ (sortOn (Down . _medium_captured_at . _row_media) rows ^.. folded . row_media . medium_id) === got
 
 instance Arbitrary MetadataType where arbitrary = arbitraryBoundedEnum
 
@@ -120,3 +130,6 @@ prop_meta m@(Medium{_medium_id}) mt bs md = ioProperty . runDB $ do
     insertMeta _medium_id md
     nmd <- selectMeta
     liftIO $ assertEqual "summary metadata" (Map.singleton _medium_id md) nmd
+
+    nmd' <- loadMeta _medium_id
+    liftIO $ assertEqual "summary metadata" (Just md) nmd'

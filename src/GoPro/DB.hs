@@ -8,11 +8,11 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadMediaRows, loadThumbnail,
+module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadMedium, loadMediaRows, loadThumbnail,
                  MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_variants, row_raw_json,
                  storeMoments, loadMoments, momentsTODO,
                  metaBlobTODO, insertMetaBlob, loadMetaBlob, selectMetaBlob, clearMetaBlob,
-                 metaTODO, insertMeta, selectMeta,
+                 metaTODO, insertMeta, selectMeta, loadMeta,
                  Area(..), area_id, area_name, area_nw, area_se, selectAreas,
                  HasGoProDB(..),
                  storeUpload, completedUploadPart, completedUpload, listPartialUploads, PartialUpload(..),
@@ -37,7 +37,7 @@ import           Data.List                        (find, sortOn)
 import           Data.List.Extra                  (groupOn)
 import           Data.Map.Strict                  (Map)
 import qualified Data.Map.Strict                  as Map
-import           Data.Maybe                       (fromJust)
+import           Data.Maybe                       (fromJust, listToMaybe)
 import           Data.String                      (fromString)
 import           Data.Text                        (Text)
 import qualified Data.Text.Encoding               as TE
@@ -261,6 +261,23 @@ selectMediaStatement = [sql|select media_id,
                                from media
                                order by captured_at desc|]
 
+selectMediumStatement :: Query
+selectMediumStatement = [sql|select media_id,
+                                    camera_model,
+                                    captured_at,
+                                    created_at,
+                                    file_size,
+                                    moments_count,
+                                    ready_to_view,
+                                    source_duration,
+                                    media_type,
+                                    width,
+                                    height,
+                                    filename
+                                from media
+                                where media_id = ?
+                                order by captured_at desc|]
+
 instance FromRow Medium where
   fromRow =
     Medium <$> field -- medium_id
@@ -279,6 +296,9 @@ instance FromRow Medium where
 
 loadMedia :: (HasGoProDB m, MonadIO m) => m [Medium]
 loadMedia = q_ selectMediaStatement
+
+loadMedium :: (HasGoProDB m, MonadIO m) => MediumID -> m (Maybe Medium)
+loadMedium mid = listToMaybe <$> q' selectMediumStatement (Only mid)
 
 loadThumbnail :: (HasGoProDB m, MonadIO m) => MediumID -> m (Maybe BL.ByteString)
 loadThumbnail imgid = liftIO . sel =<< goproDB
@@ -322,8 +342,8 @@ metaTODO = q_ [sql|
 selectMetaBlob :: (HasGoProDB m, MonadIO m) => m [(MediumID, Maybe BS.ByteString)]
 selectMetaBlob = q_ "select media_id, meta from metablob where meta is not null"
 
-loadMetaBlob :: (HasGoProDB m, MonadIO m) => MediumID -> m [(MetadataType, Maybe BS.ByteString)]
-loadMetaBlob mid = q' "select format, meta from metablob where media_id = ?" (Only mid)
+loadMetaBlob :: (HasGoProDB m, MonadIO m) => MediumID -> m (Maybe (MetadataType, Maybe BS.ByteString))
+loadMetaBlob mid = listToMaybe <$> q' "select format, meta from metablob where media_id = ?" (Only mid)
 
 clearMetaBlob :: (HasGoProDB m, MonadIO m) => [MediumID] -> m ()
 clearMetaBlob = em "update metablob set meta = null, backedup = true where media_id = ?" . fmap Only
@@ -381,6 +401,17 @@ selectMeta = Map.fromList . coerce <$> (q_ q :: m [NamedSummary])
                     max_distance, total_distance
              from meta
              where camera_model is not null |]
+
+loadMeta :: forall m. (HasGoProDB m, MonadIO m) => MediumID -> m (Maybe MDSummary)
+loadMeta m = fmap unName . listToMaybe <$> (q' q (Only m) :: m [NamedSummary])
+  where
+    q = [sql|select media_id, camera_model, captured_at, lat, lon,
+                    max_speed_2d, max_speed_3d,
+                    max_faces, main_scene, main_scene_prob,
+                    max_distance, total_distance
+             from meta
+             where media_id = ? |]
+    unName (NamedSummary (_,b)) = b
 
 data Area = Area
     { _area_id   :: Int

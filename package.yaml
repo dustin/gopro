@@ -81,6 +81,7 @@ dependencies:
 - shelly
 - geodetics
 - dimensional
+- xml
 
 library:
   source-dirs: src

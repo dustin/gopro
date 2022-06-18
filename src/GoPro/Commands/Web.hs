@@ -17,6 +17,7 @@ import qualified Data.Aeson.KeyMap              as KM
 import           Data.Aeson.Lens                (_Object)
 import           Data.Cache                     (insert)
 import           Data.Foldable                  (fold)
+import           Data.List                      (intercalate)
 import           Data.List.NonEmpty             (NonEmpty (..))
 import qualified Data.Map.Strict                as Map
 import           Data.String                    (fromString)
@@ -38,7 +39,9 @@ import qualified Network.Wai.Handler.WebSockets as WaiWS
 import qualified Network.Wai.Middleware.Gzip    as GZ
 import           Network.Wai.Middleware.Static  (addBase, noDots, staticPolicy, (>->))
 import qualified Network.WebSockets             as WS
+import           Numeric
 import           System.FilePath.Posix          ((</>))
+import           Text.XML.Light
 import           UnliftIO                       (async)
 import           Web.Scotty.Trans               (ScottyT, file, get, json, middleware, param, post, raw, scottyAppT,
                                                  setHeader, status, text)
@@ -123,7 +126,7 @@ runServer = do
         json @J.Value =<< lift (retrieve imgid)
 
       get "/api/gpslog/:id" do
-        [(GPMF, Just bs)] <- loadMetaBlob =<< param "id"
+        Just (GPMF, Just bs) <- loadMetaBlob =<< param "id"
         readings <- either fail pure $ extractReadings bs
         text $ fold [
           "time,lat,lon,alt,speed2d,speed3d,dilution\n",
@@ -139,6 +142,14 @@ runServer = do
                            ] <> "\n"
                    ) readings
           ]
+
+      get "/api/gpspath/:id" do
+        mid <- param "id"
+        Just (GPMF, Just bs) <- loadMetaBlob mid
+        Just med <- loadMedium mid
+        Just meta <- loadMeta mid
+        setHeader "Content-Type" "application/vnd.google-earth.kml+xml"
+        text =<< (either fail (pure . mkKMLPath med meta) $ extractReadings bs)
 
       get "/api/retrieve2/:id" do
         imgid <- param "id"
@@ -160,3 +171,44 @@ runServer = do
                                          ("width", jn (f ^. var_width)),
                                          ("height", jn (f ^. var_height))]) _variations
               )
+
+mkKMLPath :: Medium -> MDSummary -> [GPSReading] -> LT.Text
+mkKMLPath Medium{..} MDSummary{..} readings = LT.pack . showTopElement $ kml
+  where
+    elc nm atts stuff = Element blank_name{qName= nm} atts stuff Nothing
+    elr nm atts stuff = elc nm atts (Elem <$> stuff)
+    elt nm stuff = elc nm [] [t stuff]
+    att k v = Attr blank_name{qName=k} v
+    t v = Text blank_cdata{cdData=v}
+
+    kml = elr "kml" [att "xmlns" "http://www.opengis.net/kml/2.2"] [doc]
+    doc = elr "Document" [] [
+      elt "name" "GoPro Path",
+      elt "description" (fold ["Captured at ", show _medium_captured_at]),
+      elr "Style" [ att "id" "yellowLineGreenPoly" ] [
+          elr "LineStyle" [] [elt "color" "7f00ffff",
+                              elt "width" "4"],
+          elr "PolyStyle" [] [elt "color" "7f00ff00"]],
+      elr "Placemark" [] [
+          elt "name" "Path",
+          elt "description" (fold ["Path recorded from the GoPro GPS<br/>",
+                                   "Max distance from home: ", (maybe "unknown" showf _maxDistance), " m<br/>\n",
+                                   "Maximum speed: ", (maybe "unknown" (showf . (* 3.6)) _maxSpeed2d), " kph<br/>\n",
+                                   "Total distance traveled: ", (maybe "unknown" showf _totDistance), " m<br/>\n"
+                                  ]),
+          elt "styleUrl" "#yellowLineGreenPoly",
+          elr "LineString" [] [
+              elt "extrude" "1",
+              elt "tessellate" "1",
+              elt "altitudeMode" "relative",
+              elt "coordinates" coords]]]
+
+    coords = foldMap (\GPSReading{..} ->
+                          intercalate "," [
+                           show _gps_lon,
+                           show _gps_lat,
+                           show _gps_alt
+                           ] <> "\n"
+                       ) (filter (\GPSReading{..} -> _gps_precision < 200) readings)
+
+    showf f = showFFloat (Just 2) f ""
