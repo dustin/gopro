@@ -528,12 +528,17 @@ doNotifications model =
     in
         List.foldr doNote (model, Cmd.none)
 
+hackTimes : Medium -> Medium
+hackTimes m = {m | captured_at = case m.metaData of
+                                     Nothing -> m.captured_at
+                                     Just md -> Maybe.withDefault m.captured_at md.ts}
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
     case msg of
         SomeMedia result ->
             case result of
-                Ok meds -> (gotMedia model meds, Cmd.none)
+                Ok meds -> (gotMedia model (List.map hackTimes meds), Cmd.none)
                          |> toastSuccessIf (isJust model.media)
                             "Loaded" ("Loaded " ++ (F.comma (List.length meds)) ++ " media items.")
 
