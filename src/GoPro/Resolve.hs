@@ -63,8 +63,8 @@ summarizeGPMF :: [DEVC] -> MDSummary
 summarizeGPMF devc = MDSummary {
   _cameraModel = fromMaybe "" $ devc ^? folded . dev_name,
   _capturedTime = gps ^? folded . gps_time,
-  _maxSpeed2d = maximumOf (folded . gps_readings . folded .  gpsr_speed2d) gps,
-  _maxSpeed3d = maximumOf (folded . gps_readings . folded .  gpsr_speed2d) gps,
+  _maxSpeed2d = Just $ getMax _gps_max_speed,
+  _maxSpeed3d = Just $ getMax _gps_max_speed3d,
   _maxFaces = max 0 $ maximum1Of (folded . dev_telems . folded . tele_values . _TVFaces . to length) devc,
   _mainScene = mainScene,
   _lat = unmAngle latitude <$> getFirst _gps_home,
