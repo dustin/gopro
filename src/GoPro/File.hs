@@ -18,7 +18,7 @@ import           Data.Set                  (Set)
 import qualified Data.Set                  as Set
 import           Data.These                (These (..), these)
 import           System.Directory.PathWalk (pathWalkAccumulate)
-import           System.FilePath.Posix     (takeFileName, (</>))
+import           System.FilePath.Posix     (takeFileName, takeDirectory, (</>))
 import           Text.Read                 (readMaybe)
 
 data Grouping = NoGrouping Int          -- filenum
@@ -68,8 +68,9 @@ parseAndGroup :: NonEmpty FilePath -> These [FilePath] [NonEmpty File]
 parseAndGroup = fmap (fmap NE.fromList . groupFiles . sortFiles) . foldMap1 that
   where
     that fp = maybe (This [fp]) (That . (:[])) (parseGPFileName fp)
-    sortFiles = sortOn _gpGrouping
-    groupFiles = groupBy (\a b -> sameGroup (_gpGrouping a) (_gpGrouping b))
+    sortFiles = sortOn (\f -> (dirName f, _gpGrouping f))
+    groupFiles = groupBy (\a b -> dirName a == dirName b && sameGroup (_gpGrouping a) (_gpGrouping b))
+    dirName = takeDirectory . _gpFilePath
 
 -- | Given a directory that may contain GoPro source media, return a
 -- map of all of the principal filename which is encoded in metadata.
@@ -81,6 +82,21 @@ fromDirectory dir = do
   files <- Set.toList <$> findFiles dir
   let (_, good) = these (,[]) ([],) (,) $ maybe (This []) parseAndGroup (NE.nonEmpty files)
   pure $ Map.fromList [(takeFileName (_gpFilePath (NE.head f)), f) | f <- good]
+
+-- | This is the same as 'fromDirectory', but indexes *every* file
+-- instead of just the one that it may consider primary since looping
+-- videos behave differently.
+fromDirectoryFull :: MonadIO m => FilePath -> m (Map String (NonEmpty File))
+fromDirectoryFull = fmap mesh . fromDirectory
+  where
+    mesh :: Map String (NonEmpty File) -> Map String (NonEmpty File)
+    mesh = Map.fromList . foldMap rekey . expand
+
+    rekey :: (String, NonEmpty File) -> [(String, NonEmpty File)]
+    rekey (_, ds) = [(takeFileName (_gpFilePath d), ds) | d <- NE.toList ds]
+
+    expand :: Map String (NonEmpty File) -> [(String, (NonEmpty File))]
+    expand = Map.toList
 
 -- | Find the Set of all files under the given file path.
 findFiles :: MonadIO m => FilePath -> m (Set FilePath)
