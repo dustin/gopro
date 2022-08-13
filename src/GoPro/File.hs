@@ -89,14 +89,8 @@ fromDirectory dir = do
 fromDirectoryFull :: MonadIO m => FilePath -> m (Map String (NonEmpty File))
 fromDirectoryFull = fmap mesh . fromDirectory
   where
-    mesh :: Map String (NonEmpty File) -> Map String (NonEmpty File)
-    mesh = Map.fromList . foldMap rekey . expand
-
-    rekey :: (String, NonEmpty File) -> [(String, NonEmpty File)]
+    mesh = Map.fromList . foldMap rekey . Map.toList
     rekey (_, ds) = [(takeFileName (_gpFilePath d), ds) | d <- NE.toList ds]
-
-    expand :: Map String (NonEmpty File) -> [(String, (NonEmpty File))]
-    expand = Map.toList
 
 -- | Find the Set of all files under the given file path.
 findFiles :: MonadIO m => FilePath -> m (Set FilePath)
