@@ -114,7 +114,7 @@ downloadLocally path extract mid = do
                                     ) devs
 
       case zipWithExactMay (\a b -> (GPF._gpFilePath b, tmpFilename a)) srcdevs refs of
-        Nothing      -> logDbgL ["no match", tshow ((\(a,_,_) -> a) <$> devs), tshow refs]
+        Nothing      -> logDbgL ["no match ", tshow ((\(a,_,_) -> a) <$> devs), " ", tshow refs]
         Just aligned -> do
           logInfoL ["Copying local files", tshow aligned]
           void . Sh.shelly $ traverse (\(_,d) -> Sh.mkdir_p (takeDirectory d)) (Set.toList $ Set.fromList aligned)
