@@ -82,7 +82,7 @@ downloadLocally path extract mid = do
   logInfoL ["Beginning backup of ", tshow mid]
   vars <- retryRetrieve mid
   refdir <- asks (optReferenceDir . gpOptions)
-  locals <- fromMaybe mempty <$> traverse GPF.fromDirectory refdir
+  locals <- fromMaybe mempty <$> traverse GPF.fromDirectoryFull refdir
   let todo = extract mid vars
       srcs = maybe [] NE.toList $ Map.lookup (vars ^. filename) locals
   copyLocal todo srcs
