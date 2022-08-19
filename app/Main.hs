@@ -130,7 +130,7 @@ runAuth = do
 runReauth :: GoPro ()
 runReauth = do
   db <- asks dbConn
-  res <- refreshAuth =<< loadAuth db
+  res <- refreshAuth . arInfo =<< loadAuth db
   updateAuth db res
 
 run :: Command -> GoPro ()

@@ -102,7 +102,7 @@ runServer = do
       post "/api/reauth" do
         lift do
           db <- asks dbConn
-          res <- refreshAuth =<< loadAuth db
+          res <- refreshAuth . arInfo =<< loadAuth db
           -- Replace the DB value
           updateAuth db res
           -- Replace the cache value

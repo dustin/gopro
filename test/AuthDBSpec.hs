@@ -15,10 +15,10 @@ import           GoPro.AuthDB
 deriving instance Eq AuthInfo
 
 instance Arbitrary AuthInfo where
-  arbitrary = AuthInfo <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+  arbitrary = AuthInfo <$> arbitrary <*> (getNonNegative <$> arbitrary) <*> arbitrary <*> arbitrary
 
 prop_authStorage :: NonEmptyList AuthInfo -> Property
 prop_authStorage (NonEmpty ais) = ioProperty . withConnection ":memory:" $ \db -> do
   mapM_ (updateAuth db) ais
-  loaded <- loadAuth db
+  AuthResult loaded _ <- loadAuth db
   pure (loaded === (last ais))

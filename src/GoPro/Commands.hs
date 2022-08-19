@@ -91,8 +91,18 @@ newtype GoPro a = GoPro
               MonadCatch, MonadThrow, MonadMask, MonadReader Env, MonadFail)
 
 instance (Monad m, MonadLogger m, MonadIO m, MonadReader Env m) => HasGoProAuth m where
-  goproAuth = asks authCache >>= \c -> fetchWithCache c () (\() -> logDebugN "Reading auth token from DB" >>
-                                                                   asks dbConn >>= loadAuth)
+  goproAuth = asks authCache >>= \c -> fetchWithCache c () (\() -> do
+                                                               logDebugN "Reading auth token from DB"
+                                                               db <- asks dbConn
+                                                               AuthResult ai expired <- loadAuth db
+                                                               if expired then do
+                                                                 logDebugN "Refreshing auth info"
+                                                                 res <- refreshAuth ai
+                                                                 updateAuth db res
+                                                                 pure res
+                                                               else
+                                                                 pure ai
+                                                           )
 
 instance (Monad m, MonadReader Env m) => HasGoProDB m where
   goproDB = asks dbConn
