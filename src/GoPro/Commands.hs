@@ -11,8 +11,7 @@ import           Control.Applicative     (Alternative (..), (<|>))
 import           Control.Concurrent.QSem (newQSem, signalQSem, waitQSem)
 import           Control.Concurrent.STM  (TChan, atomically, writeTChan)
 import           Control.Monad           (MonadPlus (..), mzero)
-import           Control.Monad.Catch     (MonadCatch (..), MonadMask (..), MonadThrow (..), SomeException (..),
-                                          bracket_, catch)
+import           Control.Monad.Catch     (MonadCatch (..), MonadMask (..), MonadThrow (..), SomeException (..), catch)
 import           Control.Monad.IO.Class  (MonadIO (..))
 import           Control.Monad.Logger    (Loc (..), LogLevel (..), LogSource, LogStr, MonadLogger (..), ToLogStr (..),
                                           logDebugN, logErrorN, logInfoN, monadLoggerLog)
@@ -25,7 +24,7 @@ import qualified Data.Map.Strict         as Map
 import qualified Data.Text               as T
 import           Database.SQLite.Simple  (Connection, Query, withConnection)
 import           System.Clock            (TimeSpec (..))
-import           UnliftIO                (MonadUnliftIO (..), mapConcurrently, mapConcurrently_)
+import           UnliftIO                (MonadUnliftIO (..), bracket_, mapConcurrently, mapConcurrently_)
 
 import           GoPro.AuthDB
 import           GoPro.DB                (ConfigOption (..), HasGoProDB (..), initTables, loadConfig)
@@ -33,6 +32,7 @@ import           GoPro.Logging
 import           GoPro.Notification
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media        (FileInfo, MediumID, MediumType)
+import           UnliftIO.MVar           (MVar, newEmptyMVar, putMVar, takeMVar)
 
 -- Extractor function for deciding which files to download for backing up.
 -- (medium id, head url, url)
@@ -75,6 +75,7 @@ data Env = Env
     , dbConn     :: Connection
     , gpConfig   :: Map ConfigOption T.Text
     , authCache  :: Cache () AuthInfo
+    , authMutex  :: MVar ()
     , noteChan   :: TChan Notification
     , envLoggers :: [Loc -> LogSource -> LogLevel -> LogStr -> IO ()]
     }
@@ -90,19 +91,24 @@ newtype GoPro a = GoPro
   } deriving (Applicative, Functor, Monad, MonadIO, MonadUnliftIO,
               MonadCatch, MonadThrow, MonadMask, MonadReader Env, MonadFail)
 
-instance (Monad m, MonadLogger m, MonadIO m, MonadReader Env m) => HasGoProAuth m where
-  goproAuth = asks authCache >>= \c -> fetchWithCache c () (\() -> do
-                                                               logDebugN "Reading auth token from DB"
-                                                               db <- asks dbConn
-                                                               AuthResult ai expired <- loadAuth db
-                                                               if expired then do
-                                                                 logDebugN "Refreshing auth info"
-                                                                 res <- refreshAuth ai
-                                                                 updateAuth db res
-                                                                 pure res
-                                                               else
-                                                                 pure ai
-                                                           )
+instance (Monad m, MonadLogger m, MonadUnliftIO m, MonadReader Env m) => HasGoProAuth m where
+  goproAuth = authMutexed $ asks authCache >>= \c -> fetchWithCache c () (const fetchOrRefresh)
+
+authMutexed :: (Monad m, MonadUnliftIO m, MonadReader Env m) => m a -> m a
+authMutexed a = asks authMutex >>= \mutex -> bracket_ (putMVar mutex ()) (takeMVar mutex) a
+
+fetchOrRefresh :: (Monad m, MonadLogger m, MonadIO m, MonadReader Env m) => m AuthInfo
+fetchOrRefresh = do
+  logDebugN "Reading auth token from DB"
+  db <- asks dbConn
+  AuthResult ai expired <- loadAuth db
+  if expired then do
+    logDebugN "Refreshing auth info"
+    res <- refreshAuth ai
+    updateAuth db res
+    pure res
+  else
+    pure ai
 
 instance (Monad m, MonadReader Env m) => HasGoProDB m where
   goproDB = asks dbConn
@@ -160,6 +166,7 @@ runWithOptions o@Options{..} a = withConnection optDBPath $ \db -> do
   cfg <- loadConfig db
   cache <- newCache (Just (TimeSpec 60 0))
   tc <- mkLogChannel
+  mut <- newEmptyMVar
   let notlog = notificationLogger tc
       minLvl = if optVerbose then LevelDebug else LevelInfo
-  liftIO $ runIO (Env o db cfg cache tc [baseLogger minLvl, notlog]) a
+  liftIO $ runIO (Env o db cfg cache mut tc [baseLogger minLvl, notlog]) a
