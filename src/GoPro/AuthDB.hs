@@ -17,7 +17,7 @@ insertStatement :: Query
 insertStatement = "insert into authinfo(ts, owner_id, access_token, refresh_token, expires_in) values(current_timestamp, ?, ?, ?, ?)"
 
 authQuery :: Query
-authQuery = "select access_token, expires_in, refresh_token, owner_id, (datetime(ts, '+' || cast(expires_in as text) || ' seconds')) < current_timestamp as expired from authinfo"
+authQuery = "select access_token, expires_in, refresh_token, owner_id, (datetime(ts, '-30 minutes', '+' || cast(expires_in as text) || ' seconds')) < current_timestamp as expired from authinfo"
 
 instance ToRow AuthInfo where
   toRow AuthInfo{..} = [toField _resource_owner_id, toField _access_token, toField _refresh_token, toField _expires_in]
