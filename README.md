@@ -77,9 +77,10 @@ authenticated.
 ### reauth
 
 The `reauth` command will use a stored token to refresh your
-credentials.  You'll need to do this periodically.  You do not need to
-supply your password again (i.e., you can just run this on a timer or
-something if you plan to mostly interact with the web service).
+credentials.  You may need to do this periodically, but the software
+will automatically refresh known stale credentials..  You do not need
+to supply your password again (i.e., you can just run this on a timer
+or something if you plan to mostly interact with the web service).
 
 This feature is available via the web interface by clicking on "🔒".
 
