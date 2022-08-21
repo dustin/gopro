@@ -173,7 +173,7 @@ runGetMeta = do
       extractEXIF :: MediumID -> FilePath -> GoPro BS.ByteString
       extractEXIF mid f = minimalEXIF <$> liftIO (BL.readFile f) >>=
         \case
-          Left s  -> logErrorL ["Can't find EXIF for ", tshow mid, tshow s] >> empty
+          Left s  -> logErrorL ["Can't find EXIF for ", tshow mid, " ", tshow s] >> empty
           Right e -> pure (BL.toStrict e)
 
       extractGPMD :: MediumID -> FilePath -> GoPro BS.ByteString
