@@ -13,6 +13,12 @@ let
     # the haskell.nix functionality itself as an overlay.
     haskellNix.nixpkgsArgs;
 in pkgs.haskell-nix.project {
+  branchMap = {
+    "https://github.com/brendanhay/amazonka.git" = {
+      e64638ae16dc6d549d6e7c21262245e29761ede7 = "main";
+    };
+  };
+
   # 'cleanGit' cleans a source directory based on the files known by git
   src = pkgs.haskell-nix.haskellLib.cleanGit {
     name = "haskell-nix-project";
