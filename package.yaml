@@ -82,6 +82,7 @@ dependencies:
 - geodetics
 - dimensional
 - xml
+- split
 
 library:
   source-dirs: src

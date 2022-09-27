@@ -8,9 +8,10 @@ https://community.gopro.com/t5/en/GoPro-Camera-File-Naming-Convention/ta-p/39022
 
 import           Control.Monad.IO.Class    (MonadIO (..))
 import           Data.Char                 (toUpper)
-import           Data.List                 (groupBy, isSuffixOf, sortOn)
+import           Data.List                 (groupBy, intercalate, isSuffixOf, sortOn)
 import           Data.List.NonEmpty        (NonEmpty (..))
 import qualified Data.List.NonEmpty        as NE
+import           Data.List.Split           (splitOn)
 import           Data.Map                  (Map)
 import qualified Data.Map.Strict           as Map
 import           Data.Semigroup.Foldable   (foldMap1)
@@ -18,7 +19,7 @@ import           Data.Set                  (Set)
 import qualified Data.Set                  as Set
 import           Data.These                (These (..), these)
 import           System.Directory.PathWalk (pathWalkAccumulate)
-import           System.FilePath.Posix     (takeFileName, takeDirectory, (</>))
+import           System.FilePath.Posix     (takeDirectory, takeFileName, (</>))
 import           Text.Read                 (readMaybe)
 
 data Grouping = NoGrouping Int          -- filenum
@@ -33,6 +34,11 @@ instance Ord Grouping where
       i (BasicGrouping x g) = (show g, x)
       i (LoopGrouping x g)  = (g, x)
 
+nextGrouping :: Grouping -> Grouping
+nextGrouping (NoGrouping x)      = NoGrouping (succ x)
+nextGrouping (BasicGrouping x g) = BasicGrouping (succ x) g
+nextGrouping (LoopGrouping x g)  = LoopGrouping (succ x) g
+
 data VideoCodec = GoProAVC | GoProHEVC | GoProJPG deriving (Eq, Show, Bounded, Enum)
 
 data File = File {
@@ -40,6 +46,24 @@ data File = File {
   _gpCodec    :: VideoCodec,
   _gpGrouping :: Grouping
   } deriving (Eq, Show)
+
+nextFile :: File -> File
+nextFile f@File{..} = f{_gpGrouping=next, _gpFilePath=nextFile}
+  where
+    next = nextGrouping _gpGrouping
+    nextFile = takeDirectory _gpFilePath
+      </> replace (padded (numberOf _gpGrouping)) (padded (numberOf next)) (takeFileName _gpFilePath)
+
+    numberOf (NoGrouping x)      = x
+    numberOf (BasicGrouping x _) = x
+    numberOf (LoopGrouping x _)  = x
+
+    replace from to = intercalate to . splitOn from
+
+    padded x = prefix "0" 4 (show x)
+    prefix p n x
+      | length x == n = x
+      | otherwise = prefix p n (p <> x)
 
 sameGroup :: Grouping -> Grouping -> Bool
 sameGroup (BasicGrouping _ a) (BasicGrouping _ b) = a == b
