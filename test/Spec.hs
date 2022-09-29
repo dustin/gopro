@@ -4,6 +4,7 @@ import           Control.Lens
 import qualified Data.Aeson            as J
 import qualified Data.ByteString.Lazy  as BL
 import qualified Data.List.NonEmpty    as NE
+import           Data.Maybe            (fromMaybe)
 import           Data.These
 
 import           Test.Tasty
@@ -123,8 +124,8 @@ unit_fileParseGroup = do
        "/some/path/GX020649.THM",
        "/some/path/Get_started_with_GoPro.url",
        "/some/path/leinfo.sav"]
-      [[File {_gpFilePath = "/some/path/GOPR0645.JPG", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 645}],
-       [File {_gpFilePath = "/some/path/GOPR0650.JPG", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 650}],
+      [[File {_gpFilePath = "/some/path/GOPR0645.JPG", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 645 "OPR"}],
+       [File {_gpFilePath = "/some/path/GOPR0650.JPG", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 650 "OPR"}],
        [File {_gpFilePath = "/some/path/GX010644.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 1 644}],
        [File {_gpFilePath = "/some/path/GX010646.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 1 646}],
        [File {_gpFilePath = "/some/path/GX010647.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 1 647}],
@@ -204,7 +205,7 @@ unit_fileParseGroupSession5 = do
   assertEqual (show grouped) (
     These
       ["GOPR2016.LRV", "GOPR2016.THM", "GP012016.LRV"]
-      [[File {_gpFilePath = "GOPR2016.MP4", _gpCodec = GoProAVC, _gpGrouping = BasicGrouping 0 2016},
+      [[File {_gpFilePath = "GOPR2016.MP4", _gpCodec = GoProAVC, _gpGrouping = BasicGrouping 1 2016},
         File {_gpFilePath = "GP012016.MP4", _gpCodec = GoProAVC, _gpGrouping = BasicGrouping 1 2016}]]
     )
     grouped
@@ -221,8 +222,21 @@ unit_fileParseGroupNonstdJPG = do
   assertEqual (show grouped) (
     These
       ["GOPR2016.LRV"]
-      [[File {_gpFilePath = "file1.jpg", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 0}],
-       [File {_gpFilePath = "file2.jpg", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 0}],
-       [File {_gpFilePath = "IMG_8008.JPG", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 0}]]
+      [[File {_gpFilePath = "file1.jpg", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 0 ""}],
+       [File {_gpFilePath = "file2.jpg", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 0 ""}],
+       [File {_gpFilePath = "IMG_8008.JPG", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 0 ""}]]
     )
     grouped
+
+unit_nextFile :: Assertion
+unit_nextFile = mapM_ (uncurry testOne) [
+  ("/blah/GH012345.MP4", "/blah/GH022345.MP4"),
+  ("/blah/GOPR1234.MP4", "/blah/GH021234.MP4"),
+  ("/blah/GHAA2345.MP4", "/blah/GHAA2346.MP4")
+  ]
+
+  where
+    testOne input want = do
+      case nextFile <$> parseGPFileName input of
+        Just got -> assertEqual ("nexting " <> show got) want (_gpFilePath got)
+        Nothing  -> fail ("Failed to parse " <> input)
