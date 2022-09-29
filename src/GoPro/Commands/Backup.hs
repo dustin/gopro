@@ -31,14 +31,14 @@ import qualified Data.Map.Strict       as Map
 import           Data.Maybe            (fromJust, fromMaybe, mapMaybe, maybeToList)
 import qualified Data.Set              as Set
 import           Data.String           (fromString)
-import           Data.Text             (Text, isInfixOf, pack, stripPrefix, isSuffixOf, unpack)
+import           Data.Text             (Text, isInfixOf, isSuffixOf, pack, stripPrefix, unpack)
 import qualified Data.Text.Encoding    as TE
 import           Network.HTTP.Simple   (getResponseBody, httpSource, parseRequest)
 import           Safe.Exact            (zipWithExactMay)
 import qualified Shelly                as Sh
 import           System.Directory      (createDirectoryIfMissing, doesFileExist, listDirectory, renameDirectory,
                                         renameFile)
-import           System.FilePath.Posix (takeDirectory, takeExtension, (</>))
+import           System.FilePath.Posix (takeDirectory, takeExtension, takeFileName, (</>))
 import           System.Posix.Files    (createLink)
 import           UnliftIO              (concurrently, mapConcurrently, mapConcurrently_)
 
@@ -118,9 +118,13 @@ downloadLocally path extract mid = do
         Just aligned -> do
           logInfoL ["Copying local files", tshow aligned]
           void . Sh.shelly $ traverse (\(_,d) -> Sh.mkdir_p (takeDirectory d)) (Set.toList $ Set.fromList aligned)
-          traverse_ (\(s,d) -> store d (\t -> liftIO $ asum [createLink s t,
-                                                             Sh.shelly (Sh.cp s t)
-                                                             ])) aligned
+          traverse_ (\(s,d) -> store d (\t -> liftIO $ do
+                                           asum [createLink s t,
+                                                 Sh.shelly (Sh.cp s t)
+                                                ]
+                                           -- TODO: It'd be nicer to be able to do this without ref
+                                           createLink s (takeDirectory d </> takeFileName s)
+                                       )) aligned
 
     downloadNew argh@(k, _, _) = store (tmpFilename k) $ download argh
 
