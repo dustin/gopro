@@ -1,5 +1,6 @@
 {-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedLabels  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications  #-}
@@ -8,43 +9,44 @@ module GoPro.Commands.Backup (runBackup, runStoreMeta, runReceiveS3CopyQueue,
                               runLocalBackup, runClearMeta, extractMedia, extractOrig) where
 
 
-import           Amazonka              (send)
-import           Amazonka.Lambda       (InvocationType (..), newInvoke)
-import           Amazonka.S3           (BucketName (..))
-import           Amazonka.SQS          (newDeleteMessageBatch, newDeleteMessageBatchRequestEntry, newReceiveMessage)
+import           Amazonka                  (send)
+import           Amazonka.Lambda           (InvocationType (..), newInvoke)
+import           Amazonka.S3               (BucketName (..))
+import           Amazonka.SQS              (newDeleteMessageBatch, newDeleteMessageBatchRequestEntry, newReceiveMessage)
 import           Conduit
-import           Control.Applicative   ((<|>))
+import           Control.Applicative       ((<|>))
 import           Control.Lens
-import           Control.Monad         (unless, void)
-import           Control.Monad.Logger  (MonadLogger)
-import           Control.Monad.Reader  (asks)
-import           Control.Retry         (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
-import qualified Data.Aeson            as J
+import           Control.Monad             (unless, void)
+import           Control.Monad.Logger      (MonadLogger)
+import           Control.Monad.Reader      (asks)
+import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
+import           Control.Retry             (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
+import qualified Data.Aeson                as J
 import           Data.Aeson.Lens
-import qualified Data.ByteString.Lazy  as BL
-import           Data.Foldable         (asum, fold, traverse_)
-import           Data.Generics.Labels  ()
-import           Data.List             (nubBy, sort)
-import           Data.List.Extra       (chunksOf)
-import qualified Data.List.NonEmpty    as NE
-import qualified Data.Map.Strict       as Map
-import           Data.Maybe            (fromJust, fromMaybe, mapMaybe, maybeToList)
-import qualified Data.Set              as Set
-import           Data.String           (fromString)
-import           Data.Text             (Text, isInfixOf, isSuffixOf, pack, stripPrefix, unpack)
-import qualified Data.Text.Encoding    as TE
-import           Network.HTTP.Simple   (getResponseBody, httpSource, parseRequest)
-import           Safe.Exact            (zipWithExactMay)
-import qualified Shelly                as Sh
-import           System.Directory      (createDirectoryIfMissing, doesFileExist, listDirectory, renameDirectory,
-                                        renameFile)
-import           System.FilePath.Posix (takeDirectory, takeExtension, takeFileName, (</>))
-import           System.Posix.Files    (createLink)
-import           UnliftIO              (concurrently, mapConcurrently, mapConcurrently_)
+import qualified Data.ByteString.Lazy      as BL
+import           Data.Foldable             (asum, fold, for_, traverse_)
+import           Data.Generics.Labels      ()
+import           Data.List                 (nubBy, sort)
+import           Data.List.Extra           (chunksOf)
+import qualified Data.List.NonEmpty        as NE
+import qualified Data.Map.Strict           as Map
+import           Data.Maybe                (fromJust, fromMaybe, mapMaybe, maybeToList)
+import qualified Data.Set                  as Set
+import           Data.String               (fromString)
+import           Data.Text                 (Text, isInfixOf, isSuffixOf, pack, stripPrefix, unpack)
+import qualified Data.Text.Encoding        as TE
+import           Network.HTTP.Simple       (getResponseBody, httpSource, parseRequest)
+import           Safe.Exact                (zipWithExactMay)
+import qualified Shelly                    as Sh
+import           System.Directory          (createDirectoryIfMissing, doesFileExist, listDirectory, renameDirectory,
+                                            renameFile)
+import           System.FilePath.Posix     (takeDirectory, takeExtension, (</>))
+import           System.Posix.Files        (createLink)
+import           UnliftIO                  (concurrently, mapConcurrently, mapConcurrently_)
 
 import           GoPro.Commands
 import           GoPro.DB
-import qualified GoPro.File            as GPF
+import qualified GoPro.File                as GPF
 import           GoPro.Plus.Media
 import           GoPro.S3
 
@@ -88,6 +90,9 @@ downloadLocally path extract mid = do
   copyLocal todo srcs
 
   mapConcurrentlyLimited_ 5 downloadNew todo
+
+  linkNames (filter ("-var-source" `isInfixOf`) . fmap (\(a,_,_) -> a) $ todo)
+
   -- This is mildly confusing since the path inherently has the mid in the path.
   liftIO $ renameDirectory (tmpdir </> unpack mid) midPath
   logInfoL ["Completed backup of ", tshow mid]
@@ -118,13 +123,9 @@ downloadLocally path extract mid = do
         Just aligned -> do
           logInfoL ["Copying local files", tshow aligned]
           void . Sh.shelly $ traverse (\(_,d) -> Sh.mkdir_p (takeDirectory d)) (Set.toList $ Set.fromList aligned)
-          traverse_ (\(s,d) -> store d (\t -> liftIO $ do
-                                           asum [createLink s t,
-                                                 Sh.shelly (Sh.cp s t)
-                                                ]
-                                           -- TODO: It'd be nicer to be able to do this without ref
-                                           createLink s (takeDirectory d </> takeFileName s)
-                                       )) aligned
+          traverse_ (\(s,d) -> store d (\t -> liftIO $ asum [createLink s t,
+                                                             Sh.shelly (Sh.cp s t)
+                                                            ])) aligned
 
     downloadNew argh@(k, _, _) = store (tmpFilename k) $ download argh
 
@@ -137,6 +138,21 @@ downloadLocally path extract mid = do
         where
           dir = takeDirectory dest
           policy = exponentialBackoff 2000000 <> limitRetries 9
+
+    linkNames names =
+      loadMedium mid >>= \case
+        Just Medium{_medium_filename=Just fn} -> void . runMaybeT $ do
+          gf <- MaybeT . pure $ GPF.parseGPFileName fn
+          let links = zip names (iterate GPF.nextFile gf)
+          lift $ logDbgL ["Linking ", tshow names, " for ", tshow fn, tshow links]
+          for_ links $ \(bp, GPF.File{..}) -> lift $ do
+            let existing = tmpFilename bp
+                dir = takeDirectory existing
+                new = dir </> _gpFilePath
+            logDbgL ["  linking ", tshow existing, " -> ", tshow new]
+            liftIO $ createLink existing new
+
+        _ -> pure ()
 
 extractMedia :: Extractor
 extractMedia mid fi = filter desirable . nubBy (\(_,_,u1) (_,_,u2) -> u1 == u2) $
