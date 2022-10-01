@@ -14,7 +14,7 @@ import           Amazonka.Lambda           (InvocationType (..), newInvoke)
 import           Amazonka.S3               (BucketName (..))
 import           Amazonka.SQS              (newDeleteMessageBatch, newDeleteMessageBatchRequestEntry, newReceiveMessage)
 import           Conduit
-import           Control.Applicative       ((<|>))
+import           Control.Applicative       (optional, (<|>))
 import           Control.Lens
 import           Control.Monad             (unless, void)
 import           Control.Monad.Logger      (MonadLogger)
@@ -154,7 +154,7 @@ downloadLocally path extract mid = do
                 dir = takeDirectory existing
                 new = dir </> _gpFilePath
             logDbgL ["  linking ", tshow existing, " -> ", tshow new]
-            liftIO $ createLink existing new
+            liftIO . optional $ createLink existing new
 
         _ -> pure ()
 
