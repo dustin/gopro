@@ -35,13 +35,14 @@ import qualified Data.Set                  as Set
 import           Data.String               (fromString)
 import           Data.Text                 (Text, isInfixOf, isSuffixOf, pack, stripPrefix, unpack)
 import qualified Data.Text.Encoding        as TE
+import           Data.Time.Clock.POSIX     (utcTimeToPOSIXSeconds)
 import           Network.HTTP.Simple       (getResponseBody, httpSource, parseRequest)
 import           Safe.Exact                (zipWithExactMay)
 import qualified Shelly                    as Sh
 import           System.Directory          (createDirectoryIfMissing, doesFileExist, listDirectory, renameDirectory,
                                             renameFile)
 import           System.FilePath.Posix     (takeDirectory, takeExtension, (</>))
-import           System.Posix.Files        (createLink)
+import           System.Posix.Files        (createLink, setFileTimes)
 import           UnliftIO                  (concurrently, mapConcurrently, mapConcurrently_)
 
 import           GoPro.Commands
@@ -95,6 +96,9 @@ downloadLocally path extract mid = do
 
   -- This is mildly confusing since the path inherently has the mid in the path.
   liftIO $ renameDirectory (tmpdir </> unpack mid) midPath
+  loadMedium mid >>= \case
+    Nothing         -> pure ()
+    Just Medium{..} -> liftIO $ setFileTimes midPath (toEpochTime _medium_captured_at) (toEpochTime _medium_captured_at)
   logInfoL ["Completed backup of ", tshow mid]
 
   where
@@ -153,6 +157,9 @@ downloadLocally path extract mid = do
             liftIO $ createLink existing new
 
         _ -> pure ()
+
+    toEpochTime = fromIntegral @Int . floor . utcTimeToPOSIXSeconds
+
 
 extractMedia :: Extractor
 extractMedia mid fi = filter desirable . nubBy (\(_,_,u1) (_,_,u2) -> u1 == u2) $
