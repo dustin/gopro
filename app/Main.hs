@@ -68,6 +68,7 @@ options = Options
                   <> command "processSQS" (info (pure ProcessSQSCmd) (progDesc "Process SQS queue"))
                   <> command "backuplocal" (info backupLocalCmd (progDesc "Backup original media to local path"))
                   <> command "backuplocalall" (info backupLocalAllCmd (progDesc "Backup all media to local path"))
+                  <> command "fixup" (info fixupCmd (progDesc "Update GoPro cloud properties via SQL"))
                   <> command "config" (info configCmd (progDesc "Interact with config"))
                  )
   where
@@ -86,6 +87,8 @@ options = Options
     backupLocalAllCmd = BackupLocalCmd extractMedia <$> argument str (metavar "path" <> action "directory")
 
     configCmd = hsubparser (foldMap optCmd [minBound ..]) <|> pure ConfigListCmd
+
+    fixupCmd = FixupCmd <$> argument str (metavar "query")
 
     optCmd o = command (T.unpack (DB.optionStr o))
                (info opt (progDesc ("get/set " <> T.unpack (DB.optionStr o) <> " config")))
