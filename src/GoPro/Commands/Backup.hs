@@ -4,6 +4,7 @@
 {-# LANGUAGE OverloadedLabels  #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications  #-}
+{-# LANGUAGE ViewPatterns      #-}
 
 module GoPro.Commands.Backup (runBackup, runStoreMeta, runReceiveS3CopyQueue,
                               runLocalBackup, runClearMeta, extractMedia, extractOrig) where
@@ -15,7 +16,7 @@ import           Amazonka.S3                     (BucketName (..))
 import           Amazonka.SQS                    (newDeleteMessageBatch, newDeleteMessageBatchRequestEntry,
                                                   newReceiveMessage)
 import           Conduit
-import           Control.Applicative             (optional, (<|>))
+import           Control.Applicative             (optional)
 import           Control.Lens
 import           Control.Monad                   (unless, void)
 import           Control.Monad.Logger            (MonadLogger)
@@ -36,7 +37,7 @@ import qualified Data.Map.Strict                 as Map
 import           Data.Maybe                      (fromJust, fromMaybe, mapMaybe, maybeToList)
 import qualified Data.Set                        as Set
 import           Data.String                     (fromString)
-import           Data.Text                       (Text, isInfixOf, isSuffixOf, pack, stripPrefix, unpack)
+import           Data.Text                       (Text, isInfixOf, isSuffixOf, pack, stripPrefix, toLower, unpack)
 import qualified Data.Text.Encoding              as TE
 import           Data.Time.Clock.POSIX           (utcTimeToPOSIXSeconds)
 import           Network.HTTP.Simple             (getResponseBody, httpSource, parseRequest)
@@ -200,17 +201,11 @@ otherFiles mid fi = fi ^.. fileStuff . files . folded . to conv
                  u)
 
 extractOrig :: Extractor
-extractOrig mid fi = maybe (otherFiles mid fi) (:[]) (srcd "concat" <|> srcd "source")
+extractOrig mid = filter desirable . extractMedia mid
   where
-    srcd lbl = fi ^? fileStuff . variations . folded . filtered (has (var_label . only lbl)) . to conv . folded
-      where
-        conv v = do
-          typ <- v ^? media_type
-          let h = v ^. media_head
-              u = v ^. media_url
-          pure (fromString $ mconcat ["derivatives/", unpack mid, "/" , unpack mid, "-var-", lbl, ".", typ],
-                fromString h,
-                u)
+    desirable (toLower -> fn,_,_) = (".mp4" `isSuffixOf` fn && "-source" `isInfixOf` fn)
+                                    || (".jpg" `isSuffixOf` fn && "-file" `isInfixOf` fn)
+                                    || ("raw_photo.gpr" `isInfixOf` fn)
 
 runBackup :: Extractor -> GoPro ()
 runBackup ex = do
