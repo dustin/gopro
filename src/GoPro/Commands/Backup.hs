@@ -9,45 +9,48 @@ module GoPro.Commands.Backup (runBackup, runStoreMeta, runReceiveS3CopyQueue,
                               runLocalBackup, runClearMeta, extractMedia, extractOrig) where
 
 
-import           Amazonka                  (send)
-import           Amazonka.Lambda           (InvocationType (..), newInvoke)
-import           Amazonka.S3               (BucketName (..))
-import           Amazonka.SQS              (newDeleteMessageBatch, newDeleteMessageBatchRequestEntry, newReceiveMessage)
+import           Amazonka                        (send)
+import           Amazonka.Lambda                 (InvocationType (..), newInvoke)
+import           Amazonka.S3                     (BucketName (..))
+import           Amazonka.SQS                    (newDeleteMessageBatch, newDeleteMessageBatchRequestEntry,
+                                                  newReceiveMessage)
 import           Conduit
-import           Control.Applicative       (optional, (<|>))
+import           Control.Applicative             (optional, (<|>))
 import           Control.Lens
-import           Control.Monad             (unless, void)
-import           Control.Monad.Logger      (MonadLogger)
-import           Control.Monad.Reader      (asks)
-import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
-import           Control.Retry             (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
-import qualified Data.Aeson                as J
+import           Control.Monad                   (unless, void)
+import           Control.Monad.Logger            (MonadLogger)
+import           Control.Monad.Reader            (asks)
+import           Control.Monad.Trans.Maybe       (MaybeT (..), runMaybeT)
+import           Control.Monad.Trans.Writer.Lazy (execWriterT, tell)
+import           Control.Retry                   (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
+import qualified Data.Aeson                      as J
 import           Data.Aeson.Lens
-import qualified Data.ByteString.Lazy      as BL
-import           Data.Foldable             (asum, fold, for_, traverse_)
-import           Data.Generics.Labels      ()
-import           Data.List                 (nubBy, sort)
-import           Data.List.Extra           (chunksOf)
-import qualified Data.List.NonEmpty        as NE
-import qualified Data.Map.Strict           as Map
-import           Data.Maybe                (fromJust, fromMaybe, mapMaybe, maybeToList)
-import qualified Data.Set                  as Set
-import           Data.String               (fromString)
-import           Data.Text                 (Text, isInfixOf, isSuffixOf, pack, stripPrefix, unpack)
-import qualified Data.Text.Encoding        as TE
-import           Data.Time.Clock.POSIX     (utcTimeToPOSIXSeconds)
-import           Network.HTTP.Simple       (getResponseBody, httpSource, parseRequest)
-import           Safe.Exact                (zipWithExactMay)
-import qualified Shelly                    as Sh
-import           System.Directory          (createDirectoryIfMissing, doesFileExist, listDirectory, renameDirectory,
-                                            renameFile)
-import           System.FilePath.Posix     (takeDirectory, takeExtension, (</>))
-import           System.Posix.Files        (createLink, setFileTimes)
-import           UnliftIO                  (concurrently, mapConcurrently, mapConcurrently_)
+import qualified Data.ByteString.Lazy            as BL
+import           Data.Foldable                   (asum, fold, for_, traverse_)
+import           Data.Functor                    (($>))
+import           Data.Generics.Labels            ()
+import           Data.List                       (nubBy, sort)
+import           Data.List.Extra                 (chunksOf)
+import qualified Data.List.NonEmpty              as NE
+import qualified Data.Map.Strict                 as Map
+import           Data.Maybe                      (fromJust, fromMaybe, mapMaybe, maybeToList)
+import qualified Data.Set                        as Set
+import           Data.String                     (fromString)
+import           Data.Text                       (Text, isInfixOf, isSuffixOf, pack, stripPrefix, unpack)
+import qualified Data.Text.Encoding              as TE
+import           Data.Time.Clock.POSIX           (utcTimeToPOSIXSeconds)
+import           Network.HTTP.Simple             (getResponseBody, httpSource, parseRequest)
+import           Safe.Exact                      (zipWithExactMay)
+import qualified Shelly                          as Sh
+import           System.Directory                (createDirectoryIfMissing, doesFileExist, renameDirectory, renameFile)
+import           System.Directory.PathWalk       (WalkStatus (..), pathWalkInterruptible)
+import           System.FilePath.Posix           (takeDirectory, takeExtension, takeFileName, (</>))
+import           System.Posix.Files              (createLink, setFileTimes)
+import           UnliftIO                        (concurrently, mapConcurrently, mapConcurrently_)
 
 import           GoPro.Commands
 import           GoPro.DB
-import qualified GoPro.File                as GPF
+import qualified GoPro.File                      as GPF
 import           GoPro.Plus.Media
 import           GoPro.S3
 
