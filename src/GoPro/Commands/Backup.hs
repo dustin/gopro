@@ -222,11 +222,17 @@ runBackup ex = do
 
 runLocalBackup :: Extractor -> FilePath -> GoPro ()
 runLocalBackup ex path = do
-  have <- Set.fromList . fmap pack <$> liftIO (listDirectory path)
+  have <- liftIO findHave
   todo <- filter (`Set.notMember` have) <$> listToCopyLocally
   logDbgL ["todo: ", tshow todo]
   c <- asks (optDownloadConcurrency . gpOptions)
   mapConcurrentlyLimited_ c (downloadLocally path ex) todo
+
+  where
+    findHave = execWriterT . pathWalkInterruptible path $ \dir subdirs _filenames ->
+      case takeFileName dir of
+        "tmp" -> pure StopRecursing
+        _     -> tell (Set.fromList (pack <$> subdirs)) $> Continue
 
 runStoreMeta :: GoPro ()
 runStoreMeta = do
