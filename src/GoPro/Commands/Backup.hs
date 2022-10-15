@@ -101,6 +101,7 @@ downloadLocally path extract Medium{..} = do
 
   -- This is mildly confusing since the path inherently has the mid in the path.
   liftIO $ do
+    createDirectoryIfMissing True (takeDirectory midPath)
     renameDirectory (tmpdir </> unpack _medium_id) midPath
     setFileTimes midPath (toEpochTime _medium_captured_at) (toEpochTime _medium_captured_at)
   logInfoL ["Completed backup of ", tshow _medium_id]
