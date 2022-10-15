@@ -84,13 +84,13 @@ copyMedia λ extract mid = do
                           & at "dest" ?~ dest
                           & at "mid" ?~ J.String mid)
 
-downloadLocally :: FilePath -> Extractor -> MediumID -> GoPro ()
-downloadLocally path extract mid = do
-  logInfoL ["Beginning backup of ", tshow mid]
-  vars <- retryRetrieve mid
+downloadLocally :: FilePath -> Extractor -> Medium -> GoPro ()
+downloadLocally path extract Medium{..} = do
+  logInfoL ["Beginning backup of ", tshow _medium_id]
+  vars <- retryRetrieve _medium_id
   refdir <- asks (optReferenceDir . gpOptions)
   locals <- fromMaybe mempty <$> traverse GPF.fromDirectoryFull refdir
-  let todo = extract mid vars
+  let todo = extract _medium_id vars
       srcs = maybe [] NE.toList $ Map.lookup (vars ^. filename) locals
   copyLocal todo srcs
 
@@ -99,14 +99,13 @@ downloadLocally path extract mid = do
   linkNames (filter ("-var-source" `isInfixOf`) . fmap (\(a,_,_) -> a) $ todo)
 
   -- This is mildly confusing since the path inherently has the mid in the path.
-  liftIO $ renameDirectory (tmpdir </> unpack mid) midPath
-  loadMedium mid >>= \case
-    Nothing         -> pure ()
-    Just Medium{..} -> liftIO $ setFileTimes midPath (toEpochTime _medium_captured_at) (toEpochTime _medium_captured_at)
-  logInfoL ["Completed backup of ", tshow mid]
+  liftIO $ do
+    renameDirectory (tmpdir </> unpack _medium_id) midPath
+    setFileTimes midPath (toEpochTime _medium_captured_at) (toEpochTime _medium_captured_at)
+  logInfoL ["Completed backup of ", tshow _medium_id]
 
   where
-    midPath = path </> unpack mid
+    midPath = path </> unpack _medium_id
     tmpdir = path </> "tmp"
 
     tmpFilename k = tmpdir </> (unpack . fromJust . stripPrefix "derivatives/") k
@@ -139,7 +138,7 @@ downloadLocally path extract mid = do
 
     download (k, _, u) dest = recoverAll policy $ \r -> do
       liftIO $ createDirectoryIfMissing True dir
-      logDbgL ["Fetching ", tshow mid, " ", k, " attempt ", tshow (rsIterNumber r)]
+      logDbgL ["Fetching ", tshow _medium_id, " ", k, " attempt ", tshow (rsIterNumber r)]
       req <- parseRequest u
       liftIO $ runConduitRes (httpSource req getResponseBody .| sinkFile dest)
 
@@ -147,20 +146,17 @@ downloadLocally path extract mid = do
           dir = takeDirectory dest
           policy = exponentialBackoff 2000000 <> limitRetries 9
 
-    linkNames names =
-      loadMedium mid >>= \case
-        Just Medium{_medium_filename=Just fn} -> void . runMaybeT $ do
-          gf <- MaybeT . pure $ GPF.parseGPFileName fn
-          let links = zip names (iterate GPF.nextFile gf)
-          lift $ logDbgL ["Linking ", tshow names, " for ", tshow fn, tshow links]
-          for_ links $ \(bp, GPF.File{..}) -> lift $ do
-            let existing = tmpFilename bp
-                dir = takeDirectory existing
-                new = dir </> _gpFilePath
-            logDbgL ["  linking ", tshow existing, " -> ", tshow new]
-            liftIO . optional $ createLink existing new
-
-        _ -> pure ()
+    linkNames names = void . runMaybeT $ do
+      fn <- MaybeT . pure $ _medium_filename
+      gf <- MaybeT . pure $ GPF.parseGPFileName fn
+      let links = zip names (iterate GPF.nextFile gf)
+      lift $ logDbgL ["Linking ", tshow names, " for ", tshow fn, tshow links]
+      for_ links $ \(bp, GPF.File{..}) -> lift $ do
+        let existing = tmpFilename bp
+            dir = takeDirectory existing
+            new = dir </> _gpFilePath
+        logDbgL ["  linking ", tshow existing, " -> ", tshow new]
+        liftIO . optional $ createLink existing new
 
     toEpochTime = fromIntegral @Int . floor . utcTimeToPOSIXSeconds
 
@@ -221,9 +217,13 @@ runLocalBackup ex path = do
   todo <- filter (`Set.notMember` have) <$> listToCopyLocally
   logDbgL ["todo: ", tshow todo]
   c <- asks (optDownloadConcurrency . gpOptions)
-  mapConcurrentlyLimited_ c (downloadLocally path ex) todo
+  mapConcurrentlyLimited_ c one todo
 
   where
+    one mid = loadMedium mid >>= \case
+      Nothing -> logErrorL ["Cannot find record for ", mid]
+      Just m  -> downloadLocally path ex m
+
     findHave = execWriterT . pathWalkInterruptible path $ \dir subdirs _filenames ->
       case takeFileName dir of
         "tmp" -> pure StopRecursing
