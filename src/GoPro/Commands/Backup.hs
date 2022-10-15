@@ -40,6 +40,7 @@ import           Data.String                     (fromString)
 import           Data.Text                       (Text, isInfixOf, isSuffixOf, pack, stripPrefix, toLower, unpack)
 import qualified Data.Text.Encoding              as TE
 import           Data.Time.Clock.POSIX           (utcTimeToPOSIXSeconds)
+import           Data.Time.Format
 import           Network.HTTP.Simple             (getResponseBody, httpSource, parseRequest)
 import           Safe.Exact                      (zipWithExactMay)
 import qualified Shelly                          as Sh
@@ -105,7 +106,7 @@ downloadLocally path extract Medium{..} = do
   logInfoL ["Completed backup of ", tshow _medium_id]
 
   where
-    midPath = path </> unpack _medium_id
+    midPath = path </> formatTime defaultTimeLocale "%0Y/%m" _medium_captured_at </> unpack _medium_id
     tmpdir = path </> "tmp"
 
     tmpFilename k = tmpdir </> (unpack . fromJust . stripPrefix "derivatives/") k
