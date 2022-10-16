@@ -201,7 +201,7 @@ otherFiles mid fi = fi ^.. fileStuff . files . folded . to conv
 extractOrig :: Extractor
 extractOrig mid = filter desirable . extractMedia mid
   where
-    desirable (toLower -> fn,_,_) = (".mp4" `isSuffixOf` fn && "-source" `isInfixOf` fn)
+    desirable (toLower -> fn,_,_) = ("-source" `isInfixOf` fn)
                                     || (".jpg" `isSuffixOf` fn && "-file" `isInfixOf` fn)
                                     || ("raw_photo.gpr" `isInfixOf` fn)
 
