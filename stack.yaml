@@ -83,4 +83,4 @@ extra-deps:
 # compiler-check: newer-minor
 
 nix:
-  packages: [zlib]
+  packages: [zlib, postgresql]

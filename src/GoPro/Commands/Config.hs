@@ -19,5 +19,5 @@ runListConfig = mapM_ (\(k,v) -> mapM_ (liftIO . TIO.putStr) [optionStr k, " = "
 runGetConfig :: ConfigOption -> GoPro ()
 runGetConfig k = asks (configItem k) >>= liftIO . TIO.putStrLn
 
-runSetConfig :: ConfigOption -> Text -> GoPro ()
+runSetConfig :: (Persistence m, MonadIO m) => ConfigOption -> Text -> GoProT m ()
 runSetConfig k v = asks gpConfig >>= updateConfig . Map.insert k v

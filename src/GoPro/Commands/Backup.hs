@@ -248,7 +248,7 @@ runClearMeta = do
   logDbgL ["clearing ", tshow backedup]
   clearMetaBlob backedup
 
-runReceiveS3CopyQueue :: GoPro ()
+runReceiveS3CopyQueue :: Persistence m => GoProT m ()
 runReceiveS3CopyQueue = do
   qrl <- asks (configItem CfgCopySQSQueue)
   go qrl =<< listS3Waiting

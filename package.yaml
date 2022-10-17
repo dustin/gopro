@@ -33,6 +33,7 @@ dependencies:
 - generic-lens
 - time
 - sqlite-simple
+- postgresql-simple
 - mtl
 - transformers
 - optparse-applicative

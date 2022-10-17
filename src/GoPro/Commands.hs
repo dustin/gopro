@@ -26,8 +26,8 @@ import           Database.SQLite.Simple  (Connection, Query, withConnection)
 import           System.Clock            (TimeSpec (..))
 import           UnliftIO                (MonadUnliftIO (..), bracket_, mapConcurrently, mapConcurrently_)
 
-import           GoPro.AuthDB
-import           GoPro.DB                (ConfigOption (..), HasGoProDB (..), initTables, loadConfig)
+import           GoPro.AuthDB (AuthResult(..))
+import           GoPro.DB                (ConfigOption (..), Persistence(..), initTables, loadConfig)
 import           GoPro.Logging
 import           GoPro.Notification
 import           GoPro.Plus.Auth
@@ -72,7 +72,6 @@ data Options = Options
 
 data Env = Env
     { gpOptions  :: Options
-    , dbConn     :: Connection
     , gpConfig   :: Map ConfigOption T.Text
     , authCache  :: Cache () AuthInfo
     , authMutex  :: MVar ()
@@ -86,32 +85,30 @@ configItem k = configItemDef k ""
 configItemDef :: ConfigOption -> T.Text -> Env -> T.Text
 configItemDef k def Env{gpConfig} = Map.findWithDefault def k gpConfig
 
-newtype GoPro a = GoPro
-  { runGoPro :: ReaderT Env IO a
+newtype GoProT m a = GoPro
+  { runGoPro :: ReaderT Env m a
   } deriving (Applicative, Functor, Monad, MonadIO, MonadUnliftIO,
               MonadCatch, MonadThrow, MonadMask, MonadReader Env, MonadFail)
 
-instance (Monad m, MonadLogger m, MonadUnliftIO m, MonadReader Env m) => HasGoProAuth m where
+type GoPro = GoProT IO
+
+instance (Monad m, MonadLogger m, MonadUnliftIO m, Persistence m, MonadReader Env m) => HasGoProAuth m where
   goproAuth = authMutexed $ asks authCache >>= \c -> fetchWithCache c () (const fetchOrRefresh)
 
 authMutexed :: (Monad m, MonadUnliftIO m, MonadReader Env m) => m a -> m a
 authMutexed a = asks authMutex >>= \mutex -> bracket_ (putMVar mutex ()) (takeMVar mutex) a
 
-fetchOrRefresh :: (Monad m, MonadLogger m, MonadIO m, MonadReader Env m) => m AuthInfo
+fetchOrRefresh :: (Monad m, MonadLogger m, MonadIO m, Persistence m, MonadReader Env m) => m AuthInfo
 fetchOrRefresh = do
   logDebugN "Reading auth token from DB"
-  db <- asks dbConn
-  AuthResult ai expired <- loadAuth db
+  AuthResult ai expired <- loadAuth
   if expired then do
     logDebugN "Refreshing auth info"
     res <- refreshAuth ai
-    updateAuth db res
+    updateAuth res
     pure res
   else
     pure ai
-
-instance (Monad m, MonadReader Env m) => HasGoProDB m where
-  goproDB = asks dbConn
 
 instance MonadLogger GoPro where
   monadLoggerLog loc src lvl msg = mapM_ (\l -> liftIO $ l loc src lvl (toLogStr msg)) =<< asks envLoggers
@@ -160,13 +157,13 @@ runIO e m = runReaderT (runGoPro m) e
 sendNotification :: Notification -> GoPro ()
 sendNotification note = asks noteChan >>= \ch -> liftIO . atomically . writeTChan ch $ note
 
-runWithOptions :: Options -> GoPro a -> IO a
-runWithOptions o@Options{..} a = withConnection optDBPath $ \db -> do
-  initTables db
-  cfg <- loadConfig db
-  cache <- newCache (Just (TimeSpec 60 0))
-  tc <- mkLogChannel
+runWithOptions :: (Persistence m, MonadIO m) => Options -> GoPro a -> m a
+runWithOptions o@Options{..} a = do
+  initTables
+  cfg <- loadConfig
+  cache <- liftIO $ newCache (Just (TimeSpec 60 0))
+  tc <- liftIO $ mkLogChannel
   mut <- newEmptyMVar
   let notlog = notificationLogger tc
       minLvl = if optVerbose then LevelDebug else LevelInfo
-  liftIO $ runIO (Env o db cfg cache mut tc [baseLogger minLvl, notlog]) a
+  liftIO $ runIO (Env o cfg cache mut tc [baseLogger minLvl, notlog]) a

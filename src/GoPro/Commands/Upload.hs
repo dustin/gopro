@@ -46,7 +46,7 @@ runCreateUploads inFilePaths = do
 
   when (not . null $ bad) $ logInfoL ["Ignoring some unknown files: ", tshow bad]
 
-  db <- goproDB
+  db <- undefined -- goproDB
   c <- asks (optUploadConcurrency . gpOptions)
   mapConcurrentlyLimited_ c (upload db) good
 
