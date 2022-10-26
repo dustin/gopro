@@ -100,7 +100,8 @@ metadataSources :: FileInfo -> [(String, String)]
 metadataSources fi = fold [variation "mp4_low" "low",
                            variation "high_res_proxy_mp4" "high",
                            variation "concat" "concat",
-                           variation "source" "src"]
+                           variation "source" "src",
+                           variation "baked_source" "baked_src"]
   where
     ls l t = (,t) <$> toListOf l fi
 
@@ -123,6 +124,7 @@ runGetMeta = do
         fi <- retrieve mid
         case typ of
           "Video"          -> processEx fi extractGPMD GPMF ".mp4"
+          "MultiClipEdit"  -> processEx fi extractGPMD GPMF ".mp4"
           "TimeLapseVideo" -> processEx fi extractGPMD GPMF ".mp4"
           "Photo"          -> processEx fi extractEXIF EXIF ".jpg"
           "TimeLapse"      -> processEx fi extractEXIF EXIF ".jpg"

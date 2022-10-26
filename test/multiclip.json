@@ -1,0 +1,60 @@
+{
+    "_embedded": {
+        "files": [
+            {
+            "camera_position": "default",
+            "head": "hhttp://def",
+            "heads": ["hhttp://defs"],
+            "height": 1080,
+            "item_number": 1,
+            "orientation": 1,
+            "url": "http://def",
+            "urls": ["http://defs"],
+            "width": 1920
+        }
+        ],
+        "sidecar_files": [
+            {
+            "fps": 0,
+            "head": "hhttp://sidecar",
+            "heads": ["hhttp://sidecars"],
+            "label": "edl_mce",
+            "type": "json",
+            "url": "http://sidecar",
+            "urls": ["hhtp://sidecars"]
+        }
+        ],
+        "sprites": [
+            {
+            "fps": 59.94006,
+            "frame": {
+                "count": 10,
+                "height": 56,
+                "width": 100
+            },
+            "head": "hhttp://sprite",
+            "heads": ["hhttp://sprites"],
+            "height": 56,
+            "total_count": 1,
+            "type": "jpg",
+            "url": "http://sprite",
+            "urls": ["hhttp://sprites"],
+            "width": 1000
+        }
+        ],
+        "variations": [
+            {
+            "head": "hhttp://var",
+            "heads": ["hhttp://vars"],
+            "height": 1080,
+            "label": "baked_source",
+            "quality": "1080p",
+            "type": "mp4",
+            "url": "http://var",
+            "urls": ["hhttp://vars"],
+            "width": 1920
+        }
+        ]
+    },
+    "filename": ""
+}

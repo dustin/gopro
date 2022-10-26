@@ -77,10 +77,22 @@ unit_extractMediaDedup = do
   assertEqual (show e) (Right [("derivatives/xxx/xxx-var-source.jpg", "hhttp://a","http://a")]
                        ) $ extractMedia "xxx" <$> e
 
+unit_extractOrigBaked :: Assertion
+unit_extractOrigBaked = do
+  e <- J.eitherDecode <$> BL.readFile "test/multiclip.json" :: IO (Either String FileInfo)
+  assertEqual (show e) (Right [("derivatives/xxx/xxx-var-baked_source.mp4", "hhttp://var","http://var")]
+                       ) $ extractOrig "xxx" <$> e
+
 unit_metadataSources :: Assertion
 unit_metadataSources = do
   e <- J.eitherDecode <$> BL.readFile "test/mediaex.json" :: IO (Either String FileInfo)
   assertEqual (show e) (Right [("http://f/","low"),("http://e/","high")]) $ metadataSources <$> e
+
+
+unit_metadataSourcesMulti :: Assertion
+unit_metadataSourcesMulti = do
+  e <- J.eitherDecode <$> BL.readFile "test/multiclip.json" :: IO (Either String FileInfo)
+  assertEqual (show e) (Right [("http://var","baked_src")]) $ metadataSources <$> e
 
 unit_gpmfGuesses :: Assertion
 unit_gpmfGuesses = do
