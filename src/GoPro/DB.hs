@@ -8,54 +8,31 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module GoPro.DB (storeMedia, loadMediaIDs, loadMedia, loadMedium, loadMediaRows, loadThumbnail,
-                 MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_variants, row_raw_json,
-                 storeMoments, loadMoments, momentsTODO,
-                 metaBlobTODO, insertMetaBlob, loadMetaBlob, selectMetaBlob, clearMetaBlob,
-                 metaTODO, insertMeta, selectMeta, loadMeta,
-                 Area(..), area_id, area_name, area_nw, area_se, selectAreas,
-                 storeUpload, completedUploadPart, completedUpload, listPartialUploads, PartialUpload(..),
-                 clearUploads,
-                 listQueuedFiles,
-                 listToCopyToS3, queuedCopyToS3, markS3CopyComplete, listS3Waiting,
-                 listToCopyLocally,
+module GoPro.DB (MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_variants, row_raw_json,
+                 Area(..), area_id, area_name, area_nw, area_se,
+                 PartialUpload(..),
                  MetadataType(..),
-                 initTables, ConfigOption(..), strOption, optionStr, loadConfig, updateConfig,
-                 Persistence(..)
+                 ConfigOption(..), strOption, optionStr,
+                 Database(..),
+                 AuthResult(..)
                  ) where
 
-import           Control.Applicative              (liftA2)
 import           Control.Lens
-import           Control.Monad.IO.Class           (MonadIO (..))
-import           Control.Monad.Reader             (ReaderT (..), ask, runReaderT)
-import           Data.Aeson                       (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
-                                                   genericToEncoding)
-import qualified Data.Aeson                       as J
-import qualified Data.ByteString                  as BS
-import qualified Data.ByteString.Lazy             as BL
-import           Data.Coerce                      (coerce)
-import           Data.List                        (find, sortOn)
-import           Data.List.Extra                  (groupOn)
-import           Data.Map.Strict                  (Map)
-import qualified Data.Map.Strict                  as Map
-import           Data.Maybe                       (fromJust, listToMaybe)
-import           Data.String                      (fromString)
-import           Data.Text                        (Text)
-import qualified Data.Text.Encoding               as TE
-import           Data.Typeable                    (Typeable)
-import           Database.SQLite.Simple           hiding (bind, close)
-import           Database.SQLite.Simple.FromField
-import           Database.SQLite.Simple.Ok
-import           Database.SQLite.Simple.QQ        (sql)
-import           Database.SQLite.Simple.ToField
-import           Generics.Deriving.Base           (Generic)
+import           Control.Monad.IO.Class (MonadIO (..))
+import           Data.Aeson             (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
+                                         genericToEncoding)
+import qualified Data.Aeson             as J
+import qualified Data.ByteString        as BS
+import qualified Data.ByteString.Lazy   as BL
+import           Data.List              (find)
+import           Data.Map.Strict        (Map)
+import           Data.Text              (Text)
+import           Generics.Deriving.Base (Generic)
 
-import           GoPro.Plus.Media                 (FileInfo (..), Medium (..), MediumID, MediumType (..), Moment (..),
-                                                   ReadyToViewType (..))
-import           GoPro.Plus.Upload                (DerivativeID, Upload (..), UploadID, UploadPart (..))
-import           GoPro.Resolve                    (MDSummary (..))
-import           GoPro.Plus.Auth                (AuthInfo (..))
-import GoPro.AuthDB
+import           GoPro.Plus.Auth        (AuthInfo (..))
+import           GoPro.Plus.Media       (FileInfo (..), Medium (..), MediumID, Moment (..))
+import           GoPro.Plus.Upload      (DerivativeID, Upload (..), UploadID)
+import           GoPro.Resolve          (MDSummary (..))
 
 data ConfigOption = CfgBucket | CfgCopySQSQueue | CfgCopyFunc
   deriving (Eq, Ord, Show, Bounded, Enum)
@@ -109,41 +86,48 @@ data PartialUpload = PartialUpload
   , _pu_parts     :: [Integer]
   }
 
-class MonadIO m => Persistence m where
-  initTables :: m ()
-  loadConfig :: m (Map ConfigOption Text)
-  updateConfig :: Map ConfigOption Text -> m ()
+data AuthResult = AuthResult {
+  arInfo    :: AuthInfo,
+  arExpired :: Bool
+  }
+  deriving Show
 
-  updateAuth :: AuthInfo -> m ()
-  loadAuth :: m AuthResult
+data Database = Database {
+  initTables          :: forall m. MonadIO m => m (),
+  loadConfig          :: forall m. MonadIO m => m (Map ConfigOption Text),
+  updateConfig        :: forall m. MonadIO m => Map ConfigOption Text -> m (),
 
-  storeMedia :: [MediaRow] -> m ()
-  loadMediaIDs :: m [MediumID]
-  loadMediaRows :: m [MediaRow]
-  loadMedia :: m [Medium]
-  loadMedium :: MediumID -> m (Maybe Medium)
-  loadThumbnail :: MediumID -> m (Maybe BL.ByteString)
-  storeMoments :: MediumID -> [Moment] -> m ()
-  loadMoments :: m (Map MediumID [Moment])
-  momentsTODO :: m [MediumID]
-  metaBlobTODO :: m [(MediumID, String)]
-  insertMetaBlob :: MediumID -> MetadataType -> Maybe BS.ByteString -> m ()
-  loadMetaBlob :: MediumID -> m (Maybe (MetadataType, Maybe BS.ByteString))
-  selectMetaBlob :: m [(MediumID, Maybe BS.ByteString)]
-  clearMetaBlob :: [MediumID] -> m ()
-  metaTODO :: m [(MediumID, MetadataType, BS.ByteString)]
-  insertMeta :: MediumID -> MDSummary -> m ()
-  selectMeta :: m (Map MediumID MDSummary)
-  loadMeta :: MediumID -> m (Maybe MDSummary)
-  storeUpload :: FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> Integer -> m ()
-  completedUploadPart :: MediumID -> Integer -> Integer -> m ()
-  completedUpload :: MediumID -> Integer -> m ()
-  listPartialUploads :: m [[PartialUpload]]
-  clearUploads :: m ()
-  listQueuedFiles :: m [FilePath]
-  listToCopyToS3 :: m [MediumID]
-  queuedCopyToS3 :: [(MediumID, String)] -> m ()
-  markS3CopyComplete :: ToJSON j => [(Text, Bool, j)] -> m ()
-  listS3Waiting :: m [String]
-  listToCopyLocally :: m [MediumID]
-  selectAreas :: m [Area]
+  updateAuth          :: forall m. MonadIO m => AuthInfo -> m (),
+  loadAuth            :: forall m. MonadIO m => m AuthResult,
+
+  storeMedia          :: forall m. MonadIO m => [MediaRow] -> m (),
+  loadMediaIDs        :: forall m. MonadIO m => m [MediumID],
+  loadMediaRows       :: forall m. MonadIO m => m [MediaRow],
+  loadMedia           :: forall m. MonadIO m => m [Medium],
+  loadMedium          :: forall m. MonadIO m => MediumID -> m (Maybe Medium),
+  loadThumbnail       :: forall m. MonadIO m => MediumID -> m (Maybe BL.ByteString),
+  storeMoments        :: forall m. MonadIO m => MediumID -> [Moment] -> m (),
+  loadMoments         :: forall m. MonadIO m => m (Map MediumID [Moment]),
+  momentsTODO         :: forall m. MonadIO m => m [MediumID],
+  metaBlobTODO        :: forall m. MonadIO m => m [(MediumID, String)],
+  insertMetaBlob      :: forall m. MonadIO m => MediumID -> MetadataType -> Maybe BS.ByteString -> m (),
+  loadMetaBlob        :: forall m. MonadIO m => MediumID -> m (Maybe (MetadataType, Maybe BS.ByteString)),
+  selectMetaBlob      :: forall m. MonadIO m => m [(MediumID, Maybe BS.ByteString)],
+  clearMetaBlob       :: forall m. MonadIO m => [MediumID] -> m (),
+  metaTODO            :: forall m. MonadIO m => m [(MediumID, MetadataType, BS.ByteString)],
+  insertMeta          :: forall m. MonadIO m => MediumID -> MDSummary -> m (),
+  selectMeta          :: forall m. MonadIO m => m (Map MediumID MDSummary),
+  loadMeta            :: forall m. MonadIO m => MediumID -> m (Maybe MDSummary),
+  storeUpload         :: forall m. MonadIO m => FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> Integer -> m (),
+  completedUploadPart :: forall m. MonadIO m => MediumID -> Integer -> Integer -> m (),
+  completedUpload     :: forall m. MonadIO m => MediumID -> Integer -> m (),
+  listPartialUploads  :: forall m. MonadIO m => m [[PartialUpload]],
+  clearUploads        :: forall m. MonadIO m => m (),
+  listQueuedFiles     :: forall m. MonadIO m => m [FilePath],
+  listToCopyToS3      :: forall m. MonadIO m => m [MediumID],
+  queuedCopyToS3      :: forall m. MonadIO m => [(MediumID, String)] -> m (),
+  markS3CopyComplete  :: forall m j. (MonadIO m, ToJSON j) => [(Text, Bool, j)] -> m (),
+  listS3Waiting       :: forall m. MonadIO m => m [String],
+  listToCopyLocally   :: forall m. MonadIO m => m [MediumID],
+  selectAreas         :: forall m. MonadIO m => m [Area]
+  }

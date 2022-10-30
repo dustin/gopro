@@ -45,11 +45,12 @@ data SyncType = Full
 
 runFetch :: SyncType -> GoPro ()
 runFetch stype = do
-  seen <- Set.fromList <$> loadMediaIDs
+  db <- asks database
+  seen <- Set.fromList <$> loadMediaIDs db
   ms <- todo seen
   logInfoL [tshow (length ms), " new items"]
   unless (null ms) $ logDbgL ["new items: ", tshow (ms ^.. folded . medium_id)]
-  mapM_ storeSome $ chunksOf 100 ms
+  mapM_ (storeSome db) $ chunksOf 100 ms
 
     where resolve m = recoverAll policy $ \rt -> do
             unless (rsIterNumber rt == 0) $ logInfoL ["Retrying fetch of ", _medium_id m,
@@ -68,14 +69,15 @@ runFetch stype = do
               listPred Full        = const True
               wanted Medium{..} = isJust _medium_file_size && _medium_ready_to_view == ViewReady
 
-          storeSome l = do
+          storeSome db l = do
             logInfoL ["Storing batch of ", tshow (length l)]
             c <- asks (optDownloadConcurrency . gpOptions)
-            storeMedia =<< fetch c l
+            storeMedia db =<< fetch c l
           fetch c = mapConcurrentlyLimited c resolve
 
 runGetMoments :: GoPro ()
 runGetMoments = do
+  Database{..} <- asks database
   need <- momentsTODO
   unless (null need) $ logInfoL ["Need to fetch ", (tshow . length) need, " moments"]
   c <- asks (optDownloadConcurrency . gpOptions)
@@ -83,13 +85,13 @@ runGetMoments = do
     where pickup mid = (mid,) <$> moments mid
 
 runGrokTel :: GoPro ()
-runGrokTel = mapM_ ud =<< metaTODO
+runGrokTel = asks database >>= \db -> mapM_ (ud db) =<< metaTODO db
     where
-      ud (mid, typ, bs) = do
+      ud db (mid, typ, bs) = do
         logInfoL ["Updating ", tshow (mid, typ)]
         case summarize typ bs of
           Left x  -> logErrorL ["Error parsing stuff for ", tshow mid, " show ", tshow x]
-          Right x -> insertMeta mid x
+          Right x -> insertMeta db mid x
       summarize :: MetadataType -> BS.ByteString -> Either String MDSummary
       summarize GPMF bs      = summarizeGPMF <$> parseDEVC bs
       summarize EXIF bs      = summarizeEXIF <$> parseExif (BL.fromStrict bs)
@@ -113,14 +115,15 @@ metadataSources fi = fold [variation "mp4_low" "low",
 
 runGetMeta :: GoPro ()
 runGetMeta = do
-  needs <- metaBlobTODO
+  db <- asks database
+  needs <- metaBlobTODO db
   logInfoL ["Fetching meta ", tshow (length needs)]
   logDbgL ["Need meta: ", tshow needs]
   c <- asks (optDownloadConcurrency . gpOptions)
-  mapConcurrentlyLimited_ c process needs
+  mapConcurrentlyLimited_ c (process db) needs
     where
-      process :: (MediumID, String) -> GoPro ()
-      process mtyp@(mid,typ) = do
+      process :: Database -> (MediumID, String) -> GoPro ()
+      process db mtyp@(mid,typ) = do
         fi <- retrieve mid
         case typ of
           "Video"          -> processEx fi extractGPMD GPMF ".mp4"
@@ -141,10 +144,10 @@ runGetMeta = do
               case ms of
                 Nothing -> do
                   logInfoL ["Found no metadata for ", tshow mtyp]
-                  insertMetaBlob mid NoMetadata Nothing
+                  insertMetaBlob db mid NoMetadata Nothing
                 Just s -> do
                   logInfoL ["MetaData stream for ", tshow mtyp, " is ", tshow (BS.length s), " bytes"]
-                  insertMetaBlob mid fmt (Just s)
+                  insertMetaBlob db mid fmt (Just s)
 
               -- Always clean up (should make this optional at some point).
               mapM_ ((\f -> asum [liftIO (removeFile f), pure ()]) . fn . snd) (metadataSources fi)
@@ -216,6 +219,7 @@ refreshMedia = mapM_ refreshSome . chunksOf 100 . NE.toList
       MediaRow m tn <$> (J.encode <$> fetchVariantsSansURLs mid) <*> pure r
 
     refreshSome mids = do
+      Database{..} <- asks database
       c <- asks (optDownloadConcurrency . gpOptions)
       logInfoL ["Processing batch of ", tshow (length mids)]
       n <- mapConcurrentlyLimited c one mids

@@ -1,27 +1,24 @@
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE FlexibleInstances   #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE QuasiQuotes         #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE RecordWildCards     #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving     #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE QuasiQuotes                #-}
+{-# LANGUAGE RankNTypes                 #-}
+{-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module GoPro.DB.Sqlite where
+module GoPro.DB.Sqlite (withSQLite) where
 
 import           Control.Applicative              (liftA2)
-import           Control.Lens
 import           Control.Monad.IO.Class           (MonadIO (..))
-import           Control.Monad.Reader             (ReaderT (..), MonadReader, ask, asks, runReaderT)
-import           Data.Aeson                       (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
-                                                   genericToEncoding)
+import           Data.Aeson                       (FromJSON (..), ToJSON (..))
 import qualified Data.Aeson                       as J
 import qualified Data.ByteString                  as BS
 import qualified Data.ByteString.Lazy             as BL
 import           Data.Coerce                      (coerce)
-import           Data.List                        (find, sortOn)
+import           Data.List                        (sortOn)
 import           Data.List.Extra                  (groupOn)
 import           Data.Map.Strict                  (Map)
 import qualified Data.Map.Strict                  as Map
@@ -34,35 +31,56 @@ import           Database.SQLite.Simple           hiding (bind, close)
 import           Database.SQLite.Simple.FromField
 import           Database.SQLite.Simple.Ok
 import           Database.SQLite.Simple.QQ        (sql)
-import           Control.Monad.Logger                 (LoggingT, MonadLogger)
 import           Database.SQLite.Simple.ToField
-import           Generics.Deriving.Base           (Generic)
-import qualified Control.Monad.Catch                  as E
 
 
-import           GoPro.Plus.Media                 (FileInfo (..), Medium (..), MediumID, MediumType (..), Moment (..),
+import           GoPro.DB
+import           GoPro.Plus.Auth                  (AuthInfo (..))
+import           GoPro.Plus.Media                 (Medium (..), MediumID, MediumType (..), Moment (..),
                                                    ReadyToViewType (..))
-import           GoPro.Plus.Upload                (DerivativeID, Upload (..), UploadID, UploadPart (..))
+import           GoPro.Plus.Upload                (DerivativeID, Upload (..), UploadPart (..))
 import           GoPro.Resolve                    (MDSummary (..))
-import GoPro.DB
 
-newtype SQLiteEnv = SQLiteEnv { sdb :: Connection }
-
-withSQLiteDB :: Connection -> SQLiteP a -> IO a -- ReaderT SQLiteEnv m a -> m a
-withSQLiteDB db a = runReaderT (runSQLiteP a) (SQLiteEnv db)
-
-class Monad m => HasSQLiteDB m where
-  goproDB :: m Connection
-
-instance {-# OVERLAPPING #-} Monad m => HasSQLiteDB (ReaderT SQLiteEnv m) where goproDB = asks sdb
-
-newtype SQLiteP a = SqliteP {
-  runSQLiteP :: ReaderT SQLiteEnv IO a }
-                deriving (Applicative, Functor, Monad, MonadIO, MonadFail,
-                          E.MonadThrow, E.MonadCatch, E.MonadMask,
-                          MonadReader SQLiteEnv)
-
-instance  Persistence SQLiteP where
+withSQLite :: String -> (Database -> IO a) -> IO a
+withSQLite name a = withConnection name (a . mkDatabase)
+  where
+    mkDatabase db = Database {
+      initTables = GoPro.DB.Sqlite.initTables db,
+      loadConfig = GoPro.DB.Sqlite.loadConfig db,
+      updateConfig = \m -> GoPro.DB.Sqlite.updateConfig m db,
+      updateAuth = GoPro.DB.Sqlite.updateAuth db,
+      loadAuth = GoPro.DB.Sqlite.loadAuth db,
+      storeMedia = \r -> GoPro.DB.Sqlite.storeMedia r db,
+      loadMediaIDs = GoPro.DB.Sqlite.loadMediaIDs db,
+      loadMediaRows = GoPro.DB.Sqlite.loadMediaRows db,
+      loadMedia = GoPro.DB.Sqlite.loadMedia db,
+      loadMedium = GoPro.DB.Sqlite.loadMedium db,
+      loadThumbnail = GoPro.DB.Sqlite.loadThumbnail db,
+      storeMoments = \mid moms -> GoPro.DB.Sqlite.storeMoments mid moms db,
+      loadMoments = GoPro.DB.Sqlite.loadMoments db,
+      momentsTODO = GoPro.DB.Sqlite.momentsTODO db,
+      metaBlobTODO = GoPro.DB.Sqlite.metaBlobTODO db,
+      insertMetaBlob = \m mdt bs -> GoPro.DB.Sqlite.insertMetaBlob m mdt bs db,
+      loadMetaBlob = GoPro.DB.Sqlite.loadMetaBlob db,
+      selectMetaBlob = GoPro.DB.Sqlite.selectMetaBlob db,
+      clearMetaBlob = \ms -> GoPro.DB.Sqlite.clearMetaBlob ms db,
+      metaTODO = GoPro.DB.Sqlite.metaTODO db,
+      insertMeta = \mid mds -> GoPro.DB.Sqlite.insertMeta mid mds db,
+      selectMeta = GoPro.DB.Sqlite.selectMeta db,
+      loadMeta = GoPro.DB.Sqlite.loadMeta db,
+      storeUpload = \fp mid up did part size -> GoPro.DB.Sqlite.storeUpload fp mid up did part size db,
+      completedUploadPart = \mid i p -> GoPro.DB.Sqlite.completedUploadPart mid i p db,
+      completedUpload = \mid i -> GoPro.DB.Sqlite.completedUpload mid i db,
+      listPartialUploads = GoPro.DB.Sqlite.listPartialUploads db,
+      clearUploads = GoPro.DB.Sqlite.clearUploads db,
+      listQueuedFiles = GoPro.DB.Sqlite.listQueuedFiles db,
+      listToCopyToS3 = GoPro.DB.Sqlite.listToCopyToS3 db,
+      queuedCopyToS3 = \stuff -> GoPro.DB.Sqlite.queuedCopyToS3 stuff db,
+      markS3CopyComplete = \stuff -> GoPro.DB.Sqlite.markS3CopyComplete stuff db,
+      listS3Waiting = GoPro.DB.Sqlite.listS3Waiting db,
+      listToCopyLocally = GoPro.DB.Sqlite.listToCopyLocally db,
+      selectAreas = GoPro.DB.Sqlite.selectAreas db
+      }
 
 initQueries :: [(Int, Query)]
 initQueries = [
@@ -104,39 +122,38 @@ initQueries = [
   (15, "alter table meta add column total_distance real")
   ]
 
-initTables :: Connection -> IO ()
-initTables db = do
+initTables :: MonadIO m => Connection -> m ()
+initTables db = liftIO $ do
   [Only uv] <- query_ db "pragma user_version"
   mapM_ (execute_ db) [q | (v,q) <- initQueries, v > uv]
   -- binding doesn't work on this for some reason.  It's safe, at least.
   execute_ db $ "pragma user_version = " <> (fromString . show . maximum . fmap fst $ initQueries)
 
-
 -- A simple query.
-q_ :: (HasSQLiteDB m, MonadIO m, FromRow r) => Query -> m [r]
-q_ q = liftIO . flip query_ q =<< goproDB
+q_ :: (MonadIO m, FromRow r) => Query -> Connection -> m [r]
+q_ q = liftIO . flip query_ q
 
-q' :: (HasSQLiteDB m, MonadIO m, ToRow p, FromRow r) => Query -> p -> m [r]
-q' qq p = goproDB >>= \db -> liftIO $ query db qq p
+q' :: (MonadIO m, ToRow p, FromRow r) => Query -> p -> Connection -> m [r]
+q' qq p db = liftIO $ query db qq p
 
 -- A query that returns only a single column.
-oq_ :: (HasSQLiteDB m, MonadIO m, FromField r) => Query -> m [r]
-oq_ q = unonly <$> q_ q
+oq_ :: (MonadIO m, FromField r) => Query -> Connection -> m [r]
+oq_ q db = unonly <$> q_ q db
   where
     unonly :: [Only a] -> [a]
     unonly = coerce
 
 -- execute many
-em :: (HasSQLiteDB m, MonadIO m, ToRow r) => Query -> [r] -> m ()
-em q rs = goproDB >>= \db -> liftIO $ executeMany db q rs
+em :: (MonadIO m, ToRow r) => Query -> [r] -> Connection -> m ()
+em q rs db = liftIO $ executeMany db q rs
 
 -- execute
-ex :: (HasSQLiteDB m, MonadIO m, ToRow r) => Query -> r -> m ()
-ex q r = goproDB >>= \db -> liftIO $ execute db q r
+ex :: (MonadIO m, ToRow r) => Query -> r -> Connection -> m ()
+ex q r db = liftIO $ execute db q r
 
 -- execute_
-ex_ :: (HasSQLiteDB m, MonadIO m) => Query -> m ()
-ex_ q = goproDB >>= \db -> liftIO $ execute_ db q
+ex_ :: MonadIO m => Query -> Connection -> m ()
+ex_ q db = liftIO $ execute_ db q
 
 jsonToField :: ToJSON a => a -> SQLData
 jsonToField v = case toJSON v of
@@ -144,11 +161,11 @@ jsonToField v = case toJSON v of
                   e          -> error ("wtf is " <> show e)
 
 
-loadConfig :: Connection -> IO (Map ConfigOption Text)
-loadConfig db = Map.fromList <$> query_ db "select key, value from config"
+loadConfig :: MonadIO m => Connection -> m (Map ConfigOption Text)
+loadConfig db = Map.fromList <$> liftIO (query_ db "select key, value from config")
 
-updateConfig :: (HasSQLiteDB m, MonadIO m) => Map ConfigOption Text -> m ()
-updateConfig cfg = ex_ "delete from config" *> em "insert into config (key, value) values (?,?)" (Map.assocs cfg)
+updateConfig :: MonadIO m => Map ConfigOption Text -> Connection -> m ()
+updateConfig cfg db = ex_ "delete from config" db *> em "insert into config (key, value) values (?,?)" (Map.assocs cfg) db
 
 upsertMediaStatement :: Query
 upsertMediaStatement = [sql|insert into media (media_id, camera_model, captured_at, created_at,
@@ -208,16 +225,16 @@ instance ToRow MediaRow where
     ]
 
 
-storeMedia :: (HasSQLiteDB m, MonadIO m) => [MediaRow] -> m ()
+storeMedia :: MonadIO m => [MediaRow] -> Connection -> m ()
 storeMedia = em upsertMediaStatement
 
 instance FromRow MediaRow where
   fromRow = MediaRow <$> fromRow <*> field <*> field <*> field
 
-loadMediaRows :: (HasSQLiteDB m, MonadIO m) => m [MediaRow]
+loadMediaRows :: MonadIO m => Connection -> m [MediaRow]
 loadMediaRows = q_ "select media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view, source_duration, media_type, width, height, filename, thumbnail, variants, raw_json from media"
 
-loadMediaIDs :: (HasSQLiteDB m, MonadIO m) => m [MediumID]
+loadMediaIDs :: MonadIO m => Connection -> m [MediumID]
 loadMediaIDs = oq_ "select media_id from media order by captured_at desc"
 
 selectMediaStatement :: Query
@@ -269,20 +286,18 @@ instance FromRow Medium where
     <*> field -- _medium_height
     <*> field -- filename
 
-loadMedia :: (HasSQLiteDB m, MonadIO m) => m [Medium]
+loadMedia :: MonadIO m => Connection -> m [Medium]
 loadMedia = q_ selectMediaStatement
 
-loadMedium :: (HasSQLiteDB m, MonadIO m) => MediumID -> m (Maybe Medium)
-loadMedium mid = listToMaybe <$> q' selectMediumStatement (Only mid)
+loadMedium :: MonadIO m => Connection -> MediumID -> m (Maybe Medium)
+loadMedium db mid = listToMaybe <$> q' selectMediumStatement (Only mid) db
 
-loadThumbnail :: (HasSQLiteDB m, MonadIO m) => MediumID -> m (Maybe BL.ByteString)
-loadThumbnail imgid = liftIO . sel =<< goproDB
-  where
-    sel db = do
-      [Only t] <- query db "select thumbnail from media where media_id = ?" (Only imgid)
-      pure t
+loadThumbnail :: MonadIO m => Connection -> MediumID -> m (Maybe BL.ByteString)
+loadThumbnail db imgid = liftIO $ do
+  [Only t] <- query db "select thumbnail from media where media_id = ?" (Only imgid)
+  pure t
 
-metaBlobTODO :: (HasSQLiteDB m, MonadIO m) => m [(MediumID, String)]
+metaBlobTODO :: MonadIO m => Connection -> m [(MediumID, String)]
 metaBlobTODO = q_ [sql|select media_id, media_type
                          from media
                          where media_id not in (select media_id from metablob)
@@ -302,11 +317,11 @@ instance ToField MetadataType where
   toField EXIF       = SQLText "exif"
   toField NoMetadata = SQLText ""
 
-insertMetaBlob :: (HasSQLiteDB m, MonadIO m) => MediumID -> MetadataType -> Maybe BS.ByteString -> m ()
+insertMetaBlob :: MonadIO m => MediumID -> MetadataType -> Maybe BS.ByteString -> Connection -> m ()
 insertMetaBlob mid fmt blob = ex "insert into metablob (media_id, meta, format, meta_length) values (?, ?, ?, ?)" (
           mid, blob, fmt, maybe 0 BS.length blob)
 
-metaTODO :: (HasSQLiteDB m, MonadIO m) => m [(MediumID, MetadataType, BS.ByteString)]
+metaTODO :: MonadIO m => Connection -> m [(MediumID, MetadataType, BS.ByteString)]
 metaTODO = q_ [sql|
                     select b.media_id, b.format, b.meta
                     from metablob b join media m on (m.media_id = b.media_id)
@@ -314,17 +329,17 @@ metaTODO = q_ [sql|
                           and b.media_id not in (select media_id from meta)
                     |]
 
-selectMetaBlob :: (HasSQLiteDB m, MonadIO m) => m [(MediumID, Maybe BS.ByteString)]
+selectMetaBlob :: MonadIO m => Connection -> m [(MediumID, Maybe BS.ByteString)]
 selectMetaBlob = q_ "select media_id, meta from metablob where meta is not null"
 
-loadMetaBlob :: (HasSQLiteDB m, MonadIO m) => MediumID -> m (Maybe (MetadataType, Maybe BS.ByteString))
-loadMetaBlob mid = listToMaybe <$> q' "select format, meta from metablob where media_id = ?" (Only mid)
+loadMetaBlob :: MonadIO m => Connection -> MediumID -> m (Maybe (MetadataType, Maybe BS.ByteString))
+loadMetaBlob db mid = listToMaybe <$> q' "select format, meta from metablob where media_id = ?" (Only mid) db
 
-clearMetaBlob :: (HasSQLiteDB m, MonadIO m) => [MediumID] -> m ()
+clearMetaBlob :: MonadIO m => [MediumID] -> Connection -> m ()
 clearMetaBlob = em "update metablob set meta = null, backedup = true where media_id = ?" . fmap Only
 
-insertMeta :: (HasSQLiteDB m, MonadIO m) => MediumID -> MDSummary -> m ()
-insertMeta mid MDSummary{..} = liftIO . up =<< goproDB
+insertMeta :: MonadIO m => MediumID -> MDSummary -> Connection -> m ()
+insertMeta mid MDSummary{..} = liftIO . up
   where
     q = [sql|
           insert into meta (media_id, camera_model, captured_at, lat, lon,
@@ -351,20 +366,20 @@ insertMeta mid MDSummary{..} = liftIO . up =<< goproDB
 instance FromRow Area where
   fromRow = Area <$> field <*> field <*> liftA2 (,) field field <*> liftA2 (,) field field
 
-selectAreas :: (HasSQLiteDB m, MonadIO m) => m [Area]
+selectAreas :: MonadIO m => Connection -> m [Area]
 selectAreas = q_ "select area_id, name, lat1, lon1, lat2, lon2 from areas"
 
-storeMoments :: (HasSQLiteDB m, MonadIO m) => MediumID -> [Moment] -> m ()
-storeMoments mid ms = do
-  ex "delete from moments where media_id = ?" (Only mid)
+storeMoments :: MonadIO m => MediumID -> [Moment] -> Connection -> m ()
+storeMoments mid ms db = do
+  ex "delete from moments where media_id = ?" (Only mid) db
   let vals = [(mid, _moment_id, _moment_time) | Moment{..} <- ms]
-  em "insert into moments (media_id, moment_id, timestamp) values (?,?,?)" vals
+  em "insert into moments (media_id, moment_id, timestamp) values (?,?,?)" vals db
 
-loadMoments :: (HasSQLiteDB m, MonadIO m) => m (Map MediumID [Moment])
-loadMoments = Map.fromListWith (<>) . map (\(a,b,c) -> (a,[Moment b c]))
-              <$> q_ "select media_id, moment_id, timestamp from moments"
+loadMoments :: MonadIO m => Connection -> m (Map MediumID [Moment])
+loadMoments db = Map.fromListWith (<>) . map (\(a,b,c) -> (a,[Moment b c]))
+              <$> q_ "select media_id, moment_id, timestamp from moments" db
 
-momentsTODO :: (HasSQLiteDB m, MonadIO m) => m [MediumID]
+momentsTODO :: MonadIO m => Connection -> m [MediumID]
 momentsTODO = oq_ [sql|
                          select m.media_id from media m left outer join
                            (select media_id, count(*) as moco from moments group by media_id) as mo
@@ -372,17 +387,17 @@ momentsTODO = oq_ [sql|
                           where m.moments_count != ifnull(moco, 0) ;
                          |]
 
-storeUpload :: (HasSQLiteDB m, MonadIO m) => FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> Integer -> m ()
-storeUpload fp mid Upload{..} did partnum chunkSize = do
+storeUpload :: MonadIO m => FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> Integer -> Connection -> m ()
+storeUpload fp mid Upload{..} did partnum chunkSize db = do
   ex "insert into uploads (filename, media_id, upid, did, partnum, chunk_size) values (?,?,?,?,?,?)" (
-    fp, mid, _uploadID, did, partnum, chunkSize)
+    fp, mid, _uploadID, did, partnum, chunkSize) db
   let vals = [(mid, _uploadPart, partnum) | UploadPart{..} <- _uploadParts]
-  em "insert into upload_parts (media_id, part, partnum) values (?,?,?)" vals
+  em "insert into upload_parts (media_id, part, partnum) values (?,?,?)" vals db
 
-completedUploadPart :: (HasSQLiteDB m, MonadIO m) => MediumID -> Integer -> Integer -> m ()
+completedUploadPart :: MonadIO m => MediumID -> Integer -> Integer -> Connection -> m ()
 completedUploadPart mid i p = ex "delete from upload_parts where media_id = ? and part = ? and partnum = ?" (mid, i, p)
 
-completedUpload :: (HasSQLiteDB m, MonadIO m) => MediumID -> Integer -> m ()
+completedUpload :: MonadIO m => MediumID -> Integer -> Connection -> m ()
 completedUpload mid partnum = ex "delete from uploads where media_id = ? and partnum = ?" (mid, partnum)
 
 
@@ -397,40 +412,40 @@ instance FromRow PartialUpload where
     <*> pure []
 
 -- Return in order of least work to do.
-listPartialUploads :: (HasSQLiteDB m, MonadIO m) => m [[PartialUpload]]
-listPartialUploads = do
+listPartialUploads :: MonadIO m => Connection -> m [[PartialUpload]]
+listPartialUploads db = do
     segs <- Map.fromListWith (<>) . fmap (\(mid, p, pn) -> ((mid, pn), [p])) <$>
-            q_ "select media_id, part, partnum from upload_parts"
+            q_ "select media_id, part, partnum from upload_parts" db
     sortOn (maximum . fmap (length . _pu_parts)) .
       groupOn _pu_medium_id .
       map (\p@PartialUpload{..} -> p{_pu_parts=Map.findWithDefault [] (_pu_medium_id, _pu_partnum) segs})
-      <$> q_ "select filename, media_id, upid, did, partnum, chunk_size from uploads order by media_id"
+      <$> q_ "select filename, media_id, upid, did, partnum, chunk_size from uploads order by media_id" db
 
-listQueuedFiles :: (HasSQLiteDB m, MonadIO m) => m [FilePath]
+listQueuedFiles :: MonadIO m => Connection -> m [FilePath]
 listQueuedFiles = oq_ "select filename from uploads"
 
-listToCopyToS3 :: (HasSQLiteDB m, MonadIO m) => m [MediumID]
+listToCopyToS3 :: MonadIO m => Connection -> m [MediumID]
 listToCopyToS3 = oq_ [sql|
                          select media_id from media
                          where media_id not in (select distinct media_id from s3backup)
                          order by created_at
                          |]
 
-listS3Waiting :: (HasSQLiteDB m, MonadIO m) => m [String]
+listS3Waiting :: MonadIO m => Connection -> m [String]
 listS3Waiting = oq_ "select filename from s3backup where status is null"
 
-queuedCopyToS3 :: (HasSQLiteDB m, MonadIO m) => [(MediumID, String)] -> m ()
+queuedCopyToS3 :: MonadIO m => [(MediumID, String)] -> Connection -> m ()
 queuedCopyToS3 = em "insert into s3backup (media_id, filename) values (?,?)"
 
-markS3CopyComplete :: (HasSQLiteDB m, MonadIO m, ToJSON j) => [(Text, Bool, j)] -> m ()
+markS3CopyComplete :: (MonadIO m, ToJSON j) => [(Text, Bool, j)] -> Connection -> m ()
 markS3CopyComplete stuffs = em "update s3backup set status = ?, response = ? where filename = ?"
                             [(ok, J.encode res, fn) | (fn, ok, res) <- stuffs]
 
-listToCopyLocally :: (HasSQLiteDB m, MonadIO m) => m [MediumID]
+listToCopyLocally :: MonadIO m => Connection -> m [MediumID]
 listToCopyLocally = oq_ "select media_id from media order by created_at"
 
-clearUploads :: (HasSQLiteDB m, MonadIO m) => m ()
-clearUploads = ex_ "delete from upload_parts" *> ex_ "delete from uploads"
+clearUploads :: MonadIO m => Connection -> m ()
+clearUploads db = ex_ "delete from upload_parts" db *> ex_ "delete from uploads" db
 
 newtype NamedSummary = NamedSummary (MediumID, MDSummary)
 
@@ -451,8 +466,8 @@ instance FromRow NamedSummary where
     _totDistance <- field
     pure $ NamedSummary (mid, MDSummary{..})
 
-selectMeta :: forall m. (HasSQLiteDB m, MonadIO m) => m (Map MediumID MDSummary)
-selectMeta = Map.fromList . coerce <$> (q_ q :: m [NamedSummary])
+selectMeta :: forall m. MonadIO m => Connection -> m (Map MediumID MDSummary)
+selectMeta db = Map.fromList . coerce <$> (q_ q db :: m [NamedSummary])
   where
     q = [sql|select media_id, camera_model, captured_at, lat, lon,
                     max_speed_2d, max_speed_3d,
@@ -461,8 +476,8 @@ selectMeta = Map.fromList . coerce <$> (q_ q :: m [NamedSummary])
              from meta
              where camera_model is not null |]
 
-loadMeta :: forall m. (HasSQLiteDB m, MonadIO m) => MediumID -> m (Maybe MDSummary)
-loadMeta m = fmap unName . listToMaybe <$> (q' q (Only m) :: m [NamedSummary])
+loadMeta :: forall m. MonadIO m => Connection -> MediumID -> m (Maybe MDSummary)
+loadMeta db m = fmap unName . listToMaybe <$> (q' q (Only m) db :: m [NamedSummary])
   where
     q = [sql|select media_id, camera_model, captured_at, lat, lon,
                     max_speed_2d, max_speed_3d,
@@ -471,3 +486,35 @@ loadMeta m = fmap unName . listToMaybe <$> (q' q (Only m) :: m [NamedSummary])
              from meta
              where media_id = ? |]
     unName (NamedSummary (_,b)) = b
+
+-- Auth stuff
+
+
+createStatement :: Query
+createStatement = "create table if not exists authinfo (ts, owner_id, access_token, refresh_token, expires_in)"
+
+insertStatement :: Query
+insertStatement = "insert into authinfo(ts, owner_id, access_token, refresh_token, expires_in) values(current_timestamp, ?, ?, ?, ?)"
+
+authQuery :: Query
+authQuery = "select access_token, expires_in, refresh_token, owner_id, (datetime(ts, '-30 minutes', '+' || cast(expires_in as text) || ' seconds')) < current_timestamp as expired from authinfo"
+
+instance ToRow AuthInfo where
+  toRow AuthInfo{..} = [toField _resource_owner_id, toField _access_token, toField _refresh_token, toField _expires_in]
+
+instance FromRow AuthInfo where
+  fromRow = AuthInfo <$> field <*> field <*> field <*> field
+
+updateAuth :: MonadIO m => Connection -> AuthInfo -> m ()
+updateAuth db ai = liftIO up
+  where up = do
+          execute_ db createStatement
+          withTransaction db $ do
+            execute_ db "delete from authinfo"
+            execute db insertStatement ai
+
+loadAuth :: MonadIO m => Connection -> m AuthResult
+loadAuth db = liftIO (head <$> query_ db authQuery)
+
+instance FromRow AuthResult where
+  fromRow = AuthResult <$> fromRow <*> field

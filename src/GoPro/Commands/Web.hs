@@ -24,7 +24,6 @@ import           Data.String                    (fromString)
 import qualified Data.Text                      as T
 import qualified Data.Text.Lazy                 as LT
 import qualified Data.Vector                    as V
-import           GoPro.AuthDB
 import           GoPro.Commands
 import           GoPro.Commands.Sync            (refreshMedia, runFullSync)
 import           GoPro.DB
@@ -76,8 +75,9 @@ runServer = do
         file $ staticPath </> "index.html"
 
       get "/api/media" do
-        ms <- lift loadMedia
-        gs <- lift selectMeta
+        Database{..} <- asks database
+        ms <- loadMedia
+        gs <- selectMeta
         json $ map (\m@Medium{..} ->
                       let j = J.toJSON m in
                         case Map.lookup _medium_id gs of
@@ -101,31 +101,35 @@ runServer = do
 
       post "/api/reauth" do
         lift do
-          db <- asks dbConn
-          res <- refreshAuth . arInfo =<< loadAuth db
+          Database{..} <- asks database
+          res <- refreshAuth . arInfo =<< loadAuth
           -- Replace the DB value
-          updateAuth db res
+          updateAuth res
           -- Replace the cache value
           cache <- asks authCache
           liftIO (insert cache () res)
           logInfo "Refreshed auth"
         status noContent204
 
-      get "/thumb/:id" $ param "id" >>= lift . loadThumbnail >>= \case
-        Nothing ->
-          file $ staticPath </> "nothumb.jpg"
-        Just b -> do
-          setHeader "Content-Type" "image/jpeg"
-          setHeader "Cache-Control" "max-age=86400"
-          raw b
+      get "/thumb/:id" do
+        i <- param "id"
+        db <- asks database
+        loadThumbnail db i >>= \case
+          Nothing ->
+            file $ staticPath </> "nothumb.jpg"
+          Just b -> do
+            setHeader "Content-Type" "image/jpeg"
+            setHeader "Cache-Control" "max-age=86400"
+            raw b
 
-      get "/api/areas" (lift selectAreas >>= json)
+      get "/api/areas" $ asks database >>= \Database{..} -> (selectAreas >>= json)
 
       get "/api/retrieve/:id" do
         imgid <- param "id"
         json @J.Value =<< lift (retrieve imgid)
 
       get "/api/gpslog/:id" do
+        Database{..} <- asks database
         Just (GPMF, Just bs) <- loadMetaBlob =<< param "id"
         readings <- either fail pure $ extractReadings bs
         text $ fold [
@@ -145,6 +149,7 @@ runServer = do
 
       get "/api/gpspath/:id" do
         mid <- param "id"
+        Database{..} <- asks database
         Just (GPMF, Just bs) <- loadMetaBlob mid
         Just med <- loadMedium mid
         Just meta <- loadMeta mid

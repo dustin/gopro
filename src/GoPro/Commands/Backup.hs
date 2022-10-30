@@ -67,6 +67,7 @@ type LambdaFunc = Text
 copyMedia :: LambdaFunc -> Extractor -> MediumID -> GoPro ()
 copyMedia λ extract mid = do
   todo <- extract mid <$> retryRetrieve mid
+  Database{..} <- asks database
   mapConcurrentlyLimited_ 5 copy todo
   queuedCopyToS3 (map (\(k,_,_) -> (mid, unpack k)) todo)
 
@@ -208,6 +209,7 @@ extractOrig mid = filter desirable . extractMedia mid
 runBackup :: Extractor -> GoPro ()
 runBackup ex = do
   λ <- asks (configItem CfgCopyFunc)
+  Database{..} <- asks database
   todo <- take 5 <$> listToCopyToS3
   logDbgL ["todo: ", tshow todo]
   c <- asks (optUploadConcurrency . gpOptions)
@@ -216,13 +218,14 @@ runBackup ex = do
 runLocalBackup :: Extractor -> FilePath -> GoPro ()
 runLocalBackup ex path = do
   have <- liftIO findHave
-  todo <- filter (`Set.notMember` have) <$> listToCopyLocally
+  db <- asks database
+  todo <- filter (`Set.notMember` have) <$> listToCopyLocally db
   logDbgL ["todo: ", tshow todo]
   c <- asks (optDownloadConcurrency . gpOptions)
-  mapConcurrentlyLimited_ c one todo
+  mapConcurrentlyLimited_ c (one db) todo
 
   where
-    one mid = loadMedium mid >>= \case
+    one db mid = loadMedium db mid >>= \case
       Nothing -> logErrorL ["Cannot find record for ", mid]
       Just m  -> downloadLocally path ex m
 
@@ -233,6 +236,7 @@ runLocalBackup ex path = do
 
 runStoreMeta :: GoPro ()
 runStoreMeta = do
+  Database{..} <- asks database
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
   logDbgL ["local: ", (pack.show.fmap fst) local]
   let todo = filter ((`Set.notMember` have) . fst) local
@@ -243,26 +247,28 @@ runStoreMeta = do
 
 runClearMeta :: GoPro()
 runClearMeta = do
+  Database{..} <- asks database
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
   let backedup =  filter (`Set.member` have) (fst <$> local)
   logDbgL ["clearing ", tshow backedup]
   clearMetaBlob backedup
 
-runReceiveS3CopyQueue :: Persistence m => GoProT m ()
+runReceiveS3CopyQueue :: GoPro ()
 runReceiveS3CopyQueue = do
   qrl <- asks (configItem CfgCopySQSQueue)
-  go qrl =<< listS3Waiting
+  db <- asks database
+  go db qrl =<< listS3Waiting db
 
     where
-      go _ [] = logInfo "Not waiting for any results"
-      go qrl w = do
+      go _ _ [] = logInfo "Not waiting for any results"
+      go db qrl w = do
         logInfoL ["Waiting for ", tshow (length w), " files to finish copying"]
         msgs <- toListOf (folded . #messages . folded) <$> getmsgs qrl (length w)
 
         logInfoL ["Processing ", tshow (length msgs), " responses"]
         let results = computeResults <$> msgs
         mapM_ (\(fn, ok, _) -> logDbgL ["Finished ", fn, " with status: ", tshow ok]) results
-        markS3CopyComplete results
+        markS3CopyComplete db results
 
         let mids = msgs ^.. folded . folded . #receiptHandle . _Just
             deletes = zipWith (newDeleteMessageBatchRequestEntry . tshow) [1 :: Int ..] mids
@@ -270,7 +276,7 @@ runReceiveS3CopyQueue = do
           logDbg "Deleting processed messages from SQS."
           delMessages qrl deletes
 
-        go qrl =<< listS3Waiting
+        go db qrl =<< listS3Waiting db
 
       -- Run a few parallel message getters, allowing for parallel
       -- processing that scales up to our expected result size, with a

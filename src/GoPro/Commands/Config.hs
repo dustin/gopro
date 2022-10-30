@@ -5,7 +5,7 @@ module GoPro.Commands.Config (
   ) where
 
 import           Control.Monad.IO.Class (MonadIO (..))
-import           Control.Monad.Reader   (asks)
+import           Control.Monad.Reader   (ask, asks)
 import qualified Data.Map.Strict        as Map
 import           Data.Text              (Text)
 import qualified Data.Text.IO           as TIO
@@ -19,5 +19,5 @@ runListConfig = mapM_ (\(k,v) -> mapM_ (liftIO . TIO.putStr) [optionStr k, " = "
 runGetConfig :: ConfigOption -> GoPro ()
 runGetConfig k = asks (configItem k) >>= liftIO . TIO.putStrLn
 
-runSetConfig :: (Persistence m, MonadIO m) => ConfigOption -> Text -> GoProT m ()
-runSetConfig k v = asks gpConfig >>= updateConfig . Map.insert k v
+runSetConfig :: MonadIO m => ConfigOption -> Text -> GoProT m ()
+runSetConfig k v = ask >>= \Env{..} -> updateConfig database $ Map.insert k v gpConfig

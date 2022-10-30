@@ -24,7 +24,6 @@ import           Options.Applicative                  (Parser, ReadM, action, ar
 import           Options.Applicative.Help.Levenshtein (editDistance)
 import           System.IO                            (hFlush, hGetEcho, hSetEcho, stdin, stdout)
 
-import           GoPro.AuthDB
 import           GoPro.Commands
 import           GoPro.Commands.Backup
 import           GoPro.Commands.Config
@@ -32,6 +31,7 @@ import           GoPro.Commands.Fixup
 import           GoPro.Commands.Sync
 import           GoPro.Commands.Upload
 import           GoPro.Commands.Web
+import           GoPro.DB                             (Database (..))
 import qualified GoPro.DB                             as DB
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
@@ -105,7 +105,7 @@ some1 :: Parser a -> Parser (NonEmpty a)
 some1 p = NE.fromList <$> some p
 
 runCleanup :: GoPro ()
-runCleanup = DB.clearUploads *> (mapM_ rm =<< (filter wanted <$> notReady))
+runCleanup = asks database >>= \DB.Database{..} -> clearUploads *> (mapM_ rm =<< (filter wanted <$> notReady))
   where
     wanted Medium{..} = _medium_ready_to_view `elem` [ViewUploading, ViewFailure]
     rm Medium{..} = do
@@ -117,9 +117,9 @@ runAuth :: GoPro ()
 runAuth = do
   u <- liftIO (prompt "Enter email: " >> getLine)
   p <- getPass
-  db <- asks dbConn
+  DB.Database{..} <- asks database
   res <- authenticate u p
-  updateAuth db res
+  updateAuth res
 
   where
     prompt x = putStr x >> hFlush stdout
@@ -132,9 +132,9 @@ runAuth = do
 
 runReauth :: GoPro ()
 runReauth = do
-  db <- asks dbConn
-  res <- refreshAuth . arInfo =<< loadAuth db
-  updateAuth db res
+  DB.Database{..} <- asks database
+  res <- refreshAuth . DB.arInfo =<< loadAuth
+  updateAuth res
 
 run :: Command -> GoPro ()
 run AuthCmd               = runAuth

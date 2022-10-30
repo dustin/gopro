@@ -17,10 +17,10 @@ import           GoPro.Plus.Media
 
 runFixup :: Query -> GoPro ()
 runFixup query = do
-  db <- undefined -- asks dbConn
+  db <- asks database
   env <- ask
   logDbgL ["Query: ", tshow query]
-  liftIO $ withStatement db query (runIO env . needful)
+  liftIO $ withStatement undefined query (runIO env . needful)
 
     where
       needful :: Statement -> GoPro ()
