@@ -20,6 +20,7 @@ import           Control.Monad.IO.Class               (MonadIO (..))
 import           Data.Aeson                           (ToJSON (..))
 import qualified Data.Aeson                           as J
 import qualified Data.ByteString                      as BS
+import qualified Data.ByteString.Char8                as B8
 import qualified Data.ByteString.Lazy                 as BL
 import           Data.Coerce                          (coerce)
 import           Data.List                            (sortOn)
@@ -31,11 +32,12 @@ import           Data.String                          (fromString)
 import           Data.Text                            (Text)
 import qualified Data.Text.Encoding                   as TE
 import           Database.PostgreSQL.Simple
-import           Database.PostgreSQL.Simple.FromField
+import           Database.PostgreSQL.Simple.FromField hiding (Binary)
 import           Database.PostgreSQL.Simple.FromRow
 import           Database.PostgreSQL.Simple.SqlQQ     (sql)
 import           Database.PostgreSQL.Simple.ToField
 import           Database.PostgreSQL.Simple.ToRow
+import           Text.Read                            (readMaybe)
 
 import           GoPro.DB
 import           GoPro.Plus.Auth                      (AuthInfo (..))
@@ -87,50 +89,58 @@ withPostgres (fromString -> c) a = bracket (connectPostgreSQL c) close (a . mkDa
 
 initQueries :: [(Int, Query)]
 initQueries = [
-  (1, [sql|create table if not exists media (media_id primary key, camera_model,
-                                             captured_at, created_at, file_size,
-                                             moments_count, source_duration,
-                                             media_type, width, height,
-                                             ready_to_view, thumbnail)|]),
+  (1, [sql|create table if not exists media (media_id varchar primary key not null,
+                                             camera_model varchar,
+                                             captured_at timestamptz, created_at timestamptz,
+                                             file_size int,
+                                             moments_count int,
+                                             source_duration varchar, -- numericish?
+                                             media_type varchar, -- should be an enum
+                                             width int, height int,
+                                             ready_to_view varchar, -- should be enum
+                                             thumbnail bytea,
+                                             variants varchar, -- json,
+                                             raw_json varchar, -- json,
+                                             filename varchar
+                                             )|]),
   (1, [sql|create table if not exists
-           meta (media_id primary key, camera_model, captured_at,
-                 lat, lon, max_speed_2d, max_speed_3d, max_faces, main_scene, main_scene_prob)|]),
-  (1, "create table if not exists metablob (media_id primary key, meta blob, format text, backedup boolean)"),
-  (1, [sql|create table if not exists areas (area_id integer primary key autoincrement,
+           meta (media_id varchar primary key not null,
+                 camera_model varchar,
+                 captured_at timestamptz,
+                 lat real, lon real,
+                 max_speed_2d real, max_speed_3d real, max_faces int,
+                 main_scene varchar,
+                 main_scene_prob real,
+                 max_distance real,
+                 total_distance real)|]),
+  (1, [sql|create table if not exists
+           metablob (media_id varchar primary key, meta bytea, meta_length int, format varchar, backedup boolean)
+           |]),
+  (1, [sql|create table if not exists areas (area_id serial primary key,
                                              name text,
                                              lat1 real, lon1 real,
                                              lat2 real, lon2 real)|]),
-  (1, "create table if not exists moments (media_id, moment_id integer, timestamp integer)"),
+  (1, "create table if not exists moments (media_id varchar, moment_id integer, timestamp integer)"),
   (1, "create index if not exists moments_by_medium on moments(media_id)"),
-  (2, "create table if not exists config (key, value)"),
-  (2, "insert into config values ('bucket', '')"),
-  (3, "create table if not exists notifications (id integer primary key autoincrement, type text, title text, message text)"),
-  (4, "drop table if exists notifications"),
-  (5, "alter table media add column variants blob"),
-  (6, "create table if not exists uploads (filename, media_id, upid, did, partnum)"),
-  (6, "create table if not exists upload_parts (media_id, part)"),
-  (7, "alter table upload_parts add column partnum"),
-  (8, "create table if not exists s3backup (media_id, filename, status, response)"),
-  (9, "insert into config values ('s3copyfunc', 'download-to-s3')"),
-  (9, "insert into config values ('s3copySQSQueue', '')"),
-  (10, "create unique index if not exists s3backup_by_file on s3backup(filename)"),
-  (11, "alter table metablob add column meta_length int"),
-  (11, "update metablob set meta_length = length(meta)"),
-  (12, "alter table uploads add column chunk_size int"),
-  (12, "update uploads set chunk_size = 6291456"),
-  (13, "alter table media add column raw_json blob"),
-  (14, "alter table media add column filename text"),
-  (14, "update media set filename = json_extract(raw_json, \"$.filename\")"),
-  (15, "alter table meta add column max_distance real"),
-  (15, "alter table meta add column total_distance real")
+  (1, "create table if not exists config (key varchar, value varchar)"),
+  (1, "insert into config values ('bucket', '')"),
+  (1, "insert into config values ('s3copyfunc', 'download-to-s3')"),
+  (1, "insert into config values ('s3copySQSQueue', '')"),
+  (1, "create table if not exists uploads (filename varchar, media_id varchar, upid varchar, did varchar, partnum int, chunk_size int)"),
+  (1, "create table if not exists upload_parts (media_id varchar, part int, partnum int)"),
+  (1, "create table if not exists s3backup (media_id varchar, filename varchar, status varchar, response varchar)"),
+  (1, "create unique index if not exists s3backup_by_file on s3backup(filename)"),
+  (1, "create table if not exists authinfo (ts timestamptz, owner_id varchar, access_token varchar, refresh_token varchar, expires_in int)")
   ]
 
 initTables :: MonadIO m => Connection -> m ()
 initTables db = liftIO $ do
-  [Only uv] <- query_ db "pragma user_version"
+  [Only uv] <- query_ db "select coalesce(current_setting('gopro.version', true)::int, 0) as version"
+  [Only dbname] <- query_ db "select current_database()"
   mapM_ (execute_ db) [q | (v,q) <- initQueries, v > uv]
   -- binding doesn't work on this for some reason.  It's safe, at least.
-  void . execute_ db $ "pragma user_version = " <> (fromString . show . maximum . fmap fst $ initQueries)
+  void . execute_ db $ "set gopro.version to " <> (fromString . show . maximum . fmap fst $ initQueries)
+  void . execute_ db $ "alter database " <> fromString dbname <> " set gopro.version from current"
 
 -- A simple query.
 q_ :: (MonadIO m, FromRow r) => Query -> Connection -> m [r]
@@ -183,16 +193,16 @@ instance FromField ConfigOption where
 instance ToField ConfigOption where toField = toField . optionStr
 
 instance ToField ReadyToViewType where
-  toField = toJSONField
-
-instance ToField MediumType where
-  toField = toJSONField
+  toField = toField . show
 
 instance FromField ReadyToViewType where
-  fromField = fromJSONField
+  fromField f = maybe (returnError ConversionFailed f "invalid value") pure . readMaybe . fromMaybe "" . fmap B8.unpack
+
+instance ToField MediumType where
+  toField = toField . show
 
 instance FromField MediumType where
-  fromField = fromJSONField
+  fromField f = maybe (returnError ConversionFailed f "invalid value") pure . readMaybe . fromMaybe "" . fmap B8.unpack
 
 instance ToRow MediaRow where
   toRow (MediaRow Medium{..} thumbnail vars raw) = [
@@ -208,11 +218,10 @@ instance ToRow MediaRow where
     toField _medium_height,
     toField _medium_ready_to_view,
     toField _medium_filename,
-    toField thumbnail,
+    toField (Binary <$> thumbnail),
     toField vars,
     toField raw
     ]
-
 
 storeMedia :: MonadIO m => [MediaRow] -> Connection -> m ()
 storeMedia = em upsertMediaStatement
@@ -310,7 +319,7 @@ instance ToField MetadataType where
 
 insertMetaBlob :: MonadIO m => MediumID -> MetadataType -> Maybe BS.ByteString -> Connection -> m ()
 insertMetaBlob mid fmt blob = ex "insert into metablob (media_id, meta, format, meta_length) values (?, ?, ?, ?)" (
-          mid, blob, fmt, maybe 0 BS.length blob)
+          mid, Binary <$> blob, fmt, maybe 0 BS.length blob)
 
 metaTODO :: MonadIO m => Connection -> m [(MediumID, MetadataType, BS.ByteString)]
 metaTODO = q_ [sql|
@@ -327,7 +336,7 @@ loadMetaBlob :: MonadIO m => Connection -> MediumID -> m (Maybe (MetadataType, M
 loadMetaBlob db mid = listToMaybe <$> q' "select format, meta from metablob where media_id = ?" (Only mid) db
 
 clearMetaBlob :: MonadIO m => [MediumID] -> Connection -> m ()
-clearMetaBlob = em "update metablob set meta = null, backedup = true where media_id = ?" . fmap Only
+clearMetaBlob ms = em "update metablob set meta = null, backedup = true where media_id = ?" (Only <$> ms)
 
 insertMeta :: MonadIO m => MediumID -> MDSummary -> Connection -> m ()
 insertMeta mid MDSummary{..} = liftIO . up
@@ -472,15 +481,11 @@ loadMeta db m = fmap unName . listToMaybe <$> (q' q (Only m) db :: m [NamedSumma
 
 -- Auth stuff
 
-
-createStatement :: Query
-createStatement = "create table if not exists authinfo (ts, owner_id, access_token, refresh_token, expires_in)"
-
 insertStatement :: Query
 insertStatement = "insert into authinfo(ts, owner_id, access_token, refresh_token, expires_in) values(current_timestamp, ?, ?, ?, ?)"
 
 authQuery :: Query
-authQuery = "select access_token, expires_in, refresh_token, owner_id, (datetime(ts, '-30 minutes', '+' || cast(expires_in as text) || ' seconds')) < current_timestamp as expired from authinfo"
+authQuery = "select access_token, expires_in, refresh_token, owner_id, ts - '30 minutes'::interval < current_timestamp as expired from authinfo"
 
 instance ToRow AuthInfo where
   toRow AuthInfo{..} = [toField _resource_owner_id, toField _access_token, toField _refresh_token, toField _expires_in]
@@ -490,11 +495,9 @@ instance FromRow AuthInfo where
 
 updateAuth :: MonadIO m => Connection -> AuthInfo -> m ()
 updateAuth db ai = liftIO up
-  where up = do
-          void $ execute_ db createStatement
-          withTransaction db $ do
-            void $ execute_ db "delete from authinfo"
-            void $ execute db insertStatement ai
+  where up = withTransaction db $ do
+               void $ execute_ db "delete from authinfo"
+               void $ execute db insertStatement ai
 
 loadAuth :: MonadIO m => Connection -> m AuthResult
 loadAuth db = liftIO (head <$> query_ db authQuery)
