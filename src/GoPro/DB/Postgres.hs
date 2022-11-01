@@ -23,6 +23,7 @@ import qualified Data.ByteString                      as BS
 import qualified Data.ByteString.Char8                as B8
 import qualified Data.ByteString.Lazy                 as BL
 import           Data.Coerce                          (coerce)
+import           Data.Foldable                        (traverse_)
 import           Data.List                            (sortOn)
 import           Data.List.Extra                      (groupOn)
 import           Data.Map.Strict                      (Map)
@@ -336,7 +337,7 @@ loadMetaBlob :: MonadIO m => Connection -> MediumID -> m (Maybe (MetadataType, M
 loadMetaBlob db mid = listToMaybe <$> q' "select format, meta from metablob where media_id = ?" (Only mid) db
 
 clearMetaBlob :: MonadIO m => [MediumID] -> Connection -> m ()
-clearMetaBlob ms = em "update metablob set meta = null, backedup = true where media_id = ?" (Only <$> ms)
+clearMetaBlob ms db = traverse_ (\i -> ex "update metablob set meta = null, backedup = true where media_id = ?" (Only i) db) ms
 
 insertMeta :: MonadIO m => MediumID -> MDSummary -> Connection -> m ()
 insertMeta mid MDSummary{..} = liftIO . up
