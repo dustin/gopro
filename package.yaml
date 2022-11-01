@@ -33,7 +33,10 @@ dependencies:
 - generic-lens
 - time
 - sqlite-simple
-- postgresql-simple
+- hasql
+- hasql-th
+- hasql-transaction
+- foldl
 - tmp-postgres
 - mtl
 - transformers

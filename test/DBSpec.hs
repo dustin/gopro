@@ -128,7 +128,7 @@ instance Arbitrary MDSummary where
               <*> gmd
               <*> gmd
               <*> gmd
-              <*> arbitrary
+              <*> (getNonNegative <$> arbitrary)
               <*> gloc
     where
       rnd :: (RealFrac a1, Fractional a2) => a1 -> a2

@@ -61,7 +61,7 @@ makeLenses ''MediaRow
 row_fileInfo :: Lens' MediaRow (Maybe FileInfo)
 row_fileInfo = lens (\(MediaRow _ _ v _) -> J.decode v) (\(MediaRow m t _ r) x -> MediaRow m t (J.encode x) r)
 
-data MetadataType = GPMF | EXIF | NoMetadata deriving (Show, Enum, Bounded, Eq)
+data MetadataType = GPMF | EXIF | NoMetadata deriving (Show, Read, Enum, Bounded, Eq)
 
 data Area = Area
     { _area_id   :: Int
