@@ -188,13 +188,17 @@ runWait :: GoPro ()
 runWait = whileM_ inProgress (sleep 15)
   where
     inProgress = do
-      ms <- notReady
+      ms <- recoverAll policy $ \r -> do
+        unless (rsIterNumber r == 0) $ logInfoL ["Retrying notReady call attempt ", tshow (rsIterNumber r)]
+        notReady
       let breakdown = Map.fromListWith (<>) [(i ^. medium_ready_to_view . to show,
                                               [(i ^. medium_id, i ^. medium_filename . _Just)]) | i <- ms]
       traverse_ (liftIO . display) (Map.assocs breakdown)
       pure $ (not.null) (filter (not . when ViewFailure) ms)
 
-    when x Medium{_medium_ready_to_view} = x == _medium_ready_to_view
+    policy = exponentialBackoff 2000000 <> limitRetries 9
+
+    when x Medium{_medium_ready_to_view} = x /= _medium_ready_to_view
     sleep = liftIO . threadDelay . seconds
     seconds = (* 1000000)
 
