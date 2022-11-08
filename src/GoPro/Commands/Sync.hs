@@ -198,7 +198,7 @@ runWait = whileM_ inProgress (sleep 15)
 
     policy = exponentialBackoff 2000000 <> limitRetries 9
 
-    when x Medium{_medium_ready_to_view} = x /= _medium_ready_to_view
+    when x Medium{_medium_ready_to_view} = x == _medium_ready_to_view
     sleep = liftIO . threadDelay . seconds
     seconds = (* 1000000)
 
