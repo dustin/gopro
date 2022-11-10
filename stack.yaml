@@ -46,8 +46,7 @@ packages:
 extra-deps:
 # - qsem-0.1.0.0@sha256:c9aa930c3f90936f88addace65d4d114d0730a1e72a7307d9146a355e0564673,720
 - gpmf-0.1.1.1
-# - gopro-plus-0.6.5.2
-- ../gopro-plus
+- gopro-plus-0.6.5.2
 - qsem-0.1.0.0@sha256:c9aa930c3f90936f88addace65d4d114d0730a1e72a7307d9146a355e0564673,720
 - github: brendanhay/amazonka
   commit: e64638ae16dc6d549d6e7c21262245e29761ede7
