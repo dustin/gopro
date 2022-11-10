@@ -22,7 +22,6 @@ import           Data.List.NonEmpty      (NonEmpty (..))
 import           Data.Map.Strict         (Map)
 import qualified Data.Map.Strict         as Map
 import qualified Data.Text               as T
-import qualified Database.SQLite.Simple  as SQLite
 import           System.Clock            (TimeSpec (..))
 import           UnliftIO                (MonadUnliftIO (..), bracket_, mapConcurrently, mapConcurrently_)
 
@@ -47,7 +46,7 @@ data Command = AuthCmd
              | CreateMultiCmd MediumType (NonEmpty FilePath)
              | FetchAllCmd
              | CleanupCmd
-             | FixupCmd SQLite.Query
+             | FixupCmd T.Text
              | ServeCmd
              | WaitCmd
              | ReprocessCmd (NonEmpty MediumID)

@@ -97,7 +97,8 @@ withPostgres (fromString -> c) a = withConn c (a . mkDatabase)
       markS3CopyComplete = \stuff -> GoPro.DB.Postgres.markS3CopyComplete stuff db,
       listS3Waiting = GoPro.DB.Postgres.listS3Waiting db,
       listToCopyLocally = GoPro.DB.Postgres.listToCopyLocally db,
-      selectAreas = GoPro.DB.Postgres.selectAreas db
+      selectAreas = GoPro.DB.Postgres.selectAreas db,
+      fixupQuery = GoPro.DB.Postgres.fixupQuery db
       }
 
 initQueries :: [(Int64, ByteString)]
@@ -562,3 +563,7 @@ loadAuth = mightFail . Session.run (Session.statement () st)
                      <*> (fromIntegral <$> column (nonNullable Decoders.int8))
                      <*> column (nonNullable Decoders.text)
                      <*> column (nonNullable Decoders.text)
+
+-- TODO:  This would be nice.
+fixupQuery :: MonadIO m => Connection -> Text -> m [[(Text, J.Value)]]
+fixupQuery _ _ = liftIO $ fail "fixup query isn't currently supported for postgres"

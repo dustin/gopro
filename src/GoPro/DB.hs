@@ -129,5 +129,7 @@ data Database = Database {
   markS3CopyComplete  :: forall m j. (MonadIO m, ToJSON j) => [(Text, Bool, j)] -> m (),
   listS3Waiting       :: forall m. MonadIO m => m [String],
   listToCopyLocally   :: forall m. MonadIO m => m [MediumID],
-  selectAreas         :: forall m. MonadIO m => m [Area]
+  selectAreas         :: forall m. MonadIO m => m [Area],
+
+  fixupQuery          :: forall m. MonadIO m => Text -> m [[(Text, J.Value)]]
   }

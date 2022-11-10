@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE RankNTypes                 #-}
@@ -23,6 +24,7 @@ import           Data.List.Extra                  (groupOn)
 import           Data.Map.Strict                  (Map)
 import qualified Data.Map.Strict                  as Map
 import           Data.Maybe                       (fromJust, listToMaybe)
+import           Data.Scientific                  (fromFloatDigits)
 import           Data.String                      (fromString)
 import           Data.Text                        (Text)
 import qualified Data.Text.Encoding               as TE
@@ -79,7 +81,8 @@ withSQLite name a = withConnection name (a . mkDatabase)
       markS3CopyComplete = \stuff -> GoPro.DB.Sqlite.markS3CopyComplete stuff db,
       listS3Waiting = GoPro.DB.Sqlite.listS3Waiting db,
       listToCopyLocally = GoPro.DB.Sqlite.listToCopyLocally db,
-      selectAreas = GoPro.DB.Sqlite.selectAreas db
+      selectAreas = GoPro.DB.Sqlite.selectAreas db,
+      fixupQuery = GoPro.DB.Sqlite.fixupQuery db
       }
 
 initQueries :: [(Int, Query)]
@@ -518,3 +521,20 @@ loadAuth db = liftIO (head <$> query_ db authQuery)
 
 instance FromRow AuthResult where
   fromRow = AuthResult <$> fromRow <*> field
+
+fixupQuery :: MonadIO m => Connection -> Text -> m [[(Text, J.Value)]]
+fixupQuery db q = liftIO $ withStatement db (Query q) go
+  where
+    go st = do
+      cnum <- columnCount st
+      cols <- traverse (columnName st) [0 .. pred cnum]
+      process cols []
+
+        where
+          process cols rv = maybe (pure (reverse rv)) (\rs -> process cols (zip cols (resolve <$> rs) : rv)) =<< nextRow st
+
+          resolve (SQLInteger i) = J.Number (fromIntegral i)
+          resolve (SQLFloat i)   = J.Number (fromFloatDigits i)
+          resolve (SQLText i)    = J.String i
+          resolve (SQLNull)      = J.Null
+          resolve (SQLBlob _)    = error "can't do blobs"
