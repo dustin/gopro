@@ -49,13 +49,20 @@ prop_authStorage (NonEmpty ais) = ioProperty . runDB $ \db -> do
   AuthResult loaded _ <- loadAuth db
   pure (loaded === (last ais))
 
-runDB :: (Database -> IO a) -> IO a
--- runDB a = withSQLite ":memory:" $ \db -> do
-runDB a = do
+runPostgresDB :: (Database -> IO a) -> IO a
+runPostgresDB a = do
   x <- with $ \dbh -> withPostgres (BS8.unpack $ toConnectionString dbh) $ \db -> do
     initTables db
     a db
   either (fail . show) pure x
+
+runSQLiteDB :: (Database -> IO a) -> IO a
+runSQLiteDB a = withSQLite ":memory:" $ \db -> do
+  initTables db
+  a db
+
+runDB :: (Database -> IO a) -> IO a
+runDB = runSQLiteDB
 
 unit_configOption :: Assertion
 unit_configOption = do
