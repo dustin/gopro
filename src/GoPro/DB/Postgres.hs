@@ -557,7 +557,7 @@ updateAuth db AuthInfo{..} = mightFail . Session.run (transaction TX.Serializabl
 loadAuth :: MonadIO m => Connection -> m AuthResult
 loadAuth = mightFail . Session.run (Session.statement () st)
   where
-    st = Statement "select access_token, expires_in, refresh_token, owner_id, ts - '30 minutes'::interval < current_timestamp as expired from authinfo" noParams (singleRow dec) True
+    st = Statement "select access_token, expires_in, refresh_token, owner_id, ts - '30 minutes'::interval + ('1 second'::interval * expires_in) < current_timestamp as expired from authinfo" noParams (singleRow dec) True
     dec = AuthResult <$> decai <*> column (nonNullable Decoders.bool)
     decai = AuthInfo <$> column (nonNullable Decoders.text)
                      <*> (fromIntegral <$> column (nonNullable Decoders.int8))
