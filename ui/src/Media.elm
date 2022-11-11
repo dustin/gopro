@@ -10,22 +10,55 @@ import Json.Decode as Decode exposing (Decoder, int, string, nullable, float)
 import Json.Decode.Pipeline exposing (required, optional)
 import Geo exposing (..)
 
-type MediaType = Burst | Photo | TimeLapse | TimeLapseVideo | Video | Unknown
+type MediaType = Photo
+    | Video
+    | TimeLapse
+    | TimeLapseVideo
+    | Burst
+    | Chaptered
+    | Livestream
+    | Looped
+    | LoopedVideo
+    | BurstVideo
+    | Continuous
+    | ExternalVideo
+    | Session
+    | MultiClipEdit
+    | Unknown
+
 
 mediaTypeStr t = case t of
-                     Burst -> "Burst"
                      Photo -> "Photo"
+                     Video -> "Video"
                      TimeLapse -> "TimeLapse"
                      TimeLapseVideo -> "TimeLapseVideo"
-                     Video -> "Video"
+                     Burst -> "Burst"
+                     Chaptered -> "Chaptered"
+                     Livestream -> "Livestream"
+                     Looped -> "Looped"
+                     LoopedVideo -> "LoopedVideo"
+                     BurstVideo -> "BurstVideo"
+                     Continuous -> "Continuous"
+                     ExternalVideo -> "ExternalVideo"
+                     Session -> "Session"
+                     MultiClipEdit -> "MultiClipEdit"
                      Unknown -> "Unknown"
 
 strMediaType s = case s of
-                     "Burst" -> Burst
                      "Photo" -> Photo
+                     "Video" -> Video
                      "TimeLapse" -> TimeLapse
                      "TimeLapseVideo" -> TimeLapseVideo
-                     "Video" -> Video
+                     "Burst" -> Burst
+                     "Chaptered" -> Chaptered
+                     "Livestream" -> Livestream
+                     "Looped" -> Looped
+                     "LoopedVideo" -> LoopedVideo
+                     "BurstVideo" -> BurstVideo
+                     "Continuous" -> Continuous
+                     "ExternalVideo" -> ExternalVideo
+                     "Session" -> Session
+                     "MultiClipEdit" -> MultiClipEdit
                      _ -> Unknown
 
 
@@ -125,8 +158,8 @@ mediaDecoder =
         |> required "source_duration" stringInt
         |> required "type" (Decode.map strMediaType string)
         |> required "token" string
-        |> required "width" int
-        |> required "height" int
+        |> optional "width" int 1920
+        |> optional "height" int 1080
         |> optional "meta_data" (nullable metaDataDecoder) Nothing
 
 mediaListDecoder : Decoder (List Medium)
