@@ -134,7 +134,7 @@ initQueries = [
                                            name text,
                                            lat1 float8, lon1 float8,
                                            lat2 float8, lon2 float8)|]),
-  (1, "create table if not exists moments (media_id varchar, moment_id int, timestamp int)"),
+  (1, "create table if not exists moments (media_id varchar, moment_id varchar, timestamp int)"),
   (1, "create index if not exists moments_by_medium on moments(media_id)"),
   (1, "create table if not exists config (key varchar, value varchar)"),
   (1, "insert into config values ('bucket', '')"),
