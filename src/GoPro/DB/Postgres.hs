@@ -106,7 +106,7 @@ initQueries = [
   (1, [r|create table if not exists media (media_id varchar primary key not null,
                                            camera_model varchar,
                                            captured_at timestamptz, created_at timestamptz,
-                                           file_size int,
+                                           file_size int8,
                                            moments_count int,
                                            source_duration varchar, -- numericish?
                                            media_type varchar, -- should be an enum
@@ -134,7 +134,7 @@ initQueries = [
                                            name text,
                                            lat1 float8, lon1 float8,
                                            lat2 float8, lon2 float8)|]),
-  (1, "create table if not exists moments (media_id varchar, moment_id integer, timestamp integer)"),
+  (1, "create table if not exists moments (media_id varchar, moment_id int, timestamp int)"),
   (1, "create index if not exists moments_by_medium on moments(media_id)"),
   (1, "create table if not exists config (key varchar, value varchar)"),
   (1, "insert into config values ('bucket', '')"),
