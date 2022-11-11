@@ -18,6 +18,7 @@ import           Control.Monad.Logger    (Loc (..), LogLevel (..), LogSource, Lo
 import           Control.Monad.Reader    (MonadReader, ReaderT (..), asks)
 import           Data.Cache              (Cache (..), fetchWithCache, newCache)
 import           Data.Foldable           (fold)
+import           Data.List               (isPrefixOf)
 import           Data.List.NonEmpty      (NonEmpty (..))
 import           Data.Map.Strict         (Map)
 import qualified Data.Map.Strict         as Map
@@ -26,6 +27,7 @@ import           System.Clock            (TimeSpec (..))
 import           UnliftIO                (MonadUnliftIO (..), bracket_, mapConcurrently, mapConcurrently_)
 
 import           GoPro.DB                (AuthResult (..), ConfigOption (..), Database (..))
+import           GoPro.DB.Postgres       (withPostgres)
 import           GoPro.DB.Sqlite         (withSQLite)
 import           GoPro.Logging
 import           GoPro.Notification
@@ -157,8 +159,13 @@ runIO e m = runReaderT (runGoPro m) e
 sendNotification :: Notification -> GoPro ()
 sendNotification note = asks noteChan >>= \ch -> liftIO . atomically . writeTChan ch $ note
 
+withDB :: String -> (Database -> IO a) -> IO a
+withDB s
+  | "postgres:" `isPrefixOf` s = withPostgres s
+  | otherwise = withSQLite s
+
 runWithOptions :: Options -> GoPro a -> IO a
-runWithOptions o@Options{..} a = withSQLite optDBPath $ \d -> do
+runWithOptions o@Options{..} a = withDB optDBPath $ \d -> do
   initTables d
   cfg <- loadConfig d
   cache <- liftIO $ newCache (Just (TimeSpec 60 0))

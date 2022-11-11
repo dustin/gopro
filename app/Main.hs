@@ -41,7 +41,7 @@ atLeast n = auto >>= \i -> if i >= n then pure i else readerError ("must be at l
 
 options :: Parser Options
 options = Options
-  <$> strOption (long "dbpath" <> showDefault <> value "gopro.db" <> help "db path")
+  <$> strOption (long "db" <> showDefault <> value "gopro.db" <> help "db path")
   <*> strOption (long "static" <> showDefault <> value "static" <> help "static asset path")
   <*> switch (short 'v' <> long "verbose" <> help "enable debug logging")
   <*> option auto (short 'u' <> long "upload-concurrency" <> showDefault <> value 3 <> help "Upload concurrency")
