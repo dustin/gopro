@@ -56,6 +56,7 @@ options = Options
                   <> command "createupload" (info createUpCmd (progDesc "Create an upload"))
                   <> command "upload" (info uploadCmd
                                        (progDesc "Optionally create an upload, then run all uploads"))
+                  <> command "download" (info downloadCmd (progDesc "Download media to local path"))
                   <> command "createmulti" (info createMultiCmd (progDesc "Create a multipart upload"))
                   <> command "fetchall" (info (pure FetchAllCmd) (progDesc "Fully sync all metadata"))
                   <> command "cleanup" (info (pure CleanupCmd) (progDesc "Clean up any outstanding ops"))
@@ -85,6 +86,9 @@ options = Options
 
     backupLocalCmd = BackupLocalCmd extractOrig <$> argument str (metavar "path" <> action "directory")
     backupLocalAllCmd = BackupLocalCmd extractMedia <$> argument str (metavar "path" <> action "directory")
+    downloadCmd = DownloadCmd extractMedia
+                    <$> argument str (metavar "path" <> action "directory")
+                    <*> some1 (argument str (metavar "mIDs..."))
 
     configCmd = hsubparser (foldMap optCmd [minBound ..]) <|> pure ConfigListCmd
 
@@ -153,6 +157,7 @@ run (ReprocessCmd ms)     = runReprocessCmd ms
 run (BackupCmd x)         = runBackup x >> runReceiveS3CopyQueue
 run ProcessSQSCmd         = runReceiveS3CopyQueue
 run (BackupLocalCmd x p)  = runLocalBackup x p
+run (DownloadCmd x p l)   = runDownload x p l
 run ConfigListCmd         = runListConfig
 run (ConfigGetCmd k)      = runGetConfig k
 run (ConfigSetCmd k v)    = runSetConfig k v

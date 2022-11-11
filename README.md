@@ -125,6 +125,11 @@ are not done.
 
 See also: `createupload`, `createmulti`
 
+### download
+
+The `download` command copies media from GoPro cloud to a local
+directory.
+
 ### serve
 
 The `serve` command runs a web server and lets you browse and search

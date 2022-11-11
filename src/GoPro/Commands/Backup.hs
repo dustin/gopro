@@ -7,7 +7,7 @@
 {-# LANGUAGE ViewPatterns      #-}
 
 module GoPro.Commands.Backup (runBackup, runStoreMeta, runReceiveS3CopyQueue,
-                              runLocalBackup, runClearMeta, extractMedia, extractOrig) where
+                              runLocalBackup, runDownload, runClearMeta, extractMedia, extractOrig) where
 
 
 import           Amazonka                        (send)
@@ -32,6 +32,7 @@ import           Data.Functor                    (($>))
 import           Data.Generics.Labels            ()
 import           Data.List                       (nubBy, sort)
 import           Data.List.Extra                 (chunksOf)
+import           Data.List.NonEmpty              (NonEmpty)
 import qualified Data.List.NonEmpty              as NE
 import qualified Data.Map.Strict                 as Map
 import           Data.Maybe                      (fromJust, fromMaybe, mapMaybe, maybeToList)
@@ -217,9 +218,16 @@ runBackup ex = do
 
 runLocalBackup :: Extractor -> FilePath -> GoPro ()
 runLocalBackup ex path = do
+  db <- asks database
+  NE.nonEmpty <$> listToCopyLocally db >>= \case
+    Nothing -> pure ()
+    Just ne -> runDownload ex path ne
+
+runDownload :: Extractor -> FilePath -> NonEmpty MediumID -> GoPro ()
+runDownload ex path mids = do
   have <- liftIO findHave
   db <- asks database
-  todo <- filter (`Set.notMember` have) <$> listToCopyLocally db
+  let todo = filter (`Set.notMember` have) (NE.toList mids)
   logDbgL ["todo: ", tshow todo]
   c <- asks (optDownloadConcurrency . gpOptions)
   mapConcurrentlyLimited_ c (one db) todo

@@ -55,6 +55,7 @@ data Command = AuthCmd
              | BackupCmd Extractor
              | ProcessSQSCmd
              | BackupLocalCmd Extractor FilePath
+             | DownloadCmd Extractor FilePath (NonEmpty MediumID)
              | ConfigListCmd
              | ConfigGetCmd ConfigOption
              | ConfigSetCmd ConfigOption T.Text
