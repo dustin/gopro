@@ -410,7 +410,7 @@ momentsTODO = queryStrings sql
             select m.media_id from media m left outer join
                    (select media_id, count(*) as moco from moments group by media_id) as mo
                            on (m. media_id = mo.media_id)
-                        where m.moments_count != ifnull(moco, 0)
+                        where m.moments_count != 0
             |]
 
 storeUpload :: MonadIO m => FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> Integer -> Connection -> m ()
