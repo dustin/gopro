@@ -6,7 +6,7 @@
 {-# LANGUAGE TypeApplications  #-}
 {-# LANGUAGE ViewPatterns      #-}
 
-module GoPro.Commands.Backup (runBackup, runStoreMeta, runReceiveS3CopyQueue,
+module GoPro.Commands.Backup (runBackup, runStoreMeta, runStoreMeta', runReceiveS3CopyQueue,
                               runLocalBackup, runDownload, runClearMeta, extractMedia, extractOrig) where
 
 
@@ -26,6 +26,7 @@ import           Control.Monad.Trans.Writer.Lazy (execWriterT, tell)
 import           Control.Retry                   (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
 import qualified Data.Aeson                      as J
 import           Data.Aeson.Lens
+import           Data.ByteString                 (ByteString)
 import qualified Data.ByteString.Lazy            as BL
 import           Data.Foldable                   (asum, fold, for_, traverse_)
 import           Data.Functor                    (($>))
@@ -245,7 +246,20 @@ runDownload ex path mids = do
 runStoreMeta :: GoPro ()
 runStoreMeta = do
   Database{..} <- asks database
+  logDbg "Finding metadata blobs stored in S3 and local database"
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
+  logDbgL ["local: ", (pack.show.fmap fst) local]
+  let todo = filter ((`Set.notMember` have) . fst) local
+  unless (null todo) $ logInfoL ["storemeta todo: ", (pack.show.fmap fst) todo]
+
+  c <- asks (optUploadConcurrency . gpOptions)
+  mapConcurrentlyLimited_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
+
+runStoreMeta' :: [(MediumID, Maybe ByteString)] -> GoPro ()
+runStoreMeta' [] = pure ()
+runStoreMeta' local = do
+  logDbg "Finding metadata blobs stored in S3 and local database"
+  have <- Set.fromList <$> listMetaBlobs
   logDbgL ["local: ", (pack.show.fmap fst) local]
   let todo = filter ((`Set.notMember` have) . fst) local
   unless (null todo) $ logInfoL ["storemeta todo: ", (pack.show.fmap fst) todo]

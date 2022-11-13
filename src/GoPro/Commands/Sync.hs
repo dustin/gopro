@@ -22,7 +22,7 @@ import           Data.List.Extra       (chunksOf)
 import           Data.List.NonEmpty    (NonEmpty (..))
 import qualified Data.List.NonEmpty    as NE
 import qualified Data.Map.Strict       as Map
-import           Data.Maybe            (isJust)
+import           Data.Maybe            (catMaybes, isJust)
 import qualified Data.Set              as Set
 import qualified Data.Text             as T
 import           Exif
@@ -33,7 +33,7 @@ import           System.Directory      (createDirectoryIfMissing, doesFileExist,
 import           System.FilePath.Posix ((</>))
 
 import           GoPro.Commands
-import           GoPro.Commands.Backup (runStoreMeta)
+import           GoPro.Commands.Backup (runStoreMeta')
 import           GoPro.DB
 import           GoPro.Plus.Media
 import           GoPro.Resolve
@@ -84,14 +84,14 @@ runGetMoments = do
   mapM_ (uncurry storeMoments) =<< mapConcurrentlyLimited c pickup need
     where pickup mid = (mid,) <$> moments mid
 
-runGrokTel :: GoPro ()
-runGrokTel = asks database >>= \db -> mapM_ (ud db) =<< metaTODO db
+runGrokTel :: GoPro [(MediumID, Maybe BS.ByteString)]
+runGrokTel = asks database >>= \db -> fmap catMaybes . traverse (ud db) =<< metaTODO db
     where
       ud db (mid, typ, bs) = do
         logInfoL ["Updating ", tshow (mid, typ)]
         case summarize typ bs of
-          Left x  -> logErrorL ["Error parsing stuff for ", tshow mid, " show ", tshow x]
-          Right x -> insertMeta db mid x
+          Left x  -> logErrorL ["Error parsing stuff for ", tshow mid, " show ", tshow x] *> pure Nothing
+          Right x -> insertMeta db mid x *> pure (Just (mid, Just bs))
       summarize :: MetadataType -> BS.ByteString -> Either String MDSummary
       summarize GPMF bs      = summarizeGPMF <$> parseDEVC bs
       summarize EXIF bs      = summarizeEXIF <$> parseExif (BL.fromStrict bs)
@@ -230,8 +230,8 @@ runFullSync :: GoPro ()
 runFullSync = do
   runFetch Incremental
   runGetMeta
-  runGrokTel
+  metas <- runGrokTel
   runGetMoments
   -- If an S3 bucket is configured, make sure all metadata is in the cache.
   bn <- asks (configItem CfgBucket)
-  unless (bn == "") runStoreMeta
+  unless (bn == "") $ runStoreMeta' metas
