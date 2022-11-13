@@ -72,6 +72,18 @@ data Options = Options
     , optCommand             :: Command
     }
 
+defaultOptions :: Options
+defaultOptions = Options
+    { optDBPath = "gopro.db"
+    , optStaticPath = "static"
+    , optVerbose = False
+    , optUploadConcurrency = 3
+    , optDownloadConcurrency = 11
+    , optChunkSize = 6*1024*1024
+    , optReferenceDir = Nothing
+    , optCommand  = AuthCmd -- this should not be used
+    }
+
 data Env = Env
     { gpOptions  :: Options
     , database   :: Database

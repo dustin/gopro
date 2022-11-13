@@ -39,15 +39,15 @@ import           GoPro.Plus.Media
 atLeast :: (Read n, Show n, Ord n, Num n) => n -> ReadM n
 atLeast n = auto >>= \i -> if i >= n then pure i else readerError ("must be at least " <> show n)
 
-options :: Parser Options
-options = Options
-  <$> strOption (long "db" <> showDefault <> value "gopro.db" <> help "db path")
-  <*> strOption (long "static" <> showDefault <> value "static" <> help "static asset path")
+options :: Options -> Parser Options
+options Options{..} = Options
+  <$> strOption (long "db" <> showDefault <> value optDBPath <> help "db path")
+  <*> strOption (long "static" <> showDefault <> value optStaticPath <> help "static asset path")
   <*> switch (short 'v' <> long "verbose" <> help "enable debug logging")
-  <*> option auto (short 'u' <> long "upload-concurrency" <> showDefault <> value 3 <> help "Upload concurrency")
-  <*> option auto (short 'd' <> long "download-concurrency" <> showDefault <> value 11 <> help "Download concurrency")
+  <*> option auto (short 'u' <> long "upload-concurrency" <> showDefault <> value optUploadConcurrency <> help "Upload concurrency")
+  <*> option auto (short 'd' <> long "download-concurrency" <> showDefault <> value optDownloadConcurrency <> help "Download concurrency")
   <*> option (atLeast (5*1024*1024)) (short 's' <> long "chunk-size"
-                                      <> showDefault <> value (6*1024*1024) <> help "Upload chunk size.")
+                                      <> showDefault <> value optChunkSize <> help "Upload chunk size.")
   <*> (optional $ strOption (long "refdir" <> help "download reference directory"))
   <*> hsubparser (command "auth" (info (pure AuthCmd) (progDesc "Authenticate to GoPro"))
                   <> command "reauth" (info (pure ReauthCmd) (progDesc "Refresh authentication credentials"))
@@ -173,5 +173,5 @@ main = do
   runWithOptions o (run optCommand)
 
   where
-    opts = info (options <**> helper)
+    opts = info (options defaultOptions <**> helper)
            ( fullDesc <> progDesc "GoPro cloud utility.")
