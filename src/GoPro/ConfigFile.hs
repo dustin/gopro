@@ -6,6 +6,7 @@ import           Control.Applicative    ((<|>))
 import           Control.Exception      (catch)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Maybe             (fromMaybe)
+import           Data.Text              (Text)
 import qualified Toml
 import           Toml                   (TomlCodec, (.=))
 
@@ -27,10 +28,15 @@ codec :: TomlCodec Config
 codec = Config
     <$> Toml.dioptional (Toml.string "database")       .= dbPath
     <*> Toml.dioptional (Toml.string "staticPath") .= staticPath
-    <*> Toml.dioptional (Toml.int "upload.concurrency") .= uploadConcurrency
-    <*> Toml.dioptional (Toml.int "download.concurrency") .= downloadConcurrency
-    <*> Toml.dioptional (Toml.integer "upload.chunkSize") .= chunkSize
+    <*> Toml.dioptional (Toml.validate (atLeast 1) Toml._Int "upload.concurrency") .= uploadConcurrency
+    <*> Toml.dioptional (Toml.validate (atLeast 1) Toml._Int "download.concurrency") .= downloadConcurrency
+    <*> Toml.dioptional (Toml.validate (atLeast (5*1024*1024)) Toml._Integer "upload.chunkSize") .= chunkSize
     <*> Toml.dioptional (Toml.string "referenceDir") .= referenceDir
+  where
+    atLeast :: (Show n, Num n, Ord n) => n -> n -> Either Text n
+    atLeast n i
+      | i >= n = Right i
+      | otherwise = Left ("value must be at least " <> tshow n)
 
 readConfig :: MonadIO m => FilePath -> m Config
 readConfig fn = liftIO $ catch (Toml.decodeFile codec fn) (\(_ :: IOError) -> pure emptyConfig)
