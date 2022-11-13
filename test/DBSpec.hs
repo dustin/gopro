@@ -125,27 +125,6 @@ prop_storeLoadIDs (MediaRowSet rows) = ioProperty $ do
 
 instance Arbitrary MetadataType where arbitrary = arbitraryBoundedEnum
 
--- remove after updating upstream
-aString :: Gen String
-aString = listOf (elements (['a'..'z'] <> ['A'..'Z'] <> ['0'..'9'] <> "?<>/.\\!@#$%^&*()_-'\";:{}[]"))
-
-aText :: Gen T.Text
-aText = T.pack <$> aString
-
-instance Arbitrary AuthInfo where arbitrary = AuthInfo <$> aText <*> (getNonNegative <$> arbitrary) <*> aText <*> aText
-
-aCamera :: Gen String
-aCamera = elements [
-  "GoPro Max",
-  "HERO11 Black",
-  "HERO3+Silver Edition",
-  "HERO4 Black",
-  "HERO5 Black",
-  "HERO5 Session",
-  "HERO8 Black",
-  "HERO9 Black"]
--- end remove
-
 instance Arbitrary MDSummary where
   arbitrary = MDSummary
               <$> aCamera
