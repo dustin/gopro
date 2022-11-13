@@ -82,6 +82,9 @@ data Env = Env
     , envLoggers :: [Loc -> LogSource -> LogLevel -> LogStr -> IO ()]
     }
 
+asksOpt :: MonadReader Env m => (Options -> b) -> m b
+asksOpt f = asks (f . gpOptions)
+
 configItem :: ConfigOption -> Env -> T.Text
 configItem k = configItemDef k ""
 

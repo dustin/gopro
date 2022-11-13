@@ -71,7 +71,7 @@ runFetch stype = do
 
           storeSome db l = do
             logInfoL ["Storing batch of ", tshow (length l)]
-            c <- asks (optDownloadConcurrency . gpOptions)
+            c <- asksOpt optDownloadConcurrency
             storeMedia db =<< fetch c l
           fetch c = mapConcurrentlyLimited c resolve
 
@@ -80,7 +80,7 @@ runGetMoments = do
   Database{..} <- asks database
   need <- momentsTODO
   unless (null need) $ logInfoL ["Need to fetch ", (tshow . length) need, " moments"]
-  c <- asks (optDownloadConcurrency . gpOptions)
+  c <- asksOpt optDownloadConcurrency
   mapM_ (uncurry storeMoments) =<< mapConcurrentlyLimited c pickup need
     where pickup mid = (mid,) <$> moments mid
 
@@ -119,7 +119,7 @@ runGetMeta = do
   needs <- metaBlobTODO db
   logInfoL ["Fetching meta ", tshow (length needs)]
   logDbgL ["Need meta: ", tshow needs]
-  c <- asks (optDownloadConcurrency . gpOptions)
+  c <- asksOpt optDownloadConcurrency
   mapConcurrentlyLimited_ c (process db) needs
     where
       process :: Database -> (MediumID, String) -> GoPro ()
@@ -220,7 +220,7 @@ refreshMedia = mapM_ refreshSome . chunksOf 100 . NE.toList
 
     refreshSome mids = do
       Database{..} <- asks database
-      c <- asks (optDownloadConcurrency . gpOptions)
+      c <- asksOpt optDownloadConcurrency
       logInfoL ["Processing batch of ", tshow (length mids)]
       n <- mapConcurrentlyLimited c one mids
       logDbgL ["Storing ", tshow (length n)]

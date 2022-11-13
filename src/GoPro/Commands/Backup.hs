@@ -92,7 +92,7 @@ downloadLocally :: FilePath -> Extractor -> Medium -> GoPro ()
 downloadLocally path extract Medium{..} = do
   logInfoL ["Beginning backup of ", tshow _medium_id]
   vars <- retryRetrieve _medium_id
-  refdir <- asks (optReferenceDir . gpOptions)
+  refdir <- asksOpt optReferenceDir
   locals <- fromMaybe mempty <$> traverse GPF.fromDirectoryFull refdir
   let todo = extract _medium_id vars
       srcs = maybe [] NE.toList $ Map.lookup (vars ^. filename) locals
@@ -214,7 +214,7 @@ runBackup ex = do
   Database{..} <- asks database
   todo <- take 5 <$> listToCopyToS3
   logDbgL ["todo: ", tshow todo]
-  c <- asks (optUploadConcurrency . gpOptions)
+  c <- asksOpt optUploadConcurrency
   mapConcurrentlyLimited_ c (copyMedia λ ex) todo
 
 runLocalBackup :: Extractor -> FilePath -> GoPro ()
@@ -230,7 +230,7 @@ runDownload ex path mids = do
   db <- asks database
   let todo = filter (`Set.notMember` have) (NE.toList mids)
   logDbgL ["todo: ", tshow todo]
-  c <- asks (optDownloadConcurrency . gpOptions)
+  c <- asksOpt optDownloadConcurrency
   mapConcurrentlyLimited_ c (one db) todo
 
   where
@@ -252,7 +252,7 @@ runStoreMeta = do
   let todo = filter ((`Set.notMember` have) . fst) local
   unless (null todo) $ logInfoL ["storemeta todo: ", (pack.show.fmap fst) todo]
 
-  c <- asks (optUploadConcurrency . gpOptions)
+  c <- asksOpt optUploadConcurrency
   mapConcurrentlyLimited_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
 
 runStoreMeta' :: [(MediumID, Maybe ByteString)] -> GoPro ()
@@ -264,7 +264,7 @@ runStoreMeta' local = do
   let todo = filter ((`Set.notMember` have) . fst) local
   unless (null todo) $ logInfoL ["storemeta todo: ", (pack.show.fmap fst) todo]
 
-  c <- asks (optUploadConcurrency . gpOptions)
+  c <- asksOpt optUploadConcurrency
   mapConcurrentlyLimited_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
 
 runClearMeta :: GoPro()

@@ -48,7 +48,7 @@ runCreateUploads inFilePaths = do
 
   when (not . null $ bad) $ logInfoL ["Ignoring some unknown files: ", tshow bad]
 
-  c <- asks (optUploadConcurrency . gpOptions)
+  c <- asksOpt optUploadConcurrency
   mapConcurrentlyLimited_ c (upload db) good
 
   where
@@ -56,12 +56,12 @@ runCreateUploads inFilePaths = do
       True  -> findFiles fp
       False -> pure (Set.singleton fp)
     isDir = fmap isDirectory . getFileStatus
-    upload db files = asks (optChunkSize . gpOptions) >>= \chunkSize -> runUpload (_gpFilePath <$> files) $ do
+    upload db files = asksOpt optChunkSize >>= \chunkSize -> runUpload (_gpFilePath <$> files) $ do
       setMediumType (typeOf (NE.head files))
       setChunkSize chunkSize
       mid <- createMedium
       did <- createSource (length files)
-      c <- asks (optUploadConcurrency . gpOptions)
+      c <- asksOpt optUploadConcurrency
       mapConcurrentlyLimited_ c (\(File{_gpFilePath},n) -> do
                                     fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) _gpFilePath
                                     up@Upload{..} <- createUpload did n (fromInteger fsize)
@@ -80,11 +80,11 @@ runCreateMultipart typ fps = do
   Database{..} <- asks database
   runUpload fps $ do
     setMediumType typ
-    chunkSize <- asks (optChunkSize . gpOptions)
+    chunkSize <- asksOpt optChunkSize
     setChunkSize chunkSize
     mid <- createMedium
     did <- createSource (length fps)
-    c <- asks (optUploadConcurrency . gpOptions)
+    c <- asksOpt optUploadConcurrency
     mapConcurrentlyLimited_ c (\(fp,n) -> do
               fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
               up@Upload{..} <- createUpload did n (fromInteger fsize)
@@ -130,7 +130,7 @@ runResumeUpload = do
         logInfoL ["Uploading ", tshow _pu_filename, " (", tshow fsize, " bytes) as ",
                   _pu_medium_id, ":", tshow part, ": did=",
                   _pu_did, ", upid=", _uploadID, ", parts=", tshow (length chunks)]
-        c <- asks (optUploadConcurrency . gpOptions)
+        c <- asksOpt optUploadConcurrency
         _ <- mapConcurrentlyLimited c (uc _pu_filename _pu_medium_id _pu_partnum) chunks
         completeUpload _uploadID _pu_did part (fromIntegral fsize)
       completedUpload db _pu_medium_id _pu_partnum
