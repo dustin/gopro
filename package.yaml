@@ -41,6 +41,7 @@ dependencies:
 - mtl
 - transformers
 - optparse-applicative
+- tomland
 - async
 - qsem
 - extra

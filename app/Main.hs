@@ -22,6 +22,8 @@ import           Options.Applicative                  (Parser, ReadM, action, ar
                                                        progDesc, readerError, short, showDefault, showHelpOnError, some,
                                                        str, strOption, switch, value, (<**>))
 import           Options.Applicative.Help.Levenshtein (editDistance)
+import           System.Directory                     (getHomeDirectory)
+import           System.FilePath.Posix                ((</>))
 import           System.IO                            (hFlush, hGetEcho, hSetEcho, stdin, stdout)
 
 import           GoPro.Commands
@@ -31,6 +33,7 @@ import           GoPro.Commands.Fixup
 import           GoPro.Commands.Sync
 import           GoPro.Commands.Upload
 import           GoPro.Commands.Web
+import           GoPro.ConfigFile
 import           GoPro.DB                             (Database (..))
 import qualified GoPro.DB                             as DB
 import           GoPro.Plus.Auth
@@ -169,9 +172,11 @@ ifne l a = traverse_ a (NE.nonEmpty l)
 
 main :: IO ()
 main = do
-  o@Options{..} <- customExecParser (prefs showHelpOnError) opts
+  homeConfig <- loadConfigFile defaultOptions =<< (</> ".config/gopro/config.toml") <$> getHomeDirectory
+  localConfig <- loadConfigFile homeConfig ".gopro.toml"
+  o@Options{..} <- customExecParser (prefs showHelpOnError) (opts localConfig)
   runWithOptions o (run optCommand)
 
   where
-    opts = info (options defaultOptions <**> helper)
+    opts def = info (options def <**> helper)
            ( fullDesc <> progDesc "GoPro cloud utility.")

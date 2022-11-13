@@ -61,6 +61,8 @@ data Command = AuthCmd
              | ConfigSetCmd ConfigOption T.Text
              | ClearMetaCmd
 
+instance Show Command where show = const "[command]"
+
 data Options = Options
     { optDBPath              :: String
     , optStaticPath          :: FilePath
@@ -70,7 +72,7 @@ data Options = Options
     , optChunkSize           :: Integer
     , optReferenceDir        :: Maybe FilePath
     , optCommand             :: Command
-    }
+    } deriving Show
 
 defaultOptions :: Options
 defaultOptions = Options

@@ -1,0 +1,19 @@
+# This config file may be read from ~/.config/gopro/config.toml
+
+# Path to the database (for SQLite) or a postgres:// URL.
+database = "some.db"
+
+# Static path for the web server
+staticPath = "/path/to/static/content"
+
+# How many concurrent upload chunks can run
+upload.concurrency = 4
+# Size of upload fragments
+upload.chunkSize = 5242880
+# How many concurrent download chunks can run
+download.concurrency = 16
+
+# Reference directory for downloads/backups.  This would generally
+# point to your temporary upload directory if you've kept camera
+# footage.
+referenceDir = "/path/to/reference/data"
