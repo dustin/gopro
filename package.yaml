@@ -20,75 +20,75 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/dustin/gopro#readme>
 
 dependencies:
-- base >= 4.7 && < 5
 - aeson
+- amazonka >= 2.0
+- amazonka-core >= 2.0
+- amazonka-lambda >= 2.0
+- amazonka-s3 >= 2.0
+- amazonka-sqs >= 2.0
+- async
+- base >= 4.7 && < 5
 - bytestring
+- cache
+- clock
+- conduit
+- conduit-extra
 - containers
-- unordered-containers
-- vector
+- dimensional
+- directory
+- exceptions
+- extra
+- filepath
+- foldl
 - generic-deriving
-- text
-- lens
-- lens-aeson
 - generic-lens
-- time
-- sqlite-simple
+- geodetics
+- gopro-plus >= 0.6
+- gpmf
 - hasql
 - hasql-th
 - hasql-transaction
-- foldl
-- tmp-postgres
-- mtl
-- transformers
-- optparse-applicative
-- tomland
-- async
-- qsem
-- extra
-- monad-logger
-- filepath
-- pathwalk
-- scotty
-- http-types
-- warp
-- wai
-- wai-middleware-static
-- wai-extra
-- wai-websockets
-- websockets
-- process
-- gpmf
-- directory
-- http-conduit
-- conduit
-- exceptions
-- raw-strings-qq
-- scientific
 - hsexif
-- gopro-plus >= 0.6
+- http-conduit
+- http-types
+- lens
+- lens-aeson
+- monad-logger
+- monad-loops
+- mtl
+- optparse-applicative
+- pathwalk
+- process
+- qsem
+- raw-strings-qq
+- resourcet
+- retry
+- safe
+- scientific
+- scotty
+- semigroupoids
+- shelly
+- split
+- sqlite-simple
+- stm
+- text
+- these
+- time
+- tmp-postgres
+- tomland
+- transformers
 - unix
 - unliftio
-- cache
-- clock
-- retry
-- resourcet
-- conduit-extra
-- amazonka >= 2.0
-- amazonka-core >= 2.0
-- amazonka-s3 >= 2.0
-- amazonka-sqs >= 2.0
-- amazonka-lambda >= 2.0
-- monad-loops
-- zlib
-- stm
-- these
-- semigroupoids
-- safe
-- shelly
-- geodetics
-- dimensional
+- unordered-containers
+- vector
+- wai
+- wai-extra
+- wai-middleware-static
+- wai-websockets
+- warp
+- websockets
 - xml
-- split
+- zlib
 
 library:
   source-dirs: src
