@@ -1,4 +1,5 @@
 # This config file may be read from ~/.config/gopro/config.toml
+# or .gopro.toml in the current directory.
 
 # Path to the database (for SQLite) or a postgres:// URL.
 database = "some.db"

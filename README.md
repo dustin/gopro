@@ -64,6 +64,15 @@ Most of them should be obvious, but `--static` is the location of the
 web media, which you may need to provide if you're running it
 somewhere in particular.
 
+Several parameters may be configured with configuration files. The
+following paths are searched:
+
+* ~/.config/gopro/config.toml
+* .gopro.toml  (in the current directory)
+
+See the [example config][exconf] to see how this works.
+
+
 ### auth
 
 The `auth` command, as mentioned in the "Getting Started" section
@@ -335,3 +344,4 @@ space if you have a lot of video assets.
 [stack]: https://docs.haskellstack.org/en/stable/install_and_upgrade/
 [blog]: http://dustin.sallings.org/2020/04/29/gopro-plus.html
 [ffmpeg]: https://ffmpeg.org
+[exconf]: https://github.com/dustin/gopro/blob/master/example.toml
