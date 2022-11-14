@@ -51,7 +51,7 @@ options Options{..} = Options
   <*> option auto (short 'd' <> long "download-concurrency" <> showDefault <> value optDownloadConcurrency <> help "Download concurrency")
   <*> option (atLeast (5*1024*1024)) (short 's' <> long "chunk-size"
                                       <> showDefault <> value optChunkSize <> help "Upload chunk size.")
-  <*> (optional $ strOption (long "refdir" <> help "download reference directory"))
+  <*> (optional $ strOption (long "refdir" <> maybe mempty value optReferenceDir <> help "download reference directory"))
   <*> hsubparser (command "auth" (info (pure AuthCmd) (progDesc "Authenticate to GoPro"))
                   <> command "reauth" (info (pure ReauthCmd) (progDesc "Refresh authentication credentials"))
                   <> command "sync" (info (pure SyncCmd) (progDesc "Sync recent data from GoPro Plus"))
