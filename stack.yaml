@@ -17,7 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-19.23
+resolver: lts-20.2
 
 # qsem conflicts with newer base
 allow-newer: true
@@ -50,6 +50,8 @@ extra-deps:
 - qsem-0.1.0.0@sha256:c9aa930c3f90936f88addace65d4d114d0730a1e72a7307d9146a355e0564673,720
 - tomland-1.3.3.2@sha256:0b4a24f8584f636b7799d9044586762967978f9c225392493307617057f0d288,9063
 - validation-selective-0.1.0.2@sha256:c878846bfffeba69efa3b4866025f249656e0e0a129fed6d446eb602382d328b,3856
+- iconv-0.4.1.3@sha256:4f0b2f09bb8c33199e3c3fdfcd35e576d17cbf5188b18f404ffdfa68a8ccc40e,1192
+- hsexif-0.6.1.9@sha256:9a3f1d97c7faedc204078498308eb9f2b22199e7458b4964ed895b4e805e98bf,2275
 - github: brendanhay/amazonka
   commit: e64638ae16dc6d549d6e7c21262245e29761ede7
   subdirs:
