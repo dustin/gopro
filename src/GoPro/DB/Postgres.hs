@@ -144,7 +144,16 @@ initQueries = [
   (1, "create table if not exists upload_parts (media_id varchar, part int, partnum int)"),
   (1, "create table if not exists s3backup (media_id varchar, filename varchar, status varchar, response varchar)"),
   (1, "create unique index if not exists s3backup_by_file on s3backup(filename)"),
-  (1, "create table if not exists authinfo (ts timestamptz, owner_id varchar, access_token varchar, refresh_token varchar, expires_in int)")
+  (1, "create table if not exists authinfo (ts timestamptz, owner_id varchar, access_token varchar, refresh_token varchar, expires_in int)"),
+
+  -- Constraints
+  (2, [r|alter table meta add constraint fk_meta_mid FOREIGN KEY (media_id) REFERENCES media (media_id);
+         alter table metablob add constraint fk_metablob_mid FOREIGN KEY (media_id) REFERENCES media (media_id);
+         alter table moments add constraint fk_moments_mid FOREIGN KEY (media_id) REFERENCES media (media_id);
+         create unique index uploads_pk on uploads (media_id, partnum);
+         alter table upload_parts add constraint fk_upload_parts FOREIGN KEY (media_id, partnum) REFERENCES uploads (media_id, partnum);
+         alter table s3backup add constraint fk_s3backup_mid FOREIGN KEY (media_id) REFERENCES media (media_id);
+        |])
   ]
 
 initTables :: MonadIO m => Connection -> m ()
