@@ -9,7 +9,7 @@ import           System.Process
 
 readCmd :: FilePath -> [String] -> (BS.ByteString -> a) -> IO a
 readCmd c a f = withCreateProcess (proc c a) { std_out = CreatePipe } $
-    \_ (Just hout) _ _ -> f <$> BS.hGetContents hout
+    \_ mhout _ _ -> f <$> maybe (fail "no stdout") BS.hGetContents mhout
 
 findGPMDStream :: FilePath -> IO (Maybe Int)
 findGPMDStream filename =

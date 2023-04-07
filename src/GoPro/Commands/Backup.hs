@@ -319,9 +319,9 @@ runReceiveS3CopyQueue = do
         where batch dels = inAWS $ \env -> void . send env $ newDeleteMessageBatch qrl & #entries .~ dels
 
       computeResults m = do
-        let Just bodBytes = m ^? folded . #body . _Just . to (BL.fromStrict . TE.encodeUtf8)
-            Just bod = J.decode bodBytes :: Maybe J.Value
-            modbod = bod & key "requestPayload" . _Object %~ sans "src" . sans "head"
-            Just condition = bod ^? key "requestContext" . key "condition" . _String
-            Just fn = bod ^? key "requestPayload" . key "dest" . key "key" . _String
+        let bodBytes = m ^?! folded . #body . _Just . to (BL.fromStrict . TE.encodeUtf8)
+            bod = J.decode @J.Value bodBytes
+            modbod = bod & _Just . key "requestPayload" . _Object %~ sans "src" . sans "head"
+            condition = bod ^?! _Just . key "requestContext" . key "condition" . _String
+            fn = bod ^?! _Just . key "requestPayload" . key "dest" . key "key" . _String
           in (fn, condition == "Success", modbod)

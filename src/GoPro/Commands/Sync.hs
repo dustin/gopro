@@ -17,7 +17,6 @@ import qualified Data.Aeson            as J
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as BL
 import           Data.Foldable         (asum, fold, traverse_)
-import           Data.List             (isSuffixOf)
 import           Data.List.Extra       (chunksOf)
 import           Data.List.NonEmpty    (NonEmpty (..))
 import qualified Data.List.NonEmpty    as NE
@@ -108,10 +107,6 @@ metadataSources fi = fold [variation "mp4_low" "low",
     ls l t = (,t) <$> toListOf l fi
 
     variation var = ls (fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url)
-
-    sidecar var = ls (fileStuff . sidecar_files . folded
-                      . filtered (\x -> has (sidecar_label . only var) x
-                                        && "mp4" `isSuffixOf` (x ^. sidecar_type)) . sidecar_url)
 
 runGetMeta :: GoPro ()
 runGetMeta = do
