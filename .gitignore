@@ -1,7 +1,10 @@
 *~
+.DS_Store
+.direnv
 .stack-work/
 /.cache/
 elm-stuff
+flake.lock
 gopro.cabal
 gopro.db
 stack.yaml.lock
