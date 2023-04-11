@@ -6,21 +6,25 @@ module GoPro.File where
 https://community.gopro.com/t5/en/GoPro-Camera-File-Naming-Convention/ta-p/390220
 -}
 
-import           Control.Monad.IO.Class    (MonadIO (..))
-import           Data.Char                 (toUpper)
-import           Data.List                 (groupBy, intercalate, isInfixOf, isSuffixOf, sortOn)
-import           Data.List.NonEmpty        (NonEmpty (..))
-import qualified Data.List.NonEmpty        as NE
-import           Data.List.Split           (splitOn)
-import           Data.Map                  (Map)
-import qualified Data.Map.Strict           as Map
-import           Data.Semigroup.Foldable   (foldMap1)
-import           Data.Set                  (Set)
-import qualified Data.Set                  as Set
-import           Data.These                (These (..), these)
-import           System.Directory.PathWalk (pathWalkAccumulate)
-import           System.FilePath.Posix     (takeDirectory, takeFileName, (</>))
-import           Text.Read                 (readMaybe)
+import           Control.Monad.IO.Class          (MonadIO (..))
+import           Control.Monad.Trans.Class       (lift)
+import           Control.Monad.Trans.Writer.Lazy (execWriterT, tell)
+import           Data.Char                       (toLower, toUpper)
+import           Data.List                       (groupBy, intercalate, isInfixOf, isSuffixOf, sortOn)
+import           Data.List.NonEmpty              (NonEmpty (..))
+import qualified Data.List.NonEmpty              as NE
+import           Data.List.Split                 (splitOn)
+import           Data.Map                        (Map)
+import qualified Data.Map.Strict                 as Map
+import           Data.Semigroup.Foldable         (foldMap1)
+import           Data.Set                        (Set)
+import qualified Data.Set                        as Set
+import           Data.These                      (These (..), these)
+
+import           Data.Functor                    (($>))
+import           System.Directory.PathWalk       (WalkStatus (..), pathWalkInterruptible)
+import           System.FilePath.Posix           (takeDirectory, takeFileName, (</>))
+import           Text.Read                       (readMaybe)
 
 data Grouping = NoGrouping Int String   -- filenum, prefix
               | BasicGrouping Int Int   -- filenum, group
@@ -124,5 +128,12 @@ fromDirectoryFull = fmap mesh . fromDirectory
     rekey ds = (\d -> (takeFileName (_gpFilePath d), ds)) <$> NE.toList ds
 
 -- | Find the Set of all files under the given file path.
+-- This ignores any directory named "proxy"
 findFiles :: MonadIO m => FilePath -> m (Set FilePath)
-findFiles dir =  pathWalkAccumulate dir (\d _ fs -> pure (Set.fromList ((d </>) <$> fs)))
+findFiles dir =  seek dir (\d _ fs -> pure (Set.fromList ((d </>) <$> fs)))
+
+  where
+    seek root callback = execWriterT $ pathWalkInterruptible root $ \d dirs files ->
+                                          case takeFileName (map toLower d) of
+                                            "proxy" -> pure StopRecursing
+                                            _       -> (lift (callback d dirs files) >>= tell) $> Continue
