@@ -43,7 +43,7 @@ nextGrouping (NoGrouping x p)    = NoGrouping (succ x) p
 nextGrouping (BasicGrouping x g) = BasicGrouping (succ x) g
 nextGrouping (LoopGrouping x g)  = LoopGrouping (succ x) g
 
-data VideoCodec = GoProAVC | GoProHEVC | GoProJPG deriving (Eq, Show, Bounded, Enum)
+data VideoCodec = GoProAVC | GoProHEVC | GoPro360 | GoProJPG deriving (Eq, Show, Bounded, Enum)
 
 data File = File {
   _gpFilePath :: FilePath,
@@ -68,6 +68,7 @@ nextFile f@File{..} = f{_gpGrouping=next, _gpFilePath=nextF}
       GoProAVC  -> "H"
       GoProHEVC -> "X"
       GoProJPG  -> "OPR"
+      GoPro360  -> "S"
 
     replace from to = intercalate to . splitOn from
 
@@ -86,7 +87,8 @@ parseGPFileName fn =
   case fmap toUpper (takeFileName fn) of
     ('G':'H':a:b:w:x:y:z:".MP4")     -> vid GoProAVC [a,b] [w,x,y,z]
     ('G':'X':a:b:w:x:y:z:".MP4")     -> vid GoProHEVC [a,b] [w,x,y,z]
-    ('G': a:b:c:w:x:y:z:".JPG")     -> File fn GoProJPG <$> (NoGrouping <$> readMaybe [w,x,y,z] <*> pure [a,b,c])
+    ('G':'S':a:b:w:x:y:z:".360")     -> vid GoPro360 [a,b] [w,x,y,z]
+    ('G': a:b:c:w:x:y:z:".JPG")      -> File fn GoProJPG <$> (NoGrouping <$> readMaybe [w,x,y,z] <*> pure [a,b,c])
     ('G':'O':'P':'R':w:x:y:z:".MP4") -> vid GoProAVC "1" [w,x,y,z]
     ('G':'P':a:b:w:x:y:z:".MP4")     -> vid GoProAVC [a,b] [w,x,y,z]
     other                            -> if ".JPG" `isSuffixOf` other then

@@ -120,6 +120,7 @@ unit_fileParseGroup = do
         "/some/path/GX010648.MP4",
         "/some/path/GX010649.MP4",
         "/some/path/GX020648.MP4",
+        "/some/path/GS020206.360",
         "/some/path/GX020648.THM",
         "/some/path/GX020649.MP4",
         "/some/path/GX020649.THM",
@@ -139,6 +140,7 @@ unit_fileParseGroup = do
        "/some/path/leinfo.sav"]
       [[File {_gpFilePath = "/some/path/GOPR0645.JPG", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 645 "OPR"}],
        [File {_gpFilePath = "/some/path/GOPR0650.JPG", _gpCodec = GoProJPG, _gpGrouping = NoGrouping 650 "OPR"}],
+       [File {_gpFilePath = "/some/path/GS020206.360", _gpCodec = GoPro360, _gpGrouping = BasicGrouping 2 206}],
        [File {_gpFilePath = "/some/path/GX010644.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 1 644}],
        [File {_gpFilePath = "/some/path/GX010646.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 1 646}],
        [File {_gpFilePath = "/some/path/GX010647.MP4", _gpCodec = GoProHEVC, _gpGrouping = BasicGrouping 1 647}],

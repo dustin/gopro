@@ -73,6 +73,7 @@ runCreateUploads inFilePaths = do
 
     typeOf File{_gpCodec=GoProAVC}  = Video
     typeOf File{_gpCodec=GoProHEVC} = Video
+    typeOf File{_gpCodec=GoPro360}  = Video
     typeOf File{_gpCodec=GoProJPG}  = Photo
 
 runCreateMultipart :: MediumType -> NonEmpty FilePath -> GoPro ()
