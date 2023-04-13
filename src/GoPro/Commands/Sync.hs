@@ -2,6 +2,8 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Use any" #-}
 
 module GoPro.Commands.Sync where
 
@@ -37,6 +39,7 @@ import           GoPro.DB
 import           GoPro.Plus.Media
 import           GoPro.Resolve
 import           GoPro.S3
+import Data.Functor (($>))
 
 
 data SyncType = Full
@@ -89,8 +92,8 @@ runGrokTel = asks database >>= \db -> fmap catMaybes . traverse (ud db) =<< meta
       ud db (mid, typ, bs) = do
         logInfoL ["Updating ", tshow (mid, typ)]
         case summarize typ bs of
-          Left x  -> logErrorL ["Error parsing stuff for ", tshow mid, " show ", tshow x] *> pure Nothing
-          Right x -> insertMeta db mid x *> pure (Just (mid, Just bs))
+          Left x  -> logErrorL ["Error parsing stuff for ", tshow mid, " show ", tshow x] $> Nothing
+          Right x -> insertMeta db mid x $> Just (mid, Just bs)
       summarize :: MetadataType -> BS.ByteString -> Either String MDSummary
       summarize GPMF bs      = summarizeGPMF <$> parseDEVC bs
       summarize EXIF bs      = summarizeEXIF <$> parseExif (BL.fromStrict bs)
@@ -171,10 +174,9 @@ runGetMeta = do
             policy = exponentialBackoff 2000000 <> limitRetries 9
 
       extractEXIF :: MediumID -> FilePath -> GoPro BS.ByteString
-      extractEXIF mid f = minimalEXIF <$> liftIO (BL.readFile f) >>=
-        \case
-          Left s  -> logErrorL ["Can't find EXIF for ", tshow mid, " ", tshow s] >> empty
-          Right e -> pure (BL.toStrict e)
+      extractEXIF mid f = liftIO (BL.readFile f) >>= (\case
+          Left s  -> logErrorL ["Can't find EXIF for ", tshow mid, " ", tshow s] *> empty
+          Right e -> pure (BL.toStrict e)) . minimalEXIF
 
       extractGPMD :: MediumID -> FilePath -> GoPro BS.ByteString
       extractGPMD mid f = liftIO (findGPMDStream f) >>=

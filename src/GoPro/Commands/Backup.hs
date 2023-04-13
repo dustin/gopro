@@ -125,10 +125,7 @@ downloadLocally path extract Medium{..} = do
 
     copyLocal :: [(Text, String, String)] -> [GPF.File] -> GoPro ()
     copyLocal devs refs = do
-      let srcdevs = sort $ mapMaybe (\(a,_,_) -> case "-var-source" `isInfixOf` a of
-                                                   True  -> Just a
-                                                   False -> Nothing
-                                    ) devs
+      let srcdevs = sort $ mapMaybe (\(a,_,_) -> if "-var-source" `isInfixOf` a then Just a else Nothing) devs
 
       case zipWithExactMay (\a b -> (GPF._gpFilePath b, tmpFilename a)) srcdevs refs of
         Nothing      -> logDbgL ["no match ", tshow ((\(a,_,_) -> a) <$> devs), " ", tshow refs]
@@ -220,9 +217,7 @@ runBackup ex = do
 runLocalBackup :: Extractor -> FilePath -> GoPro ()
 runLocalBackup ex path = do
   db <- asks database
-  NE.nonEmpty <$> listToCopyLocally db >>= \case
-    Nothing -> pure ()
-    Just ne -> runDownload ex path ne
+  listToCopyLocally db >>= maybe (pure ()) (runDownload ex path) . NE.nonEmpty
 
 runDownload :: Extractor -> FilePath -> NonEmpty MediumID -> GoPro ()
 runDownload ex path mids = do

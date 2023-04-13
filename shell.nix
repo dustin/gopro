@@ -10,6 +10,7 @@ mkShell {
     niv
     ghcid
     haskell-language-server
+    haskellPackages.tasty-discover
   ];
 
   shellHook = ''

@@ -187,7 +187,7 @@ runWithOptions o@Options{..} a = withDB optDBPath $ \d -> do
   initTables d
   cfg <- loadConfig d
   cache <- liftIO $ newCache (Just (TimeSpec 60 0))
-  tc <- liftIO $ mkLogChannel
+  tc <- liftIO mkLogChannel
   mut <- newEmptyMVar
   let notlog = notificationLogger tc
       minLvl = if optVerbose then LevelDebug else LevelInfo

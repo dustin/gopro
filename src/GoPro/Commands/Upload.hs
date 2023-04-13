@@ -6,7 +6,7 @@ module GoPro.Commands.Upload (
   runCreateUploads, runCreateMultipart, runResumeUpload, runReprocessCmd
   ) where
 
-import           Control.Monad          (when)
+import           Control.Monad          (unless)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Reader   (asks)
 import           Data.Foldable          (fold)
@@ -46,7 +46,7 @@ runCreateUploads inFilePaths = do
   let candidates = filter (`notElem` queued) filePaths
       (bad, good) = these (,[]) ([],) (,) $ maybe (This []) parseAndGroup (NE.nonEmpty candidates)
 
-  when (not . null $ bad) $ logInfoL ["Ignoring some unknown files: ", tshow bad]
+  unless (null bad) $ logInfoL ["Ignoring some unknown files: ", tshow bad]
 
   c <- asksOpt optUploadConcurrency
   mapConcurrentlyLimited_ c (upload db) good

@@ -122,7 +122,7 @@ runServer = do
             setHeader "Cache-Control" "max-age=86400"
             raw b
 
-      get "/api/areas" $ asks database >>= \Database{..} -> (selectAreas >>= json)
+      get "/api/areas" $ asks database >>= \Database{..} -> selectAreas >>= json
 
       get "/api/retrieve/:id" do
         imgid <- param "id"
@@ -154,7 +154,7 @@ runServer = do
         Just med <- loadMedium mid
         Just meta <- loadMeta mid
         setHeader "Content-Type" "application/vnd.google-earth.kml+xml"
-        text =<< (either fail (pure . mkKMLPath med meta) $ extractReadings bs)
+        text =<< either fail (pure . mkKMLPath med meta) (extractReadings bs)
 
       get "/api/retrieve2/:id" do
         imgid <- param "id"
@@ -183,7 +183,7 @@ mkKMLPath Medium{..} MDSummary{..} readings = LT.pack . showTopElement $ kml
     elc nm atts stuff = Element blank_name{qName= nm} atts stuff Nothing
     elr nm atts stuff = elc nm atts (Elem <$> stuff)
     elt nm stuff = elc nm [] [t stuff]
-    att k v = Attr blank_name{qName=k} v
+    att k = Attr blank_name{qName=k}
     t v = Text blank_cdata{cdData=v}
 
     kml = elr "kml" [att "xmlns" "http://www.opengis.net/kml/2.2"] [doc]
@@ -197,9 +197,9 @@ mkKMLPath Medium{..} MDSummary{..} readings = LT.pack . showTopElement $ kml
       elr "Placemark" [] [
           elt "name" "Path",
           elt "description" (fold ["Path recorded from the GoPro GPS<br/>",
-                                   "Max distance from home: ", (maybe "unknown" showf _maxDistance), " m<br/>\n",
-                                   "Maximum speed: ", (maybe "unknown" (showf . (* 3.6)) _maxSpeed2d), " kph<br/>\n",
-                                   "Total distance traveled: ", (maybe "unknown" showf _totDistance), " m<br/>\n"
+                                   "Max distance from home: ", maybe "unknown" showf _maxDistance, " m<br/>\n",
+                                   "Maximum speed: ", maybe "unknown" (showf . (* 3.6)) _maxSpeed2d, " kph<br/>\n",
+                                   "Total distance traveled: ", maybe "unknown" showf _totDistance, " m<br/>\n"
                                   ]),
           elt "styleUrl" "#yellowLineGreenPoly",
           elr "LineString" [] [

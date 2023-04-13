@@ -7,8 +7,9 @@
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE TemplateHaskell            #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Avoid lambda using `infix`" #-}
 
 module GoPro.DB.Sqlite (withSQLite) where
 
@@ -536,5 +537,5 @@ fixupQuery db q = liftIO $ withStatement db (Query q) go
           resolve (SQLInteger i) = J.Number (fromIntegral i)
           resolve (SQLFloat i)   = J.Number (fromFloatDigits i)
           resolve (SQLText i)    = J.String i
-          resolve (SQLNull)      = J.Null
+          resolve SQLNull        = J.Null
           resolve (SQLBlob _)    = error "can't do blobs"

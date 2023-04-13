@@ -47,7 +47,7 @@ prop_authStorage :: NonEmptyList AuthInfo -> Property
 prop_authStorage (NonEmpty ais) = ioProperty . runDB $ \db -> do
   mapM_ (updateAuth db) ais
   AuthResult loaded _ <- loadAuth db
-  pure (loaded === (last ais))
+  pure (loaded === last ais)
 
 runPostgresDB :: (Database -> IO a) -> IO a
 runPostgresDB a = do
@@ -94,13 +94,13 @@ truncUTC :: UTCTime -> UTCTime
 truncUTC (UTCTime d t) = UTCTime d (fromIntegral $ truncate t)
 
 instance Arbitrary MediaRowSet where
-  arbitrary = MediaRowSet . Map.elems . Map.fromList . fmap ((\mr -> (mr ^. row_media . medium_id , mr))) <$> listOf arbitrary
+  arbitrary = MediaRowSet . Map.elems . Map.fromList . fmap (\mr -> (mr ^. row_media . medium_id , mr)) <$> listOf arbitrary
 
   shrink (MediaRowSet xs) = MediaRowSet <$> shrinkList (const []) xs
 
 prop_storeLoad :: MediaRowSet -> Property
 prop_storeLoad (MediaRowSet rows) = ioProperty $ do
-  got <- runDB $ \db -> (storeMedia db rows *> loadMediaRows db)
+  got <- runDB $ \db -> storeMedia db rows *> loadMediaRows db
   pure $ sort (rows & traversed . row_media . medium_token .~ "") === sort got
     where sort = sortOn (_medium_id . _row_media)
 
@@ -113,14 +113,14 @@ prop_storeLoadOne (MediaRowSet rows) = ioProperty . runDB $ \db -> do
 
 prop_storeLoad2 :: MediaRowSet -> Property
 prop_storeLoad2 (MediaRowSet rows) = ioProperty $ do
-  got <- runDB $ \db -> (storeMedia db rows *> loadMedia db)
+  got <- runDB $ \db -> storeMedia db rows *> loadMedia db
   let media = sortOn (Down . _medium_captured_at) $ rows ^.. folded . row_media
   pure $ sort (media & traversed . medium_token .~ "") === sort got
     where sort = sortOn _medium_id
 
 prop_storeLoadIDs :: MediaRowSet -> Property
 prop_storeLoadIDs (MediaRowSet rows) = ioProperty $ do
-  got <- runDB $ \db -> (storeMedia db rows *> loadMediaIDs db)
+  got <- runDB $ \db -> storeMedia db rows *> loadMediaIDs db
   pure $ (sortOn (Down . _medium_captured_at . _row_media) rows ^.. folded . row_media . medium_id) === got
 
 instance Arbitrary MetadataType where arbitrary = arbitraryBoundedEnum
