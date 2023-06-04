@@ -114,7 +114,7 @@ some1 p = NE.fromList <$> some p
 runCleanup :: GoPro ()
 runCleanup = asks database >>= \DB.Database{..} -> clearUploads *> (mapM_ rm =<< (filter wanted <$> notReady))
   where
-    wanted Medium{..} = _medium_ready_to_view `elem` [ViewUploading, ViewFailure]
+    wanted Medium{..} = _medium_ready_to_view `elem` [ViewRegistered, ViewUploading, ViewFailure]
     rm Medium{..} = do
       liftIO . putStrLn $ "Removing " <> T.unpack _medium_id <> " (" <> show _medium_ready_to_view <> ")"
       errs <- delete _medium_id
