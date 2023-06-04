@@ -17,7 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-20.17
+resolver: lts-20.23
 
 # qsem conflicts with newer base
 allow-newer: true
