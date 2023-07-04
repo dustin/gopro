@@ -358,7 +358,7 @@ insertMetaBlob mid fmt blob =
   mightFail . Session.run (Session.statement (mid, tshow fmt, blob, fromIntegral $ maybe 0 BS.length blob) st)
   where
     st = [resultlessStatement|
-            insert into metablob (media_id, format, meta, meta_length) values ($1::text, $2::text, $3::bytea?, $4::int8)
+            insert into metablob (media_id, format, meta, meta_length, backedup) values ($1::text, $2::text, $3::bytea?, $4::int8, false)
          |]
 
 metaTODO :: MonadIO m => Connection -> m [(MediumID, MetadataType, BS.ByteString)]
