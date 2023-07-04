@@ -28,10 +28,11 @@ import           Data.List.Extra            (groupOn)
 import           Data.Map.Strict            (Map)
 import qualified Data.Map.Strict            as Map
 import           Data.Maybe                 (fromMaybe)
+import           Data.Ratio
 import           Data.String                (fromString)
 import           Data.Text                  (Text)
 import qualified Data.Text                  as T
-import           Data.Time                  (UTCTime (..))
+import           Data.Time                  (DiffTime, UTCTime (..))
 import           Hasql.TH
 import           Prelude                    hiding (init)
 import           Text.RawString.QQ
@@ -153,7 +154,10 @@ initQueries = [
          create unique index uploads_pk on uploads (media_id, partnum);
          alter table upload_parts add constraint fk_upload_parts FOREIGN KEY (media_id, partnum) REFERENCES uploads (media_id, partnum);
          alter table s3backup add constraint fk_s3backup_mid FOREIGN KEY (media_id) REFERENCES media (media_id);
-        |])
+        |]),
+
+  -- Clean up source duration value
+  (3, "alter table media alter column source_duration type interval using (source_duration || ' milliseconds')::interval")
   ]
 
 initTables :: MonadIO m => Connection -> m ()
@@ -190,13 +194,13 @@ updateConfig cfg db = mightFail $ flip Session.run db $ do
       f (k,v) = (optionStr k, v)
 
 upsertMediaS :: Statement (Text, Maybe Text, UTCTime, UTCTime,
-                           Maybe Int64, Int64, Maybe Text, Text,
+                           Maybe Int64, Int64, Maybe DiffTime, Text,
                            Maybe Int64, Maybe Int64, Text, Maybe Text, Maybe ByteString, ByteString, ByteString) ()
 upsertMediaS = [resultlessStatement|insert into media (media_id, camera_model, captured_at, created_at,
                                      file_size, moments_count, source_duration, media_type,
                                      width, height, ready_to_view, filename, thumbnail, variants, raw_json)
                                      values($1 :: text, $2 :: text?, $3 :: timestamptz, $4 :: timestamptz,
-                                            $5 :: int8?, $6 :: int8, $7 :: text?, $8 :: text,
+                                            $5 :: int8?, $6 :: int8, $7 :: interval?, $8 :: text,
                                             $9 :: int8?, $10 :: int8?, $11 :: text, $12 :: text?, $13 :: bytea?, $14 :: bytea, $15 :: bytea)
                               on conflict (media_id)
                                  do update
@@ -217,7 +221,7 @@ storeMedia rows = mightFail . Session.run sess
       _medium_created_at,
       fromIntegral <$> _medium_file_size,
       fromIntegral _medium_moments_count,
-      T.pack <$> _medium_source_duration,
+      parseMS =<< _medium_source_duration,
       T.pack . show $ _medium_type,
       fromIntegral <$> _medium_width,
       fromIntegral <$> _medium_height,
@@ -227,6 +231,9 @@ storeMedia rows = mightFail . Session.run sess
       BL.toStrict vars,
       BL.toStrict raw
       ) upsertMediaS
+
+    parseMS :: String -> Maybe DiffTime
+    parseMS s = fromRational . (% 1000) <$> readMaybe s
 
 mediaRow :: Row MediaRow
 mediaRow = MediaRow <$> mediumRow
