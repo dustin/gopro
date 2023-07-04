@@ -157,7 +157,30 @@ initQueries = [
         |]),
 
   -- Clean up source duration value
-  (3, "alter table media alter column source_duration type interval using (source_duration || ' milliseconds')::interval")
+  (3, "alter table media alter column source_duration type interval using (source_duration || ' milliseconds')::interval"),
+
+  -- Nullability constraints
+  (4, "alter table media alter column created_at set not null"),
+  (4, "alter table media alter column captured_at set not null"),
+  (4, "alter table media alter column file_size set not null"),
+  (4, "alter table media alter column moments_count set not null"),
+  (4, "alter table media alter column media_type set not null"),
+  (4, "alter table metablob alter column format set not null"),
+  (4, "alter table metablob alter column meta_length set not null"),
+  (4, "update metablob set backedup = false where backedup is null"),
+  (4, "alter table metablob alter column backedup set not null"),
+  (4, "alter table uploads alter column filename set not null"),
+  (4, "alter table uploads alter column media_id set not null"),
+  (4, "alter table uploads alter column upid set not null"),
+  (4, "alter table uploads alter column did set not null"),
+  (4, "alter table uploads alter column partnum set not null"),
+  (4, "alter table uploads alter column chunk_size set not null"),
+  (4, "alter table upload_parts alter column media_id set not null"),
+  (4, "alter table upload_parts alter column part set not null"),
+  (4, "alter table upload_parts alter column partnum set not null"),
+  (4, "alter table moments alter column media_id set not null"),
+  (4, "alter table moments alter column moment_id set not null")
+
   ]
 
 initTables :: MonadIO m => Connection -> m ()
