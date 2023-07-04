@@ -267,7 +267,7 @@ mediaRow = MediaRow <$> mediumRow
 loadMediaRows :: MonadIO m => Connection -> m [MediaRow]
 loadMediaRows = mightFail . Session.run (Session.statement () st)
   where
-    st = Statement "select media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view, source_duration, media_type, width, height, filename, thumbnail, variants, raw_json from media" noParams (rowList mediaRow) True
+    st = Statement "select media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view, extract('milliseconds' from source_duration)::text, media_type, width, height, filename, thumbnail, variants, raw_json from media" noParams (rowList mediaRow) True
 
 queryStrings :: MonadIO m => ByteString -> Connection -> m [Text]
 queryStrings q = mightFail . Session.run (Session.statement () l)
@@ -310,7 +310,7 @@ loadMedia = mightFail . Session.run (Session.statement () st)
                     file_size,
                     moments_count,
                     ready_to_view,
-                    source_duration,
+                    extract('milliseconds' from source_duration)::text,
                     media_type,
                     width,
                     height,
@@ -329,7 +329,7 @@ loadMedium db mid = mightFail . Session.run (Session.statement mid st) $ db
                     file_size,
                     moments_count,
                     ready_to_view,
-                    source_duration,
+                    extract('milliseconds' from source_duration)::text,
                     media_type,
                     width,
                     height,
