@@ -5,6 +5,7 @@ import           Data.Aeson           (Value (..), decode)
 import           Data.Aeson.Lens
 import qualified Data.ByteString      as BS
 import qualified Data.ByteString.Lazy as BL
+import           Data.Foldable        (fold)
 import           System.Process
 
 readCmd :: FilePath -> [String] -> (BS.ByteString -> a) -> IO a
@@ -20,7 +21,7 @@ findGPMDStream filename =
       . key "index" . _Integer . to fromIntegral
 
 extractGPMDStream :: [FilePath] -> Int -> IO BS.ByteString
-extractGPMDStream files stream = readCmd "ffmpeg" (fileArgs <> extractArgs) id
+extractGPMDStream files stream = fold <$> traverse one files
   where
-    fileArgs = foldMap (\f -> ["-i", f]) files
+    one fn = readCmd "ffmpeg" (["-i", fn] <> extractArgs) id
     extractArgs = ["-y", "-loglevel", "-8", "-codec", "copy", "-map", "0:" <> show stream, "-f", "rawvideo", "-"]

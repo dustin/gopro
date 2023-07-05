@@ -449,7 +449,10 @@ listToCopyLocally :: MonadIO m => Connection -> m [MediumID]
 listToCopyLocally = oq_ "select media_id from media order by created_at"
 
 clearUploads :: MonadIO m => Connection -> m ()
-clearUploads db = ex_ "delete from upload_parts" db *> ex_ "delete from uploads" db
+clearUploads db = do
+  ex_ "delete from metablob where media_id not in (select media_id from media)" db
+  ex_ "delete from upload_parts" db
+  ex_ "delete from uploads" db
 
 newtype NamedSummary = NamedSummary (MediumID, MDSummary)
 
