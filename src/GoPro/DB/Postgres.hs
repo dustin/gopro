@@ -52,6 +52,7 @@ import           Hasql.Transaction.Sessions (transaction)
 import qualified Hasql.Transaction.Sessions as TX
 
 import           GoPro.DB
+import           GoPro.Meta
 import           GoPro.Plus.Auth            (AuthInfo (..))
 import           GoPro.Plus.Media           (Medium (..), MediumID, Moment (..))
 import           GoPro.Plus.Upload          (DerivativeID, Upload (..), UploadPart (..))
@@ -99,7 +100,10 @@ withPostgres (fromString -> c) a = withConn c (a . mkDatabase)
       listS3Waiting = GoPro.DB.Postgres.listS3Waiting db,
       listToCopyLocally = GoPro.DB.Postgres.listToCopyLocally db,
       selectAreas = GoPro.DB.Postgres.selectAreas db,
-      fixupQuery = GoPro.DB.Postgres.fixupQuery db
+      fixupQuery = GoPro.DB.Postgres.fixupQuery db,
+      loadGPSReadings = GoPro.DB.Postgres.loadGPSReadings db,
+      storeGPSReadings = GoPro.DB.Postgres.storeGPSReadings db,
+      gpsReadingsTODO = GoPro.DB.Postgres.gpsReadingsTODO db
       }
 
 initQueries :: [(Int64, ByteString)]
@@ -182,8 +186,20 @@ initQueries = [
   (4, "alter table moments alter column moment_id set not null"),
 
   -- We now populate metablob before we start uploading media
-  (5, "alter table metablob drop constraint fk_metablob_mid")
+  (5, "alter table metablob drop constraint fk_metablob_mid"),
 
+  (6, [r|create table if not exists gps_readings (
+        media_id varchar not null,
+        timestamp timestamptz not null,
+        lat float8 not null,
+        lon float8 not null,
+        altitude float8 not null,
+        speed2d float8 not null,
+        speed3d float8 not null,
+        precision int4 not null)
+    |]),
+  
+  (6, "create index gps_readings_by_media_id on gps_readings(media_id)")
   ]
 
 initTables :: MonadIO m => Connection -> m ()
@@ -612,3 +628,30 @@ loadAuth = mightFail . Session.run (Session.statement () st)
 -- TODO:  This would be nice.
 fixupQuery :: MonadIO m => Connection -> Text -> m [[(Text, J.Value)]]
 fixupQuery _ _ = liftIO $ fail "fixup query isn't currently supported for postgres"
+
+loadGPSReadings :: MonadIO m => Connection -> MediumID -> m [GPSReading]
+loadGPSReadings db m = mightFail . Session.run (Session.statement m st) $ db
+  where
+    st = Statement sql (Encoders.param (Encoders.nonNullable Encoders.text)) (rowList dec) True
+    sql = [r|select timestamp, lat, lon, altitude, speed2d, speed3d, precision from routes where media_id = $1 :: text order by timestamp|]
+    dec = GPSReading <$> column (nonNullable Decoders.timestamptz)
+                   <*> column (nonNullable Decoders.float8)
+                   <*> column (nonNullable Decoders.float8)
+                   <*> column (nonNullable Decoders.float8)
+                   <*> column (nonNullable Decoders.float8)
+                   <*> column (nonNullable Decoders.float8)
+                   <*> column (nonNullable int)
+    int = fromIntegral <$> Decoders.int8
+
+storeGPSReadings :: MonadIO m => Connection -> MediumID -> [GPSReading] -> m ()
+storeGPSReadings db mid wps = mightFail . Session.run (transaction TX.Serializable TX.Write tx) $ db
+  where
+    tx = do
+      TX.statement mid (Statement "delete from gps_readings where media_id = $1 :: text" (Encoders.param (Encoders.nonNullable Encoders.text)) noResult True)
+      traverse_ (\GPSReading{..} -> TX.statement (mid, _gps_time, _gps_lat, _gps_lon, _gps_alt, _gps_speed2d, _gps_speed3d, fromIntegral _gps_precision) ist) wps
+
+    ist = [resultlessStatement|insert into gps_readings (media_id, timestamp, lat, lon, altitude, speed2d, speed3d, precision)
+           values ($1 :: text, $2 :: timestamptz, $3 :: float8, $4 :: float8, $5 :: float8, $6 :: float8, $7 :: float8, $8 :: int4)|]
+
+gpsReadingsTODO :: MonadIO m => Connection -> m [MediumID]
+gpsReadingsTODO = queryStrings "select media_id from meta where lat is not null and not exists (select 1 from gps_readings where media_id = meta.media_id)"

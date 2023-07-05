@@ -18,7 +18,7 @@ import           Control.Retry         (RetryStatus (..), exponentialBackoff, li
 import qualified Data.Aeson            as J
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as BL
-import           Data.Foldable         (asum, fold, traverse_)
+import           Data.Foldable         (asum, fold, for_, traverse_)
 import           Data.List.Extra       (chunksOf)
 import           Data.List.NonEmpty    (NonEmpty (..))
 import qualified Data.List.NonEmpty    as NE
@@ -33,13 +33,14 @@ import           Network.HTTP.Simple   (getResponseBody, httpSource, parseReques
 import           System.Directory      (createDirectoryIfMissing, doesFileExist, removeFile, renameFile)
 import           System.FilePath.Posix ((</>))
 
+import           Data.Functor          (($>))
 import           GoPro.Commands
 import           GoPro.Commands.Backup (runStoreMeta')
 import           GoPro.DB
+import           GoPro.Meta
 import           GoPro.Plus.Media
 import           GoPro.Resolve
 import           GoPro.S3
-import Data.Functor (($>))
 
 
 data SyncType = Full
@@ -223,12 +224,23 @@ refreshMedia = mapM_ refreshSome . chunksOf 100 . NE.toList
       logDbgL ["Storing ", tshow (length n)]
       storeMedia n
 
+findGPSReadings :: GoPro ()
+findGPSReadings = do
+  Database{..} <- asks database
+  todo <- gpsReadingsTODO
+  for_ todo $ \mid -> do
+    logDbgL ["Finding gps readings for ", mid]
+    loadMetaBlob mid >>= \case
+      Just (GPMF, Just bs) -> storeGPSReadings mid =<< either fail pure (extractReadings bs)
+      _                    -> pure ()
+
 runFullSync :: GoPro ()
 runFullSync = do
   runFetch Incremental
   runGetMeta
   metas <- runGrokTel
   runGetMoments
+  findGPSReadings
   -- If an S3 bucket is configured, make sure all metadata is in the cache.
   bn <- asks (configItem CfgBucket)
   unless (bn == "") $ runStoreMeta' metas

@@ -14,7 +14,7 @@ module GoPro.DB (MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_varia
                  MetadataType(..),
                  ConfigOption(..), strOption, optionStr,
                  Database(..),
-                 AuthResult(..)
+                 AuthResult(..),
                  ) where
 
 import           Control.Lens
@@ -29,6 +29,7 @@ import           Data.Map.Strict        (Map)
 import           Data.Text              (Text)
 import           Generics.Deriving.Base (Generic)
 
+import           GoPro.Meta
 import           GoPro.Plus.Auth        (AuthInfo (..))
 import           GoPro.Plus.Media       (FileInfo (..), Medium (..), MediumID, Moment (..))
 import           GoPro.Plus.Upload      (DerivativeID, Upload (..), UploadID)
@@ -130,6 +131,10 @@ data Database = Database {
   listS3Waiting       :: forall m. MonadIO m => m [String],
   listToCopyLocally   :: forall m. MonadIO m => m [MediumID],
   selectAreas         :: forall m. MonadIO m => m [Area],
+
+  loadGPSReadings     :: forall m. MonadIO m => MediumID -> m [GPSReading],
+  storeGPSReadings    :: forall m. MonadIO m => MediumID -> [GPSReading] -> m (),
+  gpsReadingsTODO     :: forall m. MonadIO m => m [MediumID],
 
   fixupQuery          :: forall m. MonadIO m => Text -> m [[(Text, J.Value)]]
   }
