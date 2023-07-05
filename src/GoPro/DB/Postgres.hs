@@ -179,7 +179,10 @@ initQueries = [
   (4, "alter table upload_parts alter column part set not null"),
   (4, "alter table upload_parts alter column partnum set not null"),
   (4, "alter table moments alter column media_id set not null"),
-  (4, "alter table moments alter column moment_id set not null")
+  (4, "alter table moments alter column moment_id set not null"),
+
+  -- We now populate metablob before we start uploading media
+  (5, "alter table metablob drop constraint fk_metablob_mid")
 
   ]
 
