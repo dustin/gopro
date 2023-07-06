@@ -239,8 +239,8 @@ runFullSync = do
   runFetch Incremental
   runGetMeta
   metas <- runGrokTel
-  runGetMoments
-  findGPSReadings
   -- If an S3 bucket is configured, make sure all metadata is in the cache.
   bn <- asks (configItem CfgBucket)
   unless (bn == "") $ runStoreMeta' metas
+  runGetMoments
+  findGPSReadings
