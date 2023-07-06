@@ -130,8 +130,7 @@ runServer = do
 
       get "/api/gpslog/:id" do
         Database{..} <- asks database
-        Just (GPMF, Just bs) <- loadMetaBlob =<< param "id"
-        readings <- either fail pure $ extractReadings bs
+        readings <- loadGPSReadings =<< param "id"
         text $ fold [
           "time,lat,lon,alt,speed2d,speed3d,dilution\n",
           foldMap (\GPSReading{..} ->
@@ -150,11 +149,11 @@ runServer = do
       get "/api/gpspath/:id" do
         mid <- param "id"
         Database{..} <- asks database
-        Just (GPMF, Just bs) <- loadMetaBlob mid
+        gps <- loadGPSReadings mid
         Just med <- loadMedium mid
         Just meta <- loadMeta mid
         setHeader "Content-Type" "application/vnd.google-earth.kml+xml"
-        text =<< either fail (pure . mkKMLPath med meta) (extractReadings bs)
+        text $ mkKMLPath med meta gps
 
       get "/api/retrieve2/:id" do
         imgid <- param "id"
