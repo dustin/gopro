@@ -198,7 +198,7 @@ initQueries = [
         speed3d float8 not null,
         precision int4 not null)
     |]),
-  
+
   (6, "create index gps_readings_by_media_id on gps_readings(media_id)")
   ]
 
@@ -654,4 +654,8 @@ storeGPSReadings db mid wps = mightFail . Session.run (transaction TX.Serializab
            values ($1 :: text, $2 :: timestamptz, $3 :: float8, $4 :: float8, $5 :: float8, $6 :: float8, $7 :: float8, $8 :: int4)|]
 
 gpsReadingsTODO :: MonadIO m => Connection -> m [MediumID]
-gpsReadingsTODO = queryStrings "select media_id from meta where lat is not null and not exists (select 1 from gps_readings where media_id = meta.media_id)"
+gpsReadingsTODO = queryStrings [r|select m.media_id from meta m
+                                  join metablob mb on (m.media_id = mb.media_id)
+                                  where lat is not null
+                                  and mb.format = 'GPMF'
+                                  and not exists (select 1 from gps_readings where media_id = m.media_id)|]

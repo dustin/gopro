@@ -570,4 +570,8 @@ storeGPSReadings db mid wps = do
   em "insert into gps_readings (media_id, timestamp, lat, lon, altitude, speed2d, speed3d, precision) values (?,?,?,?,?,?,?,?)" vals db
 
 gpsReadingsTODO :: MonadIO m => Connection -> m [MediumID]
-gpsReadingsTODO = oq_ "select media_id from meta where lat is not null and not exists (select 1 from gps_readings where media_id = meta.media_id)"
+gpsReadingsTODO = oq_ [sql|select m.media_id from meta m
+                                  join metablob mb on (m.media_id = mb.media_id)
+                                  where lat is not null
+                                  and mb.format = 'gpmf'
+                                  and not exists (select 1 from gps_readings where media_id = m.media_id)|]
