@@ -561,7 +561,7 @@ instance FromRow GPSReading where
   fromRow = GPSReading <$> field <*> field <*> field <*> field <*> field <*> field <*> field
 
 loadGPSReadings :: MonadIO m => Connection -> MediumID -> m [GPSReading]
-loadGPSReadings db mid = q' "select timestamp, lat, lon, altitude, speed2d, speed3d, precision from gps_readings where media_id = ?" (Only mid) db
+loadGPSReadings db mid = q' "select timestamp, lat, lon, altitude, speed2d, speed3d, precision from gps_readings where media_id = ? order by timestamp" (Only mid) db
 
 storeGPSReadings :: MonadIO m => Connection -> MediumID -> [GPSReading] -> m ()
 storeGPSReadings db mid wps = do
