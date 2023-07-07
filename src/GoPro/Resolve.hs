@@ -62,7 +62,7 @@ parseDEVC = (fmap . mapMaybe) (uncurry mkDEVC) . parseGPMF
 summarizeGPMF :: [DEVC] -> MDSummary
 summarizeGPMF devc = MDSummary {
   _cameraModel = fromMaybe "" $ devc ^? folded . dev_name,
-  _capturedTime = gps ^? folded . gps_time,
+  _capturedTime = gps ^? folded . gpsr_time,
   _maxSpeed2d = Just $ getMax _gps_max_speed,
   _maxSpeed3d = Just $ getMax _gps_max_speed3d,
   _maxFaces = max 0 $ maximum1Of (folded . dev_telems . folded . tele_values . _TVFaces . to length) devc,
@@ -78,7 +78,7 @@ summarizeGPMF devc = MDSummary {
                 sc     = Map.fromListWith (<>) $ (\(a,x) -> (a, (Sum x, Sum 1))) <$> ss
                 avgs   = Map.foldMapWithKey (\k (Sum s, Sum c) -> Map.singleton (s/c) k) sc
 
-        gps = devc ^.. folded . dev_telems . folded . tele_values . _TVGPS . filtered ((< 200) . view gps_p)
+        gps = devc ^.. folded . gpsReadings . folded . filtered ((< 200) . view gpsr_dop)
         GPSSummary{..} = summarizeGPS $ extractFromDEVC devc
 
         unmAngle f g = f g D./~ degree

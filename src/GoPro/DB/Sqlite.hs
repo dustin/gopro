@@ -38,7 +38,7 @@ import           Database.SQLite.Simple.ToField
 
 
 import           GoPro.DB
-import           GoPro.Meta
+import           GoPro.DEVC                       (GPSReading (..))
 import           GoPro.Plus.Auth                  (AuthInfo (..))
 import           GoPro.Plus.Media                 (Medium (..), MediumID, MediumType (..), Moment (..),
                                                    ReadyToViewType (..))
@@ -128,7 +128,10 @@ initQueries = [
   (14, "update media set filename = json_extract(raw_json, \"$.filename\")"),
   (15, "alter table meta add column max_distance real"),
   (15, "alter table meta add column total_distance real"),
-  (16, [sql|create table if not exists gps_readings (
+
+  (17, "drop table if exists gps_readings"),
+
+  (18, [sql|create table if not exists gps_readings (
         media_id varchar not null,
         timestamp timestamptz not null,
         lat float8 not null,
@@ -136,8 +139,9 @@ initQueries = [
         altitude float8 not null,
         speed2d float not null,
         speed3d float not null,
-        precision int4 not null)|]),
-  (16, "create index gps_readings_by_media_id on gps_readings(media_id)")
+        dop float not null,
+        fix int4 not null)|]),
+  (18, "create index gps_readings_by_media_id on gps_readings(media_id)")
   ]
 
 initTables :: MonadIO m => Connection -> m ()
@@ -558,16 +562,16 @@ fixupQuery db q = liftIO $ withStatement db (Query q) go
           resolve (SQLBlob _)    = error "can't do blobs"
 
 instance FromRow GPSReading where
-  fromRow = GPSReading <$> field <*> field <*> field <*> field <*> field <*> field <*> field
+  fromRow = GPSReading <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field
 
 loadGPSReadings :: MonadIO m => Connection -> MediumID -> m [GPSReading]
-loadGPSReadings db mid = q' "select timestamp, lat, lon, altitude, speed2d, speed3d, precision from gps_readings where media_id = ? order by timestamp" (Only mid) db
+loadGPSReadings db mid = q' "select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = ? order by timestamp" (Only mid) db
 
 storeGPSReadings :: MonadIO m => Connection -> MediumID -> [GPSReading] -> m ()
 storeGPSReadings db mid wps = do
   ex "delete from gps_readings where media_id = ?" (Only mid) db
-  let vals = [(mid, _gps_time, _gps_lat, _gps_lon, _gps_alt, _gps_speed2d, _gps_speed3d, _gps_precision) | GPSReading{..} <- wps]
-  em "insert into gps_readings (media_id, timestamp, lat, lon, altitude, speed2d, speed3d, precision) values (?,?,?,?,?,?,?,?)" vals db
+  let vals = [(mid, _gpsr_time, _gpsr_lat, _gpsr_lon, _gpsr_alt, _gpsr_speed2d, _gpsr_speed3d, _gpsr_dop, _gpsr_fix) | GPSReading{..} <- wps]
+  em "insert into gps_readings (media_id, timestamp, lat, lon, altitude, speed2d, speed3d, dop, fix) values (?,?,?,?,?,?,?,?,?)" vals db
 
 gpsReadingsTODO :: MonadIO m => Connection -> m [MediumID]
 gpsReadingsTODO = oq_ [sql|select m.media_id from meta m

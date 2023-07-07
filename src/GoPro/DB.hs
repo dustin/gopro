@@ -29,7 +29,7 @@ import           Data.Map.Strict        (Map)
 import           Data.Text              (Text)
 import           Generics.Deriving.Base (Generic)
 
-import           GoPro.Meta
+import           GoPro.DEVC             (GPSReading (..))
 import           GoPro.Plus.Auth        (AuthInfo (..))
 import           GoPro.Plus.Media       (FileInfo (..), Medium (..), MediumID, Moment (..))
 import           GoPro.Plus.Upload      (DerivativeID, Upload (..), UploadID)

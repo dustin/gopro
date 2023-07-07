@@ -52,7 +52,7 @@ import           Hasql.Transaction.Sessions (transaction)
 import qualified Hasql.Transaction.Sessions as TX
 
 import           GoPro.DB
-import           GoPro.Meta
+import           GoPro.DEVC                 (GPSReading (..))
 import           GoPro.Plus.Auth            (AuthInfo (..))
 import           GoPro.Plus.Media           (Medium (..), MediumID, Moment (..))
 import           GoPro.Plus.Upload          (DerivativeID, Upload (..), UploadPart (..))
@@ -188,7 +188,9 @@ initQueries = [
   -- We now populate metablob before we start uploading media
   (5, "alter table metablob drop constraint fk_metablob_mid"),
 
-  (6, [r|create table if not exists gps_readings (
+  (7, "drop table if exists gps_readings"),
+
+  (8, [r|create table if not exists gps_readings (
         media_id varchar not null,
         timestamp timestamptz not null,
         lat float8 not null,
@@ -196,10 +198,11 @@ initQueries = [
         altitude float8 not null,
         speed2d float8 not null,
         speed3d float8 not null,
-        precision int4 not null)
+        dop float8 not null,
+        fix int4 not null)
     |]),
 
-  (6, "create index gps_readings_by_media_id on gps_readings(media_id)")
+  (8, "create index gps_readings_by_media_id on gps_readings(media_id)")
   ]
 
 initTables :: MonadIO m => Connection -> m ()
@@ -633,12 +636,13 @@ loadGPSReadings :: MonadIO m => Connection -> MediumID -> m [GPSReading]
 loadGPSReadings db m = mightFail . Session.run (Session.statement m st) $ db
   where
     st = Statement sql (Encoders.param (Encoders.nonNullable Encoders.text)) (rowList dec) True
-    sql = [r|select timestamp, lat, lon, altitude, speed2d, speed3d, precision from routes where media_id = $1 :: text order by timestamp|]
-    dec = GPSReading <$> column (nonNullable Decoders.timestamptz)
+    sql = [r|select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from routes where media_id = $1 :: text order by timestamp|]
+    dec = GPSReading <$> column (nonNullable Decoders.float8)
                    <*> column (nonNullable Decoders.float8)
                    <*> column (nonNullable Decoders.float8)
                    <*> column (nonNullable Decoders.float8)
                    <*> column (nonNullable Decoders.float8)
+                   <*> column (nonNullable Decoders.timestamptz)
                    <*> column (nonNullable Decoders.float8)
                    <*> column (nonNullable int)
     int = fromIntegral <$> Decoders.int8
@@ -648,10 +652,10 @@ storeGPSReadings db mid wps = mightFail . Session.run (transaction TX.Serializab
   where
     tx = do
       TX.statement mid (Statement "delete from gps_readings where media_id = $1 :: text" (Encoders.param (Encoders.nonNullable Encoders.text)) noResult True)
-      traverse_ (\GPSReading{..} -> TX.statement (mid, _gps_time, _gps_lat, _gps_lon, _gps_alt, _gps_speed2d, _gps_speed3d, fromIntegral _gps_precision) ist) wps
+      traverse_ (\GPSReading{..} -> TX.statement (mid, _gpsr_time, _gpsr_lat, _gpsr_lon, _gpsr_alt, _gpsr_speed2d, _gpsr_speed3d, _gpsr_dop, fromIntegral _gpsr_fix) ist) wps
 
-    ist = [resultlessStatement|insert into gps_readings (media_id, timestamp, lat, lon, altitude, speed2d, speed3d, precision)
-           values ($1 :: text, $2 :: timestamptz, $3 :: float8, $4 :: float8, $5 :: float8, $6 :: float8, $7 :: float8, $8 :: int4)|]
+    ist = [resultlessStatement|insert into gps_readings (media_id, timestamp, lat, lon, altitude, speed2d, speed3d, dop, fix)
+           values ($1 :: text, $2 :: timestamptz, $3 :: float8, $4 :: float8, $5 :: float8, $6 :: float8, $7 :: float8, $8 :: float8, $9 :: int4)|]
 
 gpsReadingsTODO :: MonadIO m => Connection -> m [MediumID]
 gpsReadingsTODO = queryStrings [r|select m.media_id from meta m

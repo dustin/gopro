@@ -228,6 +228,7 @@ findGPSReadings :: GoPro ()
 findGPSReadings = do
   Database{..} <- asks database
   todo <- gpsReadingsTODO
+  unless (null todo) $ logInfoL ["Found ", tshow (length todo), " gps readings to process"]
   for_ todo $ \mid -> do
     logDbgL ["Finding gps readings for ", mid]
     loadMetaBlob mid >>= \case

@@ -3,50 +3,24 @@
 {-# LANGUAGE StrictData         #-}
 module GoPro.Meta where
 
+import           Control.Lens                      (folded, toListOf)
 import           Data.Aeson
 import qualified Data.ByteString                   as BS
-import qualified Data.Map.Strict                   as Map
 import           Data.Maybe                        (mapMaybe)
 import           Data.Monoid                       (First (..), Last (..), Sum (..))
 import           Data.Semigroup                    (Max (..))
-import           Data.Time.Clock
 import           Geodetics.Geodetic                (Geodetic (..), WGS84 (..), groundDistance, readGroundPosition)
+import           GoPro.DEVC                        (GPSReading (..))
 import qualified GoPro.DEVC                        as GPMF
 import qualified GoPro.GPMF                        as GPMF
 import qualified Numeric.Units.Dimensional         as D
 import           Numeric.Units.Dimensional.SIUnits
 
-data GPSReading = GPSReading {
-  _gps_time        :: UTCTime
-  , _gps_lat       :: Double
-  , _gps_lon       :: Double
-  , _gps_alt       :: Double
-  , _gps_speed2d   :: Double
-  , _gps_speed3d   :: Double
-  , _gps_precision :: Int
-  } deriving (Eq, Show)
-
 extractReadings :: BS.ByteString -> Either String [GPSReading]
 extractReadings = fmap (extractFromDEVC . mapMaybe (uncurry GPMF.mkDEVC)) . GPMF.parseGPMF
 
 extractFromDEVC :: [GPMF.DEVC] -> [GPSReading]
-extractFromDEVC = foldMap expand
-  where
-    expand devc = foldMap (someTel . GPMF._tele_values) (Map.elems $ GPMF._dev_telems devc)
-    someTel (GPMF.TVGPS g) = zipWith (\r n ->
-                               GPSReading{
-                                 _gps_time=addUTCTime n (GPMF._gps_time g),
-                                 _gps_lat=GPMF._gpsr_lat r,
-                                 _gps_lon=GPMF._gpsr_lon r,
-                                 _gps_alt=GPMF._gpsr_alt r,
-                                 _gps_speed2d=GPMF._gpsr_speed2d r,
-                                 _gps_speed3d=GPMF._gpsr_speed3d r,
-                                 _gps_precision=GPMF._gps_p g
-                                 }) readings periods
-      where
-        readings = GPMF._gps_readings g
-        periods = realToFrac <$> [0, 1 / realToFrac (length readings) .. 1 :: Double]
-    someTel _ = []
+extractFromDEVC = toListOf (folded . GPMF.gpsReadings . folded)
 
 data GPSSummary = GPSSummary {
   _gps_home             :: First (Geodetic WGS84)
@@ -84,13 +58,13 @@ instance ToJSON GPSSummary where
       geob k (Just (Geodetic lat lon _ _)) = [k .= [lat D./~ degree, lon D./~ degree]]
 
 summarizeGPS :: [GPSReading] -> GPSSummary
-summarizeGPS = foldr f mempty . filter (\GPSReading{..} -> _gps_precision < 200)
+summarizeGPS = foldr f mempty . filter (\GPSReading{..} -> _gpsr_dop < 200)
   where
     f GPSReading{..} o = o <> GPSSummary
                                 (First parsed) (Last parsed) (Max (dist hprev))
-                                (Max _gps_speed2d) (Max _gps_speed3d) (Sum (dist mprev))
+                                (Max _gpsr_speed2d) (Max _gpsr_speed3d) (Sum (dist mprev))
       where
-        parsed = readGroundPosition WGS84 (show _gps_lat <> " " <> show _gps_lon)
+        parsed = readGroundPosition WGS84 (show _gpsr_lat <> " " <> show _gpsr_lon)
         mprev = getLast (_gps_last o)
         hprev = getFirst (_gps_home o)
         dist mp = case (mp, parsed) of

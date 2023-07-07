@@ -27,7 +27,7 @@ import qualified Data.Vector                    as V
 import           GoPro.Commands
 import           GoPro.Commands.Sync            (refreshMedia, runFullSync)
 import           GoPro.DB
-import           GoPro.Meta
+import           GoPro.DEVC                     (GPSReading (..))
 import           GoPro.Notification
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
@@ -135,13 +135,14 @@ runServer = do
           "time,lat,lon,alt,speed2d,speed3d,dilution\n",
           foldMap (\GPSReading{..} ->
                           LT.intercalate "," [
-                           ltshow _gps_time,
-                           ltshow _gps_lat,
-                           ltshow _gps_lon,
-                           ltshow _gps_alt,
-                           ltshow _gps_speed2d,
-                           ltshow _gps_speed3d,
-                           ltshow _gps_precision
+                           ltshow _gpsr_time,
+                           ltshow _gpsr_lat,
+                           ltshow _gpsr_lon,
+                           ltshow _gpsr_alt,
+                           ltshow _gpsr_speed2d,
+                           ltshow _gpsr_speed3d,
+                           ltshow _gpsr_dop,
+                           ltshow _gpsr_fix
                            ] <> "\n"
                    ) readings
           ]
@@ -209,10 +210,10 @@ mkKMLPath Medium{..} MDSummary{..} readings = LT.pack . showTopElement $ kml
 
     coords = foldMap (\GPSReading{..} ->
                           intercalate "," [
-                           show _gps_lon,
-                           show _gps_lat,
-                           show _gps_alt
+                           show _gpsr_lon,
+                           show _gpsr_lat,
+                           show _gpsr_alt
                            ] <> "\n"
-                       ) (filter (\GPSReading{..} -> _gps_precision < 200) readings)
+                       ) (filter (\GPSReading{..} -> _gpsr_dop < 200) readings)
 
     showf f = showFFloat (Just 2) f ""
