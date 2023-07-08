@@ -636,7 +636,7 @@ loadGPSReadings :: MonadIO m => Connection -> MediumID -> Fold GPSReading b -> m
 loadGPSReadings db m (Fold step a ex) =  mightFail . Session.run (ex <$> Session.statement m st) $ db
   where
     st = Statement sql (Encoders.param (Encoders.nonNullable Encoders.text)) (foldlRows step a dec) True
-    sql = [r|select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from routes where media_id = $1 :: text order by timestamp|]
+    sql = [r|select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = $1 :: text order by timestamp|]
     dec = GPSReading <$> column (nonNullable Decoders.float8)
                    <*> column (nonNullable Decoders.float8)
                    <*> column (nonNullable Decoders.float8)
