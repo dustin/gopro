@@ -12,7 +12,7 @@ import qualified Control.Foldl                  as Foldl
 import           Control.Lens
 import           Control.Monad                  (forever)
 import           Control.Monad.IO.Class         (MonadIO (..))
-import           Control.Monad.Reader           (ask, asks, lift)
+import           Control.Monad.Reader           (ask, asks, lift, MonadReader)
 import qualified Data.Aeson                     as J
 import qualified Data.Aeson.KeyMap              as KM
 import           Data.Aeson.Lens                (_Object)
@@ -45,7 +45,7 @@ import           System.FilePath.Posix          ((</>))
 import           Text.XML.Light
 import           UnliftIO                       (async)
 import           Web.Scotty.Trans               (ScottyT, file, get, json, middleware, param, post, raw, scottyAppT,
-                                                 setHeader, status, text)
+                                                 setHeader, status, text, ScottyError, ActionT)
 
 ltshow :: Show a => a -> LT.Text
 ltshow = LT.pack . show
@@ -133,6 +133,8 @@ runServer = do
       get "/api/gpslog/:id" do
         Database{..} <- asks database
         mid <- param "id"
+        setHeader "Content-Type" "text/csv"
+        setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> ".csv\"")
         text =<< foldGPSReadings mid (Foldl.Fold (\o GPSReading{..} ->
                                                        LT.intercalate "," [
                                                              ltshow _gpsr_time,
@@ -145,21 +147,10 @@ runServer = do
                                                              ltshow _gpsr_fix] : o) ["time,lat,lon,alt,speed2d,speed3d,dop,fix"] (LT.intercalate "\n" . reverse))
 
       get "/api/gpspath/:id" do
-        mid <- param "id"
-        Database{..} <- asks database
-        Just med <- loadMedium mid
-        Just meta <- loadMeta mid
-        setHeader "Content-Type" "application/vnd.google-earth.kml+xml"
-        setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> ".kml\"")
-        text =<< foldGPSReadings mid (Foldl.Fold kmlStep [] (kmlDone med meta))
+        gpsExport "application/gpx+xml" "gpx" (\med meta -> Foldl.Fold kmlStep [] (kmlDone med meta)) =<< param "id"
 
       get "/api/gpxpath/:id" do
-        mid <- param "id"
-        Database{..} <- asks database
-        Just med <- loadMedium mid
-        setHeader "Content-Type" "application/gpx+xml"
-        setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> ".gpx\"")
-        text =<< foldGPSReadings mid (Foldl.Fold gpxStep [] (gpxDone med))
+        gpsExport "application/gpx+xml" "gpx" (\med _ -> Foldl.Fold gpxStep [] (gpxDone med)) =<< param "id"
 
       get "/api/retrieve2/:id" do
         imgid <- param "id"
@@ -181,6 +172,15 @@ runServer = do
                                          ("width", jn (f ^. var_width)),
                                          ("height", jn (f ^. var_height))]) _variations
               )
+
+gpsExport :: (ScottyError e, MonadReader Env m, MonadIO m) => LT.Text -> LT.Text -> (Medium -> MDSummary -> Foldl.Fold GPSReading LT.Text) -> MediumID -> ActionT e m ()
+gpsExport mime ext f mid = do
+  Database{..} <- asks database
+  Just med <- loadMedium mid
+  Just meta <- loadMeta mid
+  setHeader "Content-Type" mime
+  setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> "." <> ext <> "\"")
+  text =<< foldGPSReadings mid (f med meta)
 
 -- XML helpers
 elc :: String -> [Attr] -> [Content] -> Element
