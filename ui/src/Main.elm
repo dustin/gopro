@@ -314,7 +314,9 @@ renderMetaData m g = (case (g.lat, g.lon) of
                                                      text " ",
                                                      a [ H.href ("/api/gpslog/" ++ m.id)] [text "GPS log"],
                                                      text " ",
-                                                     a [ H.href ("/api/gpspath/" ++ m.id)] [text "KML path"]]
+                                                     a [ H.href ("/api/gpspath/" ++ m.id)] [text "KML path"],
+                                                     text " ",
+                                                     a [ H.href ("/api/gpxpath/" ++ m.id)] [text "GPX path"]]
                         _ -> [])
                ++ (case g.totalDistance of
                        Nothing -> []

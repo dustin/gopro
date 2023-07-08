@@ -158,6 +158,15 @@ runServer = do
         setHeader "Content-Type" "application/vnd.google-earth.kml+xml"
         text $ mkKMLPath med meta gps
 
+      get "/api/gpxpath/:id" do
+        mid <- param "id"
+        Database{..} <- asks database
+        gps <- loadGPSReadings mid Foldl.list
+        Just med <- loadMedium mid
+        setHeader "Content-Type" "application/gpx+xml"
+        setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> ".gpx\"")
+        text $ mkGPXPath med gps
+
       get "/api/retrieve2/:id" do
         imgid <- param "id"
         fi <- _fileStuff <$> lift (retrieve imgid)
@@ -219,3 +228,24 @@ mkKMLPath Medium{..} MDSummary{..} readings = LT.pack . showTopElement $ kml
                        ) (filter (\GPSReading{..} -> _gpsr_dop < 200) readings)
 
     showf f = showFFloat (Just 2) f ""
+
+mkGPXPath :: Medium -> [GPSReading] -> LT.Text
+mkGPXPath Medium{..} readings = LT.pack . showTopElement $ gpx
+  where
+    elc nm atts stuff = Element blank_name{qName= nm} atts stuff Nothing
+    elr nm atts stuff = elc nm atts (Elem <$> stuff)
+    elt nm stuff = elc nm [] [t stuff]
+    att k = Attr blank_name{qName=k}
+    t v = Text blank_cdata{cdData=v}
+
+    gpx = elr "gpx" [att "xmlns" "http://www.topografix.com/GPX/1/1"] [doc]
+    doc = elr "trk" [] [
+      elt "name" ("GoPro Path " <> show _medium_id <> " " <> show _medium_captured_at),
+      elr "trkseg" [] [
+          elr "trkpt" [att "lat" (show _gpsr_lat), att "lon" (show _gpsr_lon)] [
+              elt "ele" (show _gpsr_alt),
+              elt "time" (show _gpsr_time),
+              elt "speed" (show _gpsr_speed2d)
+              ]
+          | GPSReading{..} <- readings]
+      ]
