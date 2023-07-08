@@ -86,7 +86,7 @@ withSQLite name a = withConnection name (a . mkDatabase)
       listToCopyLocally = GoPro.DB.Sqlite.listToCopyLocally db,
       selectAreas = GoPro.DB.Sqlite.selectAreas db,
       fixupQuery = GoPro.DB.Sqlite.fixupQuery db,
-      loadGPSReadings = GoPro.DB.Sqlite.loadGPSReadings db,
+      foldGPSReadings = GoPro.DB.Sqlite.foldGPSReadings db,
       storeGPSReadings = GoPro.DB.Sqlite.storeGPSReadings db,
       gpsReadingsTODO = GoPro.DB.Sqlite.gpsReadingsTODO db
       }
@@ -565,8 +565,8 @@ fixupQuery db q = liftIO $ withStatement db (Query q) go
 instance FromRow GPSReading where
   fromRow = GPSReading <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field
 
-loadGPSReadings :: MonadIO m => Connection -> MediumID -> Fold GPSReading b -> m b
-loadGPSReadings db mid (Fold step a extract) = extract <$> liftIO (fold db q (Only mid) a (\o x -> pure $ step o x))
+foldGPSReadings :: MonadIO m => Connection -> MediumID -> Fold GPSReading b -> m b
+foldGPSReadings db mid (Fold step a extract) = extract <$> liftIO (fold db q (Only mid) a (\o x -> pure $ step o x))
   where
     q = "select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = ? order by timestamp"
 

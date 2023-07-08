@@ -133,7 +133,7 @@ runServer = do
       get "/api/gpslog/:id" do
         Database{..} <- asks database
         mid <- param "id"
-        text =<< loadGPSReadings mid (Foldl.Fold (\o GPSReading{..} ->
+        text =<< foldGPSReadings mid (Foldl.Fold (\o GPSReading{..} ->
                                                        o <> [LT.intercalate "," [
                                                              ltshow _gpsr_time,
                                                              ltshow _gpsr_lat,
@@ -147,7 +147,7 @@ runServer = do
       get "/api/gpspath/:id" do
         mid <- param "id"
         Database{..} <- asks database
-        gps <- loadGPSReadings mid Foldl.list
+        gps <- foldGPSReadings mid Foldl.list
         Just med <- loadMedium mid
         Just meta <- loadMeta mid
         setHeader "Content-Type" "application/vnd.google-earth.kml+xml"
@@ -159,7 +159,7 @@ runServer = do
         Just med <- loadMedium mid
         setHeader "Content-Type" "application/gpx+xml"
         setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> ".gpx\"")
-        text =<< loadGPSReadings mid (Foldl.Fold gpxStep [] (gpxDone med))
+        text =<< foldGPSReadings mid (Foldl.Fold gpxStep [] (gpxDone med))
 
       get "/api/retrieve2/:id" do
         imgid <- param "id"

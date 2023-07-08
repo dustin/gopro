@@ -101,7 +101,7 @@ withPostgres (fromString -> c) a = withConn c (a . mkDatabase)
       listToCopyLocally = GoPro.DB.Postgres.listToCopyLocally db,
       selectAreas = GoPro.DB.Postgres.selectAreas db,
       fixupQuery = GoPro.DB.Postgres.fixupQuery db,
-      loadGPSReadings = GoPro.DB.Postgres.loadGPSReadings db,
+      foldGPSReadings = GoPro.DB.Postgres.foldGPSReadings db,
       storeGPSReadings = GoPro.DB.Postgres.storeGPSReadings db,
       gpsReadingsTODO = GoPro.DB.Postgres.gpsReadingsTODO db
       }
@@ -632,8 +632,8 @@ loadAuth = mightFail . Session.run (Session.statement () st)
 fixupQuery :: MonadIO m => Connection -> Text -> m [[(Text, J.Value)]]
 fixupQuery _ _ = liftIO $ fail "fixup query isn't currently supported for postgres"
 
-loadGPSReadings :: MonadIO m => Connection -> MediumID -> Fold GPSReading b -> m b
-loadGPSReadings db m (Fold step a ex) =  mightFail . Session.run (ex <$> Session.statement m st) $ db
+foldGPSReadings :: MonadIO m => Connection -> MediumID -> Fold GPSReading b -> m b
+foldGPSReadings db m (Fold step a ex) =  mightFail . Session.run (ex <$> Session.statement m st) $ db
   where
     st = Statement sql (Encoders.param (Encoders.nonNullable Encoders.text)) (foldlRows step a dec) True
     sql = [r|select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = $1 :: text order by timestamp|]

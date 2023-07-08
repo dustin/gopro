@@ -133,7 +133,7 @@ data Database = Database {
   listToCopyLocally   :: forall m. MonadIO m => m [MediumID],
   selectAreas         :: forall m. MonadIO m => m [Area],
 
-  loadGPSReadings     :: forall m b. MonadIO m => MediumID -> Fold GPSReading b -> m b,
+  foldGPSReadings     :: forall m b. MonadIO m => MediumID -> Fold GPSReading b -> m b,
   storeGPSReadings    :: forall m. MonadIO m => MediumID -> [GPSReading] -> m (),
   gpsReadingsTODO     :: forall m. MonadIO m => m [MediumID],
 
