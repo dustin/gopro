@@ -231,12 +231,12 @@ mkKMLPath Medium{..} MDSummary{..} readings = LT.pack . showTopElement $ kml
     showf f = showFFloat (Just 2) f ""
 
 gpxStep :: [Element] -> GPSReading -> [Element]
-gpxStep acc GPSReading{..} = acc <> [
+gpxStep acc GPSReading{..} =
             elr "trkpt" [att "lat" (show _gpsr_lat), att "lon" (show _gpsr_lon)] [
               elt "ele" (show _gpsr_alt),
               elt "time" (show _gpsr_time),
               elt "speed" (show _gpsr_speed2d)
-              ]]
+              ] : acc
 
 gpxDone :: Medium -> [Element] -> LT.Text
 gpxDone Medium{..} els = LT.pack . showTopElement $ gpx
@@ -244,5 +244,5 @@ gpxDone Medium{..} els = LT.pack . showTopElement $ gpx
     gpx = elr "gpx" [att "xmlns" "http://www.topografix.com/GPX/1/1"] [doc]
     doc = elr "trk" [] [
       elt "name" ("GoPro Path " <> show _medium_id <> " " <> show _medium_captured_at),
-      elr "trkseg" [] els
+      elr "trkseg" [] (reverse els)
       ]
