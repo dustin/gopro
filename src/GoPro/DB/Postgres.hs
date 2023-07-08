@@ -558,7 +558,7 @@ listToCopyLocally = queryStrings "select media_id from media order by created_at
 
 clearUploads :: MonadIO m => Connection -> m ()
 clearUploads = mightFail . Session.run (do
-  g "delete from metablob where media_id not in (select media_id from uploads)"
+  g "delete from metablob where media_id not in (select media_id from media)"
   g "delete from upload_parts"
   g "delete from uploads")
   where
