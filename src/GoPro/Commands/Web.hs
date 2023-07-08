@@ -134,7 +134,7 @@ runServer = do
         Database{..} <- asks database
         mid <- param "id"
         text =<< foldGPSReadings mid (Foldl.Fold (\o GPSReading{..} ->
-                                                       o <> [LT.intercalate "," [
+                                                       LT.intercalate "," [
                                                              ltshow _gpsr_time,
                                                              ltshow _gpsr_lat,
                                                              ltshow _gpsr_lon,
@@ -142,7 +142,7 @@ runServer = do
                                                              ltshow _gpsr_speed2d,
                                                              ltshow _gpsr_speed3d,
                                                              ltshow _gpsr_dop,
-                                                             ltshow _gpsr_fix]]) ["time,lat,lon,alt,speed2d,speed3d,dop,fix"] (LT.intercalate "\n"))
+                                                             ltshow _gpsr_fix] : o) ["time,lat,lon,alt,speed2d,speed3d,dop,fix"] (LT.intercalate "\n" . reverse))
 
       get "/api/gpspath/:id" do
         mid <- param "id"
