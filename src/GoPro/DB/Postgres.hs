@@ -40,8 +40,8 @@ import           Text.Read                  (readMaybe)
 
 import           Hasql.Connection           (Connection)
 import qualified Hasql.Connection           as Connection
-import           Hasql.Decoders             (Row, Value, column, foldlRows, foldrRows, noResult, nonNullable, nullable, rowList,
-                                             rowMaybe, singleRow)
+import           Hasql.Decoders             (Row, Value, column, foldlRows, foldrRows, noResult, nonNullable, nullable,
+                                             rowList, rowMaybe, singleRow)
 import qualified Hasql.Decoders             as Decoders
 import           Hasql.Encoders             (noParams)
 import qualified Hasql.Encoders             as Encoders
@@ -51,6 +51,7 @@ import qualified Hasql.Transaction          as TX
 import           Hasql.Transaction.Sessions (transaction)
 import qualified Hasql.Transaction.Sessions as TX
 
+import           Data.Functor.Contravariant ((>$<))
 import           GoPro.DB
 import           GoPro.DEVC                 (GPSReading (..))
 import           GoPro.Plus.Auth            (AuthInfo (..))
@@ -632,11 +633,11 @@ loadAuth = mightFail . Session.run (Session.statement () st)
 fixupQuery :: MonadIO m => Connection -> Text -> m [[(Text, J.Value)]]
 fixupQuery _ _ = liftIO $ fail "fixup query isn't currently supported for postgres"
 
-foldGPSReadings :: MonadIO m => Connection -> MediumID -> Fold GPSReading b -> m b
-foldGPSReadings db m (Fold step a ex) = mightFail . Session.run (ex <$> Session.statement m st) $ db
+foldGPSReadings :: MonadIO m => Connection -> MediumID -> Int -> Fold GPSReading b -> m b
+foldGPSReadings db m mindop (Fold step a ex) = mightFail . Session.run (ex <$> Session.statement (m, fromIntegral mindop) st) $ db
   where
-    st = Statement sql (Encoders.param (Encoders.nonNullable Encoders.text)) (foldlRows step a dec) True
-    sql = [r|select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = $1 :: text order by timestamp|]
+    st = Statement sql enc (foldlRows step a dec) True
+    sql = [r|select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = $1 :: text and dop >= $2 :: int4 order by timestamp|]
     dec = GPSReading <$> column (nonNullable Decoders.float8)
                    <*> column (nonNullable Decoders.float8)
                    <*> column (nonNullable Decoders.float8)
@@ -645,6 +646,7 @@ foldGPSReadings db m (Fold step a ex) = mightFail . Session.run (ex <$> Session.
                    <*> column (nonNullable Decoders.timestamptz)
                    <*> column (nonNullable Decoders.float8)
                    <*> column (nonNullable int)
+    enc = (fst >$< Encoders.param (Encoders.nonNullable Encoders.text)) <> (snd >$< Encoders.param (Encoders.nonNullable Encoders.int4))
     int = fromIntegral <$> Decoders.int8
 
 storeGPSReadings :: MonadIO m => Connection -> MediumID -> [GPSReading] -> m ()

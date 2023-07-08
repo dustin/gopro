@@ -12,7 +12,7 @@ import qualified Control.Foldl                  as Foldl
 import           Control.Lens
 import           Control.Monad                  (forever)
 import           Control.Monad.IO.Class         (MonadIO (..))
-import           Control.Monad.Reader           (ask, asks, lift, MonadReader)
+import           Control.Monad.Reader           (MonadReader, ask, asks, lift)
 import qualified Data.Aeson                     as J
 import qualified Data.Aeson.KeyMap              as KM
 import           Data.Aeson.Lens                (_Object)
@@ -44,8 +44,8 @@ import           Numeric
 import           System.FilePath.Posix          ((</>))
 import           Text.XML.Light
 import           UnliftIO                       (async)
-import           Web.Scotty.Trans               (ScottyT, file, get, json, middleware, param, post, raw, scottyAppT,
-                                                 setHeader, status, text, ScottyError, ActionT)
+import           Web.Scotty.Trans               (ActionT, ScottyError, ScottyT, file, get, json, middleware, param,
+                                                 post, raw, scottyAppT, setHeader, status, text)
 
 ltshow :: Show a => a -> LT.Text
 ltshow = LT.pack . show
@@ -135,7 +135,7 @@ runServer = do
         mid <- param "id"
         setHeader "Content-Type" "text/csv"
         setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> ".csv\"")
-        text =<< foldGPSReadings mid (Foldl.Fold (\o GPSReading{..} ->
+        text =<< foldGPSReadings mid 0 (Foldl.Fold (\o GPSReading{..} ->
                                                        LT.intercalate "," [
                                                              ltshow _gpsr_time,
                                                              ltshow _gpsr_lat,
@@ -180,7 +180,7 @@ gpsExport mime ext f mid = do
   Just meta <- loadMeta mid
   setHeader "Content-Type" mime
   setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> "." <> ext <> "\"")
-  text =<< foldGPSReadings mid (f med meta)
+  text =<< foldGPSReadings mid 200 (f med meta)
 
 -- XML helpers
 elc :: String -> [Attr] -> [Content] -> Element
@@ -195,7 +195,6 @@ xt :: String -> Content
 xt v = Text blank_cdata{cdData=v}
 
 kmlStep :: [String] -> GPSReading -> [String]
-kmlStep o GPSReading{..} | _gpsr_dop >= 200 = o
 kmlStep o GPSReading{..} = intercalate "," [
                            show _gpsr_lon,
                            show _gpsr_lat,
@@ -231,7 +230,6 @@ kmlDone Medium{..} MDSummary{..} coords = LT.pack . showTopElement $ kml
     showf f = showFFloat (Just 2) f ""
 
 gpxStep :: [Element] -> GPSReading -> [Element]
-gpxStep acc GPSReading{..} | _gpsr_dop >= 200 = acc
 gpxStep acc GPSReading{..} =
             elr "trkpt" [att "lat" (show _gpsr_lat), att "lon" (show _gpsr_lon)] [
               elt "ele" (show _gpsr_alt),
