@@ -231,6 +231,7 @@ mkKMLPath Medium{..} MDSummary{..} readings = LT.pack . showTopElement $ kml
     showf f = showFFloat (Just 2) f ""
 
 gpxStep :: [Element] -> GPSReading -> [Element]
+gpxStep acc GPSReading{..} | _gpsr_dop >= 200 = acc
 gpxStep acc GPSReading{..} =
             elr "trkpt" [att "lat" (show _gpsr_lat), att "lon" (show _gpsr_lon)] [
               elt "ele" (show _gpsr_alt),
