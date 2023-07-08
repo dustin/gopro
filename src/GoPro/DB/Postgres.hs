@@ -40,7 +40,7 @@ import           Text.Read                  (readMaybe)
 
 import           Hasql.Connection           (Connection)
 import qualified Hasql.Connection           as Connection
-import           Hasql.Decoders             (Row, Value, column, foldlRows, noResult, nonNullable, nullable, rowList,
+import           Hasql.Decoders             (Row, Value, column, foldlRows, foldrRows, noResult, nonNullable, nullable, rowList,
                                              rowMaybe, singleRow)
 import qualified Hasql.Decoders             as Decoders
 import           Hasql.Encoders             (noParams)
@@ -410,7 +410,7 @@ loadMetaBlob db mid = fmap resolve . mightFail . Session.run (Session.statement 
     st = [maybeStatement|select format::text, meta::bytea? from metablob where media_id = $1::text|]
 
 clearMetaBlob :: MonadIO m => [MediumID] -> Connection -> m ()
-clearMetaBlob ms = mightFail . Session.run (traverse_ (\i -> Session.statement i st) ms)
+clearMetaBlob ms = mightFail . Session.run (traverse_ (`Session.statement` st) ms)
   where
     st = Statement sql (Encoders.param (Encoders.nonNullable Encoders.text)) noResult True
     sql = "update metablob set meta = null, backedup = true where media_id = $1"
@@ -459,10 +459,10 @@ storeMoments mid ms = mightFail . Session.run (transaction TX.Serializable TX.Wr
     ins = [resultlessStatement|insert into moments (media_id, moment_id, timestamp) values ($1::text,$2::text,$3::int?)|]
 
 loadMoments :: MonadIO m => Connection -> m (Map MediumID [Moment])
-loadMoments = fmap (Map.fromListWith (<>) . foldMap f) . mightFail . Session.run (Session.statement () st)
+loadMoments = mightFail . Session.run (Session.statement () st)
   where
-    st = [vectorStatement|select media_id::text, moment_id::text, timestamp::int? from moments|]
-    f (m,i,t) = [(m, [Moment i (fromIntegral <$> t)])]
+    st = [foldStatement|select media_id::text, moment_id::text, timestamp::int? from moments|] (Fold f mempty id)
+    f o (m, i, fmap fromIntegral -> t) = Map.alter (\ml -> Just (Moment i t : fromMaybe [] ml)) m o
 
 momentsTODO :: MonadIO m => Connection -> m [MediumID]
 momentsTODO = queryStrings sql
@@ -586,9 +586,9 @@ namedSummaryRow = do
     f = (column . nullable) Decoders.float8
 
 selectMeta :: forall m. MonadIO m => Connection -> m (Map MediumID MDSummary)
-selectMeta = fmap (Map.fromList . fmap (\(NamedSummary x) -> x)) . mightFail . Session.run (Session.statement () st)
+selectMeta = mightFail . Session.run (Session.statement () st)
   where
-    st = Statement sql noParams (rowList namedSummaryRow) True
+    st = Statement sql noParams (foldrRows (\(NamedSummary (k,v)) -> Map.insert k v) mempty namedSummaryRow) True
     sql = [r|
            select media_id::text, camera_model, captured_at, lat, lon,
                   max_speed_2d, max_speed_3d,
@@ -633,7 +633,7 @@ fixupQuery :: MonadIO m => Connection -> Text -> m [[(Text, J.Value)]]
 fixupQuery _ _ = liftIO $ fail "fixup query isn't currently supported for postgres"
 
 foldGPSReadings :: MonadIO m => Connection -> MediumID -> Fold GPSReading b -> m b
-foldGPSReadings db m (Fold step a ex) =  mightFail . Session.run (ex <$> Session.statement m st) $ db
+foldGPSReadings db m (Fold step a ex) = mightFail . Session.run (ex <$> Session.statement m st) $ db
   where
     st = Statement sql (Encoders.param (Encoders.nonNullable Encoders.text)) (foldlRows step a dec) True
     sql = [r|select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = $1 :: text order by timestamp|]
