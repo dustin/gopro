@@ -8,6 +8,7 @@ module GoPro.Commands.Web where
 
 import           Control.Applicative            ((<|>))
 import           Control.Concurrent.STM         (atomically, dupTChan, readTChan)
+import qualified Control.Foldl                  as Foldl
 import           Control.Lens
 import           Control.Monad                  (forever)
 import           Control.Monad.IO.Class         (MonadIO (..))
@@ -24,6 +25,7 @@ import           Data.String                    (fromString)
 import qualified Data.Text                      as T
 import qualified Data.Text.Lazy                 as LT
 import qualified Data.Vector                    as V
+
 import           GoPro.Commands
 import           GoPro.Commands.Sync            (refreshMedia, runFullSync)
 import           GoPro.DB
@@ -130,7 +132,7 @@ runServer = do
 
       get "/api/gpslog/:id" do
         Database{..} <- asks database
-        readings <- loadGPSReadings =<< param "id"
+        readings <- flip loadGPSReadings Foldl.list =<< param "id"
         text $ fold [
           "time,lat,lon,alt,speed2d,speed3d,dilution\n",
           foldMap (\GPSReading{..} ->
@@ -150,7 +152,7 @@ runServer = do
       get "/api/gpspath/:id" do
         mid <- param "id"
         Database{..} <- asks database
-        gps <- loadGPSReadings mid
+        gps <- loadGPSReadings mid Foldl.list
         Just med <- loadMedium mid
         Just meta <- loadMeta mid
         setHeader "Content-Type" "application/vnd.google-earth.kml+xml"

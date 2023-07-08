@@ -17,7 +17,8 @@ module GoPro.DB (MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_varia
                  AuthResult(..),
                  ) where
 
-import           Control.Lens
+import           Control.Foldl          (Fold (..))
+import           Control.Lens           hiding (Fold)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Aeson             (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
                                          genericToEncoding)
@@ -132,7 +133,7 @@ data Database = Database {
   listToCopyLocally   :: forall m. MonadIO m => m [MediumID],
   selectAreas         :: forall m. MonadIO m => m [Area],
 
-  loadGPSReadings     :: forall m. MonadIO m => MediumID -> m [GPSReading],
+  loadGPSReadings     :: forall m b. MonadIO m => MediumID -> Fold GPSReading b -> m b,
   storeGPSReadings    :: forall m. MonadIO m => MediumID -> [GPSReading] -> m (),
   gpsReadingsTODO     :: forall m. MonadIO m => m [MediumID],
 

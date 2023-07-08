@@ -40,8 +40,8 @@ import           Text.Read                  (readMaybe)
 
 import           Hasql.Connection           (Connection)
 import qualified Hasql.Connection           as Connection
-import           Hasql.Decoders             (Row, Value, column, noResult, nonNullable, nullable, rowList, rowMaybe,
-                                             singleRow)
+import           Hasql.Decoders             (Row, Value, column, foldlRows, noResult, nonNullable, nullable, rowList,
+                                             rowMaybe, singleRow)
 import qualified Hasql.Decoders             as Decoders
 import           Hasql.Encoders             (noParams)
 import qualified Hasql.Encoders             as Encoders
@@ -453,7 +453,7 @@ storeMoments mid ms = mightFail . Session.run (transaction TX.Serializable TX.Wr
   where
     tx = do
       TX.statement mid del
-      traverse_ (flip TX.statement ins) [(mid, _moment_id, fromIntegral <$> _moment_time) | Moment{..} <- ms]
+      traverse_ (`TX.statement` ins) [(mid, _moment_id, fromIntegral <$> _moment_time) | Moment{..} <- ms]
 
     del = [resultlessStatement|delete from moments where media_id = $1::text|]
     ins = [resultlessStatement|insert into moments (media_id, moment_id, timestamp) values ($1::text,$2::text,$3::int?)|]
@@ -632,10 +632,10 @@ loadAuth = mightFail . Session.run (Session.statement () st)
 fixupQuery :: MonadIO m => Connection -> Text -> m [[(Text, J.Value)]]
 fixupQuery _ _ = liftIO $ fail "fixup query isn't currently supported for postgres"
 
-loadGPSReadings :: MonadIO m => Connection -> MediumID -> m [GPSReading]
-loadGPSReadings db m = mightFail . Session.run (Session.statement m st) $ db
+loadGPSReadings :: MonadIO m => Connection -> MediumID -> Fold GPSReading b -> m b
+loadGPSReadings db m (Fold step a ex) =  mightFail . Session.run (ex <$> Session.statement m st) $ db
   where
-    st = Statement sql (Encoders.param (Encoders.nonNullable Encoders.text)) (rowList dec) True
+    st = Statement sql (Encoders.param (Encoders.nonNullable Encoders.text)) (foldlRows step a dec) True
     sql = [r|select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from routes where media_id = $1 :: text order by timestamp|]
     dec = GPSReading <$> column (nonNullable Decoders.float8)
                    <*> column (nonNullable Decoders.float8)

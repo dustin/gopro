@@ -14,6 +14,7 @@
 module GoPro.DB.Sqlite (withSQLite) where
 
 import           Control.Applicative              (liftA2)
+import           Control.Foldl                    (Fold (..))
 import           Control.Monad.IO.Class           (MonadIO (..))
 import           Data.Aeson                       (FromJSON (..), ToJSON (..))
 import qualified Data.Aeson                       as J
@@ -564,8 +565,10 @@ fixupQuery db q = liftIO $ withStatement db (Query q) go
 instance FromRow GPSReading where
   fromRow = GPSReading <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field
 
-loadGPSReadings :: MonadIO m => Connection -> MediumID -> m [GPSReading]
-loadGPSReadings db mid = q' "select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = ? order by timestamp" (Only mid) db
+loadGPSReadings :: MonadIO m => Connection -> MediumID -> Fold GPSReading b -> m b
+loadGPSReadings db mid (Fold step a extract) = extract <$> liftIO (fold db q (Only mid) a (\o x -> pure $ step o x))
+  where
+    q = "select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = ? order by timestamp"
 
 storeGPSReadings :: MonadIO m => Connection -> MediumID -> [GPSReading] -> m ()
 storeGPSReadings db mid wps = do
