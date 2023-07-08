@@ -147,11 +147,11 @@ runServer = do
       get "/api/gpspath/:id" do
         mid <- param "id"
         Database{..} <- asks database
-        gps <- foldGPSReadings mid Foldl.list
         Just med <- loadMedium mid
         Just meta <- loadMeta mid
         setHeader "Content-Type" "application/vnd.google-earth.kml+xml"
-        text $ mkKMLPath med meta gps
+        setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> ".kml\"")
+        text =<< foldGPSReadings mid (Foldl.Fold kmlStep [] (kmlDone med meta))
 
       get "/api/gpxpath/:id" do
         mid <- param "id"
@@ -194,8 +194,15 @@ att k = Attr blank_name{qName=k}
 xt :: String -> Content
 xt v = Text blank_cdata{cdData=v}
 
-mkKMLPath :: Medium -> MDSummary -> [GPSReading] -> LT.Text
-mkKMLPath Medium{..} MDSummary{..} readings = LT.pack . showTopElement $ kml
+kmlStep :: [String] -> GPSReading -> [String]
+kmlStep o GPSReading{..} | _gpsr_dop >= 200 = o
+kmlStep o GPSReading{..} = intercalate "," [
+                           show _gpsr_lon,
+                           show _gpsr_lat,
+                           show _gpsr_alt] : o
+
+kmlDone :: Medium -> MDSummary -> [String] -> LT.Text
+kmlDone Medium{..} MDSummary{..} coords = LT.pack . showTopElement $ kml
   where
 
     kml = elr "kml" [att "xmlns" "http://www.opengis.net/kml/2.2"] [doc]
@@ -218,15 +225,8 @@ mkKMLPath Medium{..} MDSummary{..} readings = LT.pack . showTopElement $ kml
               elt "extrude" "1",
               elt "tessellate" "1",
               elt "altitudeMode" "relative",
-              elt "coordinates" coords]]]
-
-    coords = foldMap (\GPSReading{..} ->
-                          intercalate "," [
-                           show _gpsr_lon,
-                           show _gpsr_lat,
-                           show _gpsr_alt
-                           ] <> "\n"
-                       ) (filter (\GPSReading{..} -> _gpsr_dop < 200) readings)
+              elt "coordinates" (intercalate "\n" (reverse coords))
+          ]]]
 
     showf f = showFFloat (Just 2) f ""
 
