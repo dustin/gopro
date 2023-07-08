@@ -132,22 +132,17 @@ runServer = do
 
       get "/api/gpslog/:id" do
         Database{..} <- asks database
-        readings <- flip loadGPSReadings Foldl.list =<< param "id"
-        text $ fold [
-          "time,lat,lon,alt,speed2d,speed3d,dilution\n",
-          foldMap (\GPSReading{..} ->
-                          LT.intercalate "," [
-                           ltshow _gpsr_time,
-                           ltshow _gpsr_lat,
-                           ltshow _gpsr_lon,
-                           ltshow _gpsr_alt,
-                           ltshow _gpsr_speed2d,
-                           ltshow _gpsr_speed3d,
-                           ltshow _gpsr_dop,
-                           ltshow _gpsr_fix
-                           ] <> "\n"
-                   ) readings
-          ]
+        mid <- param "id"
+        text =<< loadGPSReadings mid (Foldl.Fold (\o GPSReading{..} ->
+                                                       o <> [LT.intercalate "," [
+                                                             ltshow _gpsr_time,
+                                                             ltshow _gpsr_lat,
+                                                             ltshow _gpsr_lon,
+                                                             ltshow _gpsr_alt,
+                                                             ltshow _gpsr_speed2d,
+                                                             ltshow _gpsr_speed3d,
+                                                             ltshow _gpsr_dop,
+                                                             ltshow _gpsr_fix]]) ["time,lat,lon,alt,speed2d,speed3d,dop,fix"] (LT.intercalate "\n"))
 
       get "/api/gpspath/:id" do
         mid <- param "id"
@@ -161,11 +156,10 @@ runServer = do
       get "/api/gpxpath/:id" do
         mid <- param "id"
         Database{..} <- asks database
-        gps <- loadGPSReadings mid Foldl.list
         Just med <- loadMedium mid
         setHeader "Content-Type" "application/gpx+xml"
         setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> ".gpx\"")
-        text $ mkGPXPath med gps
+        text =<< loadGPSReadings mid (Foldl.Fold gpxStep [] (gpxDone med))
 
       get "/api/retrieve2/:id" do
         imgid <- param "id"
@@ -188,14 +182,21 @@ runServer = do
                                          ("height", jn (f ^. var_height))]) _variations
               )
 
+-- XML helpers
+elc :: String -> [Attr] -> [Content] -> Element
+elc nm atts stuff = Element blank_name{qName= nm} atts stuff Nothing
+elr :: String -> [Attr] -> [Element] -> Element
+elr nm atts stuff = elc nm atts (Elem <$> stuff)
+elt :: String -> String -> Element
+elt nm stuff = elc nm [] [xt stuff]
+att :: String -> String -> Attr
+att k = Attr blank_name{qName=k}
+xt :: String -> Content
+xt v = Text blank_cdata{cdData=v}
+
 mkKMLPath :: Medium -> MDSummary -> [GPSReading] -> LT.Text
 mkKMLPath Medium{..} MDSummary{..} readings = LT.pack . showTopElement $ kml
   where
-    elc nm atts stuff = Element blank_name{qName= nm} atts stuff Nothing
-    elr nm atts stuff = elc nm atts (Elem <$> stuff)
-    elt nm stuff = elc nm [] [t stuff]
-    att k = Attr blank_name{qName=k}
-    t v = Text blank_cdata{cdData=v}
 
     kml = elr "kml" [att "xmlns" "http://www.opengis.net/kml/2.2"] [doc]
     doc = elr "Document" [] [
@@ -229,23 +230,19 @@ mkKMLPath Medium{..} MDSummary{..} readings = LT.pack . showTopElement $ kml
 
     showf f = showFFloat (Just 2) f ""
 
-mkGPXPath :: Medium -> [GPSReading] -> LT.Text
-mkGPXPath Medium{..} readings = LT.pack . showTopElement $ gpx
-  where
-    elc nm atts stuff = Element blank_name{qName= nm} atts stuff Nothing
-    elr nm atts stuff = elc nm atts (Elem <$> stuff)
-    elt nm stuff = elc nm [] [t stuff]
-    att k = Attr blank_name{qName=k}
-    t v = Text blank_cdata{cdData=v}
-
-    gpx = elr "gpx" [att "xmlns" "http://www.topografix.com/GPX/1/1"] [doc]
-    doc = elr "trk" [] [
-      elt "name" ("GoPro Path " <> show _medium_id <> " " <> show _medium_captured_at),
-      elr "trkseg" [] [
-          elr "trkpt" [att "lat" (show _gpsr_lat), att "lon" (show _gpsr_lon)] [
+gpxStep :: [Element] -> GPSReading -> [Element]
+gpxStep acc GPSReading{..} = acc <> [
+            elr "trkpt" [att "lat" (show _gpsr_lat), att "lon" (show _gpsr_lon)] [
               elt "ele" (show _gpsr_alt),
               elt "time" (show _gpsr_time),
               elt "speed" (show _gpsr_speed2d)
-              ]
-          | GPSReading{..} <- readings]
+              ]]
+
+gpxDone :: Medium -> [Element] -> LT.Text
+gpxDone Medium{..} els = LT.pack . showTopElement $ gpx
+  where
+    gpx = elr "gpx" [att "xmlns" "http://www.topografix.com/GPX/1/1"] [doc]
+    doc = elr "trk" [] [
+      elt "name" ("GoPro Path " <> show _medium_id <> " " <> show _medium_captured_at),
+      elr "trkseg" [] els
       ]
