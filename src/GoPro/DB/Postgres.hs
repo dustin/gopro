@@ -203,7 +203,10 @@ initQueries = [
         fix int4 not null)
     |]),
 
-  (8, "create index gps_readings_by_media_id on gps_readings(media_id)")
+  (8, "create index gps_readings_by_media_id on gps_readings(media_id)"),
+
+  (9, "alter table media alter column raw_json type jsonb using (encode(raw_json, 'escape'))::jsonb"),
+  (9, "alter table media alter column variants type jsonb using (encode(variants, 'escape'))::jsonb")
   ]
 
 initTables :: MonadIO m => Connection -> m ()
@@ -241,13 +244,13 @@ updateConfig cfg db = mightFail $ flip Session.run db $ do
 
 upsertMediaS :: Statement (Text, Maybe Text, UTCTime, UTCTime,
                            Maybe Int64, Int64, Maybe DiffTime, Text,
-                           Maybe Int64, Maybe Int64, Text, Maybe Text, Maybe ByteString, ByteString, ByteString) ()
+                           Maybe Int64, Maybe Int64, Text, Maybe Text, Maybe ByteString, J.Value, J.Value) ()
 upsertMediaS = [resultlessStatement|insert into media (media_id, camera_model, captured_at, created_at,
                                      file_size, moments_count, source_duration, media_type,
                                      width, height, ready_to_view, filename, thumbnail, variants, raw_json)
                                      values($1 :: text, $2 :: text?, $3 :: timestamptz, $4 :: timestamptz,
                                             $5 :: int8?, $6 :: int8, $7 :: interval?, $8 :: text,
-                                            $9 :: int8?, $10 :: int8?, $11 :: text, $12 :: text?, $13 :: bytea?, $14 :: bytea, $15 :: bytea)
+                                            $9 :: int8?, $10 :: int8?, $11 :: text, $12 :: text?, $13 :: bytea?, $14 :: jsonb, $15 :: jsonb)
                               on conflict (media_id)
                                  do update
                                    set moments_count = excluded.moments_count,
@@ -274,8 +277,8 @@ storeMedia rows = mightFail . Session.run sess
       T.pack . show $ _medium_ready_to_view,
       T.pack <$> _medium_filename,
       BL.toStrict <$> thumbnail,
-      BL.toStrict vars,
-      BL.toStrict raw
+      vars,
+      raw
       ) upsertMediaS
 
     parseMS :: String -> Maybe DiffTime
@@ -284,13 +287,16 @@ storeMedia rows = mightFail . Session.run sess
 mediaRow :: Row MediaRow
 mediaRow = MediaRow <$> mediumRow
              <*> column (Decoders.nullable (BL.fromStrict <$> Decoders.bytea))
-             <*> column (Decoders.nonNullable (BL.fromStrict <$> Decoders.bytea))
-             <*> column (Decoders.nonNullable (BL.fromStrict <$> Decoders.bytea))
+             <*> column (Decoders.nonNullable Decoders.jsonb)
+             <*> column (Decoders.nonNullable Decoders.jsonb)
 
 loadMediaRows :: MonadIO m => Connection -> m [MediaRow]
 loadMediaRows = mightFail . Session.run (Session.statement () st)
   where
-    st = Statement "select media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view, (extract(epoch from source_duration)*1000)::integer::text, media_type, width, height, filename, thumbnail, variants, raw_json from media" noParams (rowList mediaRow) True
+    st = Statement [r|select
+                         media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view,
+                         (extract(epoch from source_duration)*1000)::integer::text, media_type, width, height, filename, thumbnail,
+                         variants, raw_json from media|] noParams (rowList mediaRow) True
 
 queryStrings :: MonadIO m => ByteString -> Connection -> m [Text]
 queryStrings q = mightFail . Session.run (Session.statement () l)

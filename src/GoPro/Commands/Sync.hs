@@ -15,7 +15,6 @@ import           Control.Monad         (unless)
 import           Control.Monad.Loops   (whileM_)
 import           Control.Monad.Reader  (asks)
 import           Control.Retry         (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
-import qualified Data.Aeson            as J
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as BL
 import           Data.Foldable         (asum, fold, for_, traverse_)
@@ -59,9 +58,9 @@ runFetch stype = do
             unless (rsIterNumber rt == 0) $ logInfoL ["Retrying fetch of ", _medium_id m,
                                                       " attempt ", tshow (rsIterNumber rt)]
             MediaRow m' _ _ r <- medium (_medium_id m)
-            MediaRow m' <$> optional (fetchThumbnail m)
-              <*> (J.encode <$> fetchVariantsSansURLs (_medium_id m))
-              <*> pure r
+            Just variants <- fetchVariantsSansURLs (_medium_id m) -- TODO:  Maybe make this total
+            thumbs <- optional (fetchThumbnail m)
+            pure $ MediaRow m' thumbs variants r
 
           policy = exponentialBackoff 2000000 <> limitRetries 3
 
@@ -214,7 +213,8 @@ refreshMedia = mapM_ refreshSome . chunksOf 100 . NE.toList
       logDbgL ["Refreshing ", mid]
       MediaRow m _ _ r <- medium mid
       tn <- optional (fetchThumbnail m)
-      MediaRow m tn <$> (J.encode <$> fetchVariantsSansURLs mid) <*> pure r
+      Just variants <- fetchVariantsSansURLs (_medium_id m) -- TODO:  Maybe make this total
+      pure $ MediaRow m tn variants r
 
     refreshSome mids = do
       Database{..} <- asks database

@@ -149,7 +149,7 @@ instance Arbitrary Location where
 
 prop_metaBlob :: TruncatedMedium -> MetadataType -> ByteString -> Property
 prop_metaBlob (TruncatedMedium m@(Medium{_medium_id})) mt bs = ioProperty . runDB $ \db -> do
-  storeMedia db [MediaRow m Nothing "" (J.encode m)]
+  storeMedia db [MediaRow m Nothing "" (J.toJSON m)]
   todo <- fmap fst <$> metaBlobTODO db
   assertEqual "todo" [_medium_id] todo
 
@@ -177,7 +177,7 @@ prop_metaBlob (TruncatedMedium m@(Medium{_medium_id})) mt bs = ioProperty . runD
 
 prop_meta :: TruncatedMedium -> MetadataType -> ByteString -> MDSummary -> Property
 prop_meta (TruncatedMedium m@(Medium{_medium_id})) mt bs md = ioProperty . runDB $ \db -> do
-    storeMedia db [MediaRow m Nothing "" (J.encode m)]
+    storeMedia db [MediaRow m Nothing "" (J.toJSON m)]
     insertMetaBlob db _medium_id mt (Just bs)
     insertMeta db _medium_id md
     nmd <- selectMeta db
@@ -185,4 +185,3 @@ prop_meta (TruncatedMedium m@(Medium{_medium_id})) mt bs md = ioProperty . runDB
 
     nmd' <- loadMeta db _medium_id
     assertEqual "summary metadata" (Just md) nmd'
-

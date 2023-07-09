@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -50,18 +51,23 @@ strOption s = find ((== s) . optionStr) [minBound..]
 instance J.FromJSON MediaRow where
   parseJSON o = do
     m <- J.parseJSON o
-    pure $ MediaRow m Nothing "" (J.encode o)
+    pure $ MediaRow m Nothing "" o
 
 data MediaRow = MediaRow
     { _row_media     :: Medium
     , _row_thumbnail :: Maybe BL.ByteString
-    , _row_variants  :: BL.ByteString
-    , _row_raw_json  :: BL.ByteString
+    , _row_variants  :: J.Value
+    , _row_raw_json  :: J.Value
     } deriving (Show, Eq)
 makeLenses ''MediaRow
 
 row_fileInfo :: Lens' MediaRow (Maybe FileInfo)
-row_fileInfo = lens (\(MediaRow _ _ v _) -> J.decode v) (\(MediaRow m t _ r) x -> MediaRow m t (J.encode x) r)
+row_fileInfo = lens (\(MediaRow _ _ v _) -> unj v) (\(MediaRow m t _ r) x -> MediaRow m t (J.toJSON x) r)
+  where
+    unj :: J.Value -> Maybe FileInfo
+    unj x = case J.fromJSON x of
+                 J.Success fi -> Just fi
+                 J.Error _    -> Nothing
 
 data MetadataType = GPMF | EXIF | NoMetadata deriving (Show, Read, Enum, Bounded, Eq)
 

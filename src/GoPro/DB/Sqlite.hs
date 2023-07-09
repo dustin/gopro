@@ -25,7 +25,7 @@ import           Data.List                        (sortOn)
 import           Data.List.Extra                  (groupOn)
 import           Data.Map.Strict                  (Map)
 import qualified Data.Map.Strict                  as Map
-import           Data.Maybe                       (fromJust, listToMaybe)
+import           Data.Maybe                       (listToMaybe)
 import           Data.Scientific                  (fromFloatDigits)
 import           Data.String                      (fromString)
 import           Data.Text                        (Text)
@@ -38,6 +38,7 @@ import           Database.SQLite.Simple.QQ        (sql)
 import           Database.SQLite.Simple.ToField
 
 
+import           Database.SQLite.Simple.FromRow   (fieldWith)
 import           GoPro.DB
 import           GoPro.DEVC                       (GPSReading (..))
 import           GoPro.Plus.Auth                  (AuthInfo (..))
@@ -216,17 +217,23 @@ instance ToField ReadyToViewType where
 instance ToField MediumType where
   toField = jsonToField
 
-jsonFromField :: (Typeable j, FromJSON j) => String -> Field -> Ok j
-jsonFromField lbl f =
+jsonFromField :: (Typeable j, FromJSON j) => String -> (Text -> Text) -> Field -> Ok j
+jsonFromField lbl conv f =
   case fieldData f of
-    (SQLText t) -> Ok . fromJust . J.decode . BL.fromStrict . TE.encodeUtf8 $ ("\"" <> t <> "\"")
-    _           -> returnError ConversionFailed f ("invalid type for " <>  lbl)
+    (SQLText t) -> maybee t . J.decode . BL.fromStrict . TE.encodeUtf8 . conv $ t
+    _           -> returnError ConversionFailed f ("invalid type for " <> lbl)
+  where
+    maybee t Nothing  = returnError ConversionFailed f ("invalid value for " <> lbl <> ": " <> show t)
+    maybee _ (Just x) = Ok x
+
+quote :: Text -> Text
+quote t = "\"" <> t <> "\""
 
 instance FromField ReadyToViewType where
-  fromField = jsonFromField "ready to view"
+  fromField = jsonFromField "ready to view" quote
 
 instance FromField MediumType where
-  fromField = jsonFromField "medium type"
+  fromField = jsonFromField "medium type" quote
 
 instance ToRow MediaRow where
   toRow (MediaRow Medium{..} thumbnail vars raw) = [
@@ -243,16 +250,18 @@ instance ToRow MediaRow where
     toField _medium_ready_to_view,
     toField _medium_filename,
     toField thumbnail,
-    toField vars,
-    toField raw
+    toJSONField vars,
+    toJSONField raw
     ]
 
+toJSONField :: ToJSON a => a -> SQLData
+toJSONField = toField . TE.decodeUtf8 . BL.toStrict . J.encode
 
 storeMedia :: MonadIO m => [MediaRow] -> Connection -> m ()
 storeMedia = em upsertMediaStatement
 
 instance FromRow MediaRow where
-  fromRow = MediaRow <$> fromRow <*> field <*> field <*> field
+  fromRow = MediaRow <$> fromRow <*> field <*> fieldWith (jsonFromField "variants" id) <*> fieldWith (jsonFromField "raw_json" id)
 
 loadMediaRows :: MonadIO m => Connection -> m [MediaRow]
 loadMediaRows = q_ "select media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view, source_duration, media_type, width, height, filename, thumbnail, variants, raw_json from media"
