@@ -640,10 +640,10 @@ fixupQuery :: MonadIO m => Connection -> Text -> m [[(Text, J.Value)]]
 fixupQuery _ _ = liftIO $ fail "fixup query isn't currently supported for postgres"
 
 foldGPSReadings :: MonadIO m => Connection -> MediumID -> Int -> Fold GPSReading b -> m b
-foldGPSReadings db m mindop (Fold step a ex) = mightFail . Session.run (ex <$> Session.statement (m, fromIntegral mindop) st) $ db
+foldGPSReadings db m maxdop (Fold step a ex) = mightFail . Session.run (ex <$> Session.statement (m, fromIntegral maxdop) st) $ db
   where
     st = Statement sql enc (foldlRows step a dec) True
-    sql = [r|select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = $1 :: text and dop >= $2 :: int4 order by timestamp|]
+    sql = [r|select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = $1 :: text and dop < $2 :: int4 order by timestamp|]
     dec = GPSReading <$> column (nonNullable Decoders.float8)
                    <*> column (nonNullable Decoders.float8)
                    <*> column (nonNullable Decoders.float8)

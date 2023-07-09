@@ -135,16 +135,16 @@ runServer = do
         mid <- param "id"
         setHeader "Content-Type" "text/csv"
         setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> ".csv\"")
-        text =<< foldGPSReadings mid 0 (Foldl.Fold (\o GPSReading{..} ->
-                                                       LT.intercalate "," [
-                                                             ltshow _gpsr_time,
-                                                             ltshow _gpsr_lat,
-                                                             ltshow _gpsr_lon,
-                                                             ltshow _gpsr_alt,
-                                                             ltshow _gpsr_speed2d,
-                                                             ltshow _gpsr_speed3d,
-                                                             ltshow _gpsr_dop,
-                                                             ltshow _gpsr_fix] : o) ["time,lat,lon,alt,speed2d,speed3d,dop,fix"] (LT.intercalate "\n" . reverse))
+        text =<< foldGPSReadings mid 1000 (Foldl.Fold (\o GPSReading{..} ->
+                                                         LT.intercalate "," [
+                                                               ltshow _gpsr_time,
+                                                               ltshow _gpsr_lat,
+                                                               ltshow _gpsr_lon,
+                                                               ltshow _gpsr_alt,
+                                                               ltshow _gpsr_speed2d,
+                                                               ltshow _gpsr_speed3d,
+                                                               ltshow _gpsr_dop,
+                                                               ltshow _gpsr_fix] : o) ["time,lat,lon,alt,speed2d,speed3d,dop,fix"] (LT.intercalate "\n" . reverse))
 
       get "/api/gpspath/:id" do
         gpsExport "application/gpx+xml" "gpx" (\med meta -> Foldl.Fold kmlStep [] (kmlDone med meta)) =<< param "id"
@@ -180,7 +180,7 @@ gpsExport mime ext f mid = do
   Just meta <- loadMeta mid
   setHeader "Content-Type" mime
   setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> "." <> ext <> "\"")
-  text =<< foldGPSReadings mid 200 (f med meta)
+  text =<< foldGPSReadings mid 50 (f med meta)
 
 -- XML helpers
 elc :: String -> [Attr] -> [Content] -> Element

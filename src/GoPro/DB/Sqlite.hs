@@ -575,9 +575,9 @@ instance FromRow GPSReading where
   fromRow = GPSReading <$> field <*> field <*> field <*> field <*> field <*> field <*> field <*> field
 
 foldGPSReadings :: MonadIO m => Connection -> MediumID -> Int -> Fold GPSReading b -> m b
-foldGPSReadings db mid mindop (Fold step a extract) = extract <$> liftIO (fold db q (mid, mindop) a (\o x -> pure $ step o x))
+foldGPSReadings db mid maxdop (Fold step a extract) = extract <$> liftIO (fold db q (mid, maxdop) a (\o x -> pure $ step o x))
   where
-    q = "select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = ? and dop >= ? order by timestamp"
+    q = "select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = ? and dop < ? order by timestamp"
 
 storeGPSReadings :: MonadIO m => Connection -> MediumID -> [GPSReading] -> m ()
 storeGPSReadings db mid wps = do
