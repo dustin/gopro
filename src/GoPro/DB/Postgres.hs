@@ -369,8 +369,8 @@ metaBlobTODO :: MonadIO m => Connection -> m [(MediumID, String)]
 metaBlobTODO = fmap ((fmap.fmap) T.unpack . toList) . mightFail . Session.run (Session.statement () st)
   where
     st = [vectorStatement|select media_id::text, media_type::text
-                                 from media
-                                 where media_id not in (select media_id from metablob)
+                                 from media m
+                                 where not exists (select 1 from metablob where media_id = m.media_id)
                                  order by created_at desc|]
 
 tshow :: Show a => a -> Text
@@ -390,9 +390,9 @@ metaTODO = mightFail . Session.run (Session.statement () st)
     st = Statement sql noParams (rowList dec) True
     dec = (,,) <$> column (nonNullable Decoders.text) <*> column (nonNullable readr) <*> column (nonNullable Decoders.bytea)
     sql = [r|select b.media_id, b.format, b.meta
-                    from metablob b join media m on (m.media_id = b.media_id)
+                    from metablob b join media m using (media_id)
                     where b.meta is not null
-                          and b.media_id not in (select media_id from meta)
+                          and not exists (select 1 from meta where media_id = b.media_id)
             |]
 
 selectMetaBlob :: MonadIO m => Connection -> m [(MediumID, Maybe BS.ByteString)]
@@ -534,8 +534,8 @@ listToCopyToS3 :: MonadIO m => Connection -> m [MediumID]
 listToCopyToS3 = queryStrings sql
   where
     sql = [r|
-            select media_id from media
-            where media_id not in (select distinct media_id from s3backup)
+            select media_id from media m
+            where exists (select 1 from s3backup where media_id = m.media_id)
             order by created_at
             |]
 
