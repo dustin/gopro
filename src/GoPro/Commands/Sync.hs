@@ -11,8 +11,8 @@ import           Conduit
 import           Control.Applicative   (Alternative (..), optional)
 import           Control.Concurrent    (threadDelay)
 import           Control.Lens
-import           Control.Monad         (unless)
-import           Control.Monad.Loops   (whileM_)
+import           Control.Monad         (unless, void)
+import           Control.Monad.Loops   (iterateWhile, whileM_)
 import           Control.Monad.Reader  (asks)
 import           Control.Retry         (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
 import qualified Data.ByteString       as BS
@@ -235,13 +235,17 @@ findGPSReadings = do
       Just (GPMF, Just bs) -> storeGPSReadings mid =<< either fail pure (extractReadings bs)
       _                    -> pure ()
 
+-- iterateWhile :: Monad m => (a -> Bool) -> m a -> m a
 runFullSync :: GoPro ()
 runFullSync = do
   runFetch Incremental
   runGetMeta
-  metas <- runGrokTel
-  -- If an S3 bucket is configured, make sure all metadata is in the cache.
-  bn <- asks (configItem CfgBucket)
-  unless (bn == "") $ runStoreMeta' metas
+  void . iterateWhile (not . null) $ do
+    metas <- runGrokTel
+    unless (null metas) $ logDbgL ["Did a batch of ", tshow (length metas)]
+    -- If an S3 bucket is configured, make sure all metadata is in the cache.
+    bn <- asks (configItem CfgBucket)
+    unless (bn == "") $ runStoreMeta' metas
+    pure metas
   runGetMoments
   findGPSReadings

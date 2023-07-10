@@ -359,6 +359,7 @@ metaTODO = q_ [sql|
                     from metablob b join media m on (m.media_id = b.media_id)
                     where b.meta is not null
                           and b.media_id not in (select media_id from meta)
+                    limit 20
                     |]
 
 selectMetaBlob :: MonadIO m => Connection -> m [(MediumID, Maybe BS.ByteString)]

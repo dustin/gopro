@@ -399,6 +399,7 @@ metaTODO = mightFail . Session.run (Session.statement () st)
                     from metablob b join media m using (media_id)
                     where b.meta is not null
                           and not exists (select 1 from meta where media_id = b.media_id)
+              limit 20
             |]
 
 selectMetaBlob :: MonadIO m => Connection -> m [(MediumID, Maybe BS.ByteString)]
