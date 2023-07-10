@@ -235,7 +235,6 @@ findGPSReadings = do
       Just (GPMF, Just bs) -> storeGPSReadings mid =<< either fail pure (extractReadings bs)
       _                    -> pure ()
 
--- iterateWhile :: Monad m => (a -> Bool) -> m a -> m a
 runFullSync :: GoPro ()
 runFullSync = do
   runFetch Incremental
