@@ -78,7 +78,7 @@ summarizeGPMF devc = MDSummary {
                 sc     = Map.fromListWith (<>) $ (\(a,x) -> (a, (Sum x, Sum 1))) <$> ss
                 avgs   = Map.foldMapWithKey (\k (Sum s, Sum c) -> Map.singleton (s/c) k) sc
 
-        gps = devc ^.. folded . gpsReadings . folded . filtered ((< 200) . view gpsr_dop)
+        gps = devc ^.. folded . gpsReadings . folded . filtered ((< 50) . view gpsr_dop)
         GPSSummary{..} = summarizeGPS $ extractFromDEVC devc
 
         unmAngle f g = f g D./~ degree
