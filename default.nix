@@ -15,7 +15,7 @@ let
 in pkgs.haskell-nix.project {
   branchMap = {
     "https://github.com/brendanhay/amazonka.git" = {
-      31f3d044d84912b99e396a97085a9678e699d91f = "main";
+      "c65c6d0ac9d8fb29cea001713d57aa3aac93f496" = "main";
     };
   };
 
