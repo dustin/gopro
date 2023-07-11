@@ -6,8 +6,9 @@
 
 module GoPro.S3 where
 
-import           Amazonka                     (Credentials (Discover), Env, Region (..), RequestBody (Hashed), newEnv,
-                                               paginate, runResourceT, send, sinkBody, toHashed)
+import           Amazonka                     (Env, Region (..), RequestBody (Hashed), newEnv, paginate, runResourceT,
+                                               send, sinkBody, toHashed)
+import           Amazonka.Auth                (discover)
 import           Amazonka.S3                  (BucketName (..), StorageClass (..), _ObjectKey, newGetObject,
                                                newListObjectsV2, newPutObject)
 import           Codec.Compression.GZip       (compress)
@@ -27,14 +28,15 @@ import           Data.Text                    (Text, isSuffixOf, pack, unpack)
 import           System.FilePath.Posix        (takeBaseName, takeDirectory)
 import           UnliftIO                     (MonadUnliftIO (..))
 
+import           Control.Monad.Catch          (MonadCatch)
 import           GoPro.Commands
 import           GoPro.DB                     (ConfigOption (..))
 import           GoPro.Plus.Media
 
 type Derivative = (MediumID, Text)
 
-inAWS :: MonadUnliftIO m => (Amazonka.Env -> ResourceT m b) -> m b
-inAWS a = (newEnv Discover <&> set #_envRegion Oregon) >>= runResourceT . a
+inAWS :: (MonadCatch m, MonadUnliftIO m) => (Amazonka.Env -> ResourceT m b) -> m b
+inAWS a = (newEnv discover <&> set #region Oregon) >>= runResourceT . a
 
 s3Bucket :: GoPro BucketName
 s3Bucket = do
