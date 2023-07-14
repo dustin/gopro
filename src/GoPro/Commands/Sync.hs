@@ -40,6 +40,7 @@ import           GoPro.Meta
 import           GoPro.Plus.Media
 import           GoPro.Resolve
 import           GoPro.S3
+import           UnliftIO.Async        (pooledMapConcurrentlyN, pooledMapConcurrentlyN_)
 
 
 data SyncType = Full
@@ -75,7 +76,7 @@ runFetch stype = do
             logInfoL ["Storing batch of ", tshow (length l)]
             c <- asksOpt optDownloadConcurrency
             storeMedia db =<< fetch c l
-          fetch c = mapConcurrentlyLimited c resolve
+          fetch c = pooledMapConcurrentlyN c resolve
 
 runGetMoments :: GoPro ()
 runGetMoments = do
@@ -83,7 +84,7 @@ runGetMoments = do
   need <- momentsTODO
   unless (null need) $ logInfoL ["Need to fetch ", (tshow . length) need, " moments"]
   c <- asksOpt optDownloadConcurrency
-  mapM_ (uncurry storeMoments) =<< mapConcurrentlyLimited c pickup need
+  mapM_ (uncurry storeMoments) =<< pooledMapConcurrentlyN c pickup need
     where pickup mid = (mid,) <$> moments mid
 
 runGrokTel :: GoPro [(MediumID, Maybe BS.ByteString)]
@@ -118,7 +119,7 @@ runGetMeta = do
   logInfoL ["Fetching meta ", tshow (length needs)]
   logDbgL ["Need meta: ", tshow needs]
   c <- asksOpt optDownloadConcurrency
-  mapConcurrentlyLimited_ c (process db) needs
+  pooledMapConcurrentlyN_ c (process db) needs
     where
       process :: Database -> (MediumID, String) -> GoPro ()
       process db mtyp@(mid,typ) = do
@@ -220,7 +221,7 @@ refreshMedia = mapM_ refreshSome . chunksOf 100 . NE.toList
       Database{..} <- asks database
       c <- asksOpt optDownloadConcurrency
       logInfoL ["Processing batch of ", tshow (length mids)]
-      n <- mapConcurrentlyLimited c one mids
+      n <- pooledMapConcurrentlyN c one mids
       logDbgL ["Storing ", tshow (length n)]
       storeMedia n
 

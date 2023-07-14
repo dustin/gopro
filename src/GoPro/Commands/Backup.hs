@@ -50,7 +50,8 @@ import           System.Directory                (createDirectoryIfMissing, does
 import           System.Directory.PathWalk       (WalkStatus (..), pathWalkInterruptible)
 import           System.FilePath.Posix           (takeDirectory, takeExtension, takeFileName, (</>))
 import           System.Posix.Files              (createLink, setFileTimes)
-import           UnliftIO                        (concurrently, mapConcurrently, mapConcurrently_)
+import           UnliftIO                        (concurrently, mapConcurrently, mapConcurrently_,
+                                                  pooledMapConcurrentlyN_)
 
 import           GoPro.Commands
 import           GoPro.DB
@@ -70,7 +71,7 @@ copyMedia :: LambdaFunc -> Extractor -> MediumID -> GoPro ()
 copyMedia λ extract mid = do
   todo <- extract mid <$> retryRetrieve mid
   Database{..} <- asks database
-  mapConcurrentlyLimited_ 5 copy todo
+  pooledMapConcurrentlyN_ 5 copy todo
   queuedCopyToS3 (map (\(k,_,_) -> (mid, unpack k)) todo)
 
   where
@@ -98,7 +99,7 @@ downloadLocally path extract Medium{..} = do
       srcs = maybe [] NE.toList $ Map.lookup (vars ^. filename) locals
   copyLocal todo srcs
 
-  mapConcurrentlyLimited_ 5 downloadNew todo
+  pooledMapConcurrentlyN_ 5 downloadNew todo
 
   linkNames (filter ("-var-source" `isInfixOf`) . fmap (\(a,_,_) -> a) $ todo)
 
@@ -212,7 +213,7 @@ runBackup ex = do
   todo <- take 5 <$> listToCopyToS3
   logDbgL ["todo: ", tshow todo]
   c <- asksOpt optUploadConcurrency
-  mapConcurrentlyLimited_ c (copyMedia λ ex) todo
+  pooledMapConcurrentlyN_ c (copyMedia λ ex) todo
 
 runLocalBackup :: Extractor -> FilePath -> GoPro ()
 runLocalBackup ex path = do
@@ -226,7 +227,7 @@ runDownload ex path mids = do
   let todo = filter (`Set.notMember` have) (NE.toList mids)
   logDbgL ["todo: ", tshow todo]
   c <- asksOpt optDownloadConcurrency
-  mapConcurrentlyLimited_ c (one db) todo
+  pooledMapConcurrentlyN_ c (one db) todo
 
   where
     one db mid = loadMedium db mid >>= \case
@@ -248,7 +249,7 @@ runStoreMeta = do
   unless (null todo) $ logInfoL ["storemeta todo: ", (pack.show.fmap fst) todo]
 
   c <- asksOpt optUploadConcurrency
-  mapConcurrentlyLimited_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
+  pooledMapConcurrentlyN_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
 
 runStoreMeta' :: [(MediumID, Maybe ByteString)] -> GoPro ()
 runStoreMeta' [] = pure ()
@@ -260,7 +261,7 @@ runStoreMeta' local = do
   unless (null todo) $ logInfoL ["storemeta todo: ", (pack.show.fmap fst) todo]
 
   c <- asksOpt optUploadConcurrency
-  mapConcurrentlyLimited_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
+  pooledMapConcurrentlyN_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
 
 runClearMeta :: GoPro()
 runClearMeta = do

@@ -7,32 +7,32 @@
 
 module GoPro.Commands where
 
-import           Control.Applicative     (Alternative (..), (<|>))
-import           Control.Concurrent.STM  (TChan, atomically, writeTChan)
-import           Control.Monad           (MonadPlus (..), mzero)
-import           Control.Monad.Catch     (MonadCatch (..), MonadMask (..), MonadThrow (..), SomeException (..), catch)
-import           Control.Monad.IO.Class  (MonadIO (..))
-import           Control.Monad.Logger    (Loc (..), LogLevel (..), LogSource, LogStr, MonadLogger (..), ToLogStr (..),
-                                          logDebugN, logErrorN, logInfoN, monadLoggerLog)
-import           Control.Monad.Reader    (MonadReader, ReaderT (..), asks)
-import           Data.Cache              (Cache (..), fetchWithCache, newCache)
-import           Data.Foldable           (fold)
-import           Data.List               (isPrefixOf)
-import           Data.List.NonEmpty      (NonEmpty (..))
-import           Data.Map.Strict         (Map)
-import qualified Data.Map.Strict         as Map
-import qualified Data.Text               as T
-import           System.Clock            (TimeSpec (..))
-import           UnliftIO                (MonadUnliftIO (..), bracket_, pooledMapConcurrentlyN_, pooledMapConcurrentlyN)
+import           Control.Applicative    (Alternative (..), (<|>))
+import           Control.Concurrent.STM (TChan, atomically, writeTChan)
+import           Control.Monad          (MonadPlus (..), mzero)
+import           Control.Monad.Catch    (MonadCatch (..), MonadMask (..), MonadThrow (..), SomeException (..), catch)
+import           Control.Monad.IO.Class (MonadIO (..))
+import           Control.Monad.Logger   (Loc (..), LogLevel (..), LogSource, LogStr, MonadLogger (..), ToLogStr (..),
+                                         logDebugN, logErrorN, logInfoN, monadLoggerLog)
+import           Control.Monad.Reader   (MonadReader, ReaderT (..), asks)
+import           Data.Cache             (Cache (..), fetchWithCache, newCache)
+import           Data.Foldable          (fold)
+import           Data.List              (isPrefixOf)
+import           Data.List.NonEmpty     (NonEmpty (..))
+import           Data.Map.Strict        (Map)
+import qualified Data.Map.Strict        as Map
+import qualified Data.Text              as T
+import           System.Clock           (TimeSpec (..))
+import           UnliftIO               (MonadUnliftIO (..), bracket_)
 
-import           GoPro.DB                (AuthResult (..), ConfigOption (..), Database (..))
-import           GoPro.DB.Postgres       (withPostgres)
-import           GoPro.DB.Sqlite         (withSQLite)
+import           GoPro.DB               (AuthResult (..), ConfigOption (..), Database (..))
+import           GoPro.DB.Postgres      (withPostgres)
+import           GoPro.DB.Sqlite        (withSQLite)
 import           GoPro.Logging
 import           GoPro.Notification
 import           GoPro.Plus.Auth
-import           GoPro.Plus.Media        (FileInfo, MediumID, MediumType)
-import           UnliftIO.MVar           (MVar, newEmptyMVar, putMVar, takeMVar)
+import           GoPro.Plus.Media       (FileInfo, MediumID, MediumType)
+import           UnliftIO.MVar          (MVar, newEmptyMVar, putMVar, takeMVar)
 
 -- Extractor function for deciding which files to download for backing up.
 -- (medium id, head url, url)
@@ -138,21 +138,6 @@ instance MonadPlus GoPro where
 instance Alternative GoPro where
   empty = mzero
   a <|> b = a `catch` \(SomeException _) -> b
-
-mapConcurrentlyLimited :: (MonadMask m, MonadUnliftIO m, Traversable f)
-                       => Int
-                       -> (a -> m b)
-                       -> f a
-                       -> m (f b)
-mapConcurrentlyLimited = pooledMapConcurrentlyN
-
-mapConcurrentlyLimited_ :: (MonadMask m, MonadUnliftIO m, Traversable f)
-                        => Int
-                        -> (a -> m b)
-                        -> f a
-                        -> m ()
-mapConcurrentlyLimited_ = pooledMapConcurrentlyN_
-
 
 logError, logInfo, logDbg :: MonadLogger m => T.Text -> m ()
 

@@ -30,6 +30,7 @@ import           GoPro.DB
 import           GoPro.File
 import           GoPro.Plus.Media          (MediumID, MediumType (..), reprocess)
 import           GoPro.Plus.Upload
+import           UnliftIO.Async            (pooledMapConcurrentlyN, pooledMapConcurrentlyN_)
 
 uc :: FilePath -> MediumID -> Integer -> UploadPart -> Uploader GoPro ()
 uc fp mid partnum up@UploadPart{..} = do
@@ -54,7 +55,7 @@ runCreateUploads inFilePaths = do
   unless (null bad) $ logInfoL ["Ignoring some unknown files: ", tshow bad]
 
   c <- asksOpt optUploadConcurrency
-  mapConcurrentlyLimited_ c (upload db) good
+  pooledMapConcurrentlyN_ c (upload db) good
 
   where
     expand fp = liftIO (isDir fp) >>= \case
@@ -67,7 +68,7 @@ runCreateUploads inFilePaths = do
       mid <- createMedium
       did <- createSource (length files)
       c <- asksOpt optUploadConcurrency
-      mapConcurrentlyLimited_ c (\(File{_gpFilePath},n) -> do
+      pooledMapConcurrentlyN_ c (\(File{_gpFilePath},n) -> do
                                     fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) _gpFilePath
                                     up@Upload{..} <- createUpload did n (fromInteger fsize)
                                     logInfoL ["Creating part ", tshow _gpFilePath, " as ", mid, " part ", tshow n,
@@ -83,7 +84,7 @@ runCreateUploads inFilePaths = do
     typeOf File{_gpCodec=GoProJPG}  = Photo
 
     blobFor :: MediumType -> NonEmpty File -> IO (Maybe BS.ByteString)
-    blobFor Photo (File{_gpFilePath} :| []) = (BL.readFile _gpFilePath) >>= (\case
+    blobFor Photo (File{_gpFilePath} :| []) = BL.readFile _gpFilePath >>= (\case
           Left _  -> pure Nothing
           Right e -> pure $ Just (BL.toStrict e)) . minimalEXIF
     blobFor _ fs@(f :| _) = findGPMDStream (_gpFilePath f) >>=
@@ -110,7 +111,7 @@ runCreateMultipart typ fps = do
     mid <- createMedium
     did <- createSource (length fps)
     c <- asksOpt optUploadConcurrency
-    mapConcurrentlyLimited_ c (\(fp,n) -> do
+    pooledMapConcurrentlyN_ c (\(fp,n) -> do
               fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
               up@Upload{..} <- createUpload did n (fromInteger fsize)
               logInfoL ["Creating part ", tshow fp, " as ", mid, " part ", tshow n,
@@ -156,7 +157,7 @@ runResumeUpload = do
                   _pu_medium_id, ":", tshow part, ": did=",
                   _pu_did, ", upid=", _uploadID, ", parts=", tshow (length chunks)]
         c <- asksOpt optUploadConcurrency
-        _ <- mapConcurrentlyLimited c (uc _pu_filename _pu_medium_id _pu_partnum) chunks
+        _ <- pooledMapConcurrentlyN c (uc _pu_filename _pu_medium_id _pu_partnum) chunks
         completeUpload _uploadID _pu_did part (fromIntegral fsize)
       completedUpload db _pu_medium_id _pu_partnum
 
