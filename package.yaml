@@ -59,7 +59,6 @@ dependencies:
 - optparse-applicative
 - pathwalk
 - process
-- qsem
 - raw-strings-qq
 - resourcet
 - retry

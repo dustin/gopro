@@ -8,7 +8,6 @@
 module GoPro.Commands where
 
 import           Control.Applicative     (Alternative (..), (<|>))
-import           Control.Concurrent.QSem (newQSem, signalQSem, waitQSem)
 import           Control.Concurrent.STM  (TChan, atomically, writeTChan)
 import           Control.Monad           (MonadPlus (..), mzero)
 import           Control.Monad.Catch     (MonadCatch (..), MonadMask (..), MonadThrow (..), SomeException (..), catch)
@@ -24,7 +23,7 @@ import           Data.Map.Strict         (Map)
 import qualified Data.Map.Strict         as Map
 import qualified Data.Text               as T
 import           System.Clock            (TimeSpec (..))
-import           UnliftIO                (MonadUnliftIO (..), bracket_, mapConcurrently, mapConcurrently_)
+import           UnliftIO                (MonadUnliftIO (..), bracket_, pooledMapConcurrentlyN_, pooledMapConcurrentlyN)
 
 import           GoPro.DB                (AuthResult (..), ConfigOption (..), Database (..))
 import           GoPro.DB.Postgres       (withPostgres)
@@ -145,16 +144,15 @@ mapConcurrentlyLimited :: (MonadMask m, MonadUnliftIO m, Traversable f)
                        -> (a -> m b)
                        -> f a
                        -> m (f b)
-mapConcurrentlyLimited n f l = liftIO (newQSem n) >>= \q -> mapConcurrently (b q) l
-  where b q x = bracket_ (liftIO (waitQSem q)) (liftIO (signalQSem q)) (f x)
+mapConcurrentlyLimited = pooledMapConcurrentlyN
 
 mapConcurrentlyLimited_ :: (MonadMask m, MonadUnliftIO m, Traversable f)
                         => Int
                         -> (a -> m b)
                         -> f a
                         -> m ()
-mapConcurrentlyLimited_ n f l = liftIO (newQSem n) >>= \q -> mapConcurrently_ (b q) l
-  where b q x = bracket_ (liftIO (waitQSem q)) (liftIO (signalQSem q)) (f x)
+mapConcurrentlyLimited_ = pooledMapConcurrentlyN_
+
 
 logError, logInfo, logDbg :: MonadLogger m => T.Text -> m ()
 
