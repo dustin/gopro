@@ -51,7 +51,7 @@ you can run `gopro serve` and do it all via the web interface
 All tools take the following arguments:
 
 ```
-  --dbpath ARG             db path (default: "gopro.db")
+  --db ARG                 db path (default: "gopro.db")
   --static ARG             static asset path (default: "static")
   -v,--verbose             enable debug logging
   -u,--upload-concurrency ARG
