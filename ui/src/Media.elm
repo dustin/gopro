@@ -131,7 +131,7 @@ type alias Medium =
     , camera_model : String
     , captured_at : Time.Posix
     , created_at : Time.Posix
-    , file_size : Int
+    , file_size : Maybe Int
     , moments_count : Int
     , ready_to_view : ReadyType
     , source_duration : Maybe Int
@@ -152,7 +152,7 @@ mediaDecoder =
         |> optional "camera_model" string "Unknown"
         |> required "captured_at" Iso8601.decoder
         |> required "created_at" Iso8601.decoder
-        |> required "file_size" int
+        |> optional "file_size" (nullable int) Nothing
         |> required "moments_count" int
         |> required "ready_to_view" (Decode.map strReadyType string)
         |> required "source_duration" stringInt

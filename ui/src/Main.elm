@@ -240,7 +240,7 @@ renderMediaList : Media -> Model -> Html Msg
 renderMediaList ms model =
     let z = model.zone
         groupies = groupWhile (\a b -> F.day z a.captured_at == F.day z b.captured_at) ms.filty
-        totalSize = List.foldl (\x o -> x.file_size + o) 0
+        totalSize = List.foldl (\x o -> Maybe.withDefault 0 x.file_size + o) 0
         aYear y = div [ H.class "year" ] [
                    a [ onClick (YearClicked y) ] [ text (String.fromInt y) ]
                   ]
@@ -354,7 +354,10 @@ renderOverlay : Time.Zone -> (Maybe Medium, Maybe (Result Http.Error DLOpts)) ->
 renderOverlay z (mm, mdls) =
     case mm of
         Nothing -> text "nothing to see here"
-        Just m -> div [ H.class "details" ]
+        Just m ->
+            let sizeStr = Maybe.withDefault "unknown" (Maybe.map F.bytes m.file_size)
+                sizeDeet = Maybe.withDefault "unknown" (Maybe.map F.comma m.file_size) in
+            div [ H.class "details" ]
                   ([h2 [] [ text (m.id) ]
                    , a [ onClick (RefreshMedium m.id) ] [ text "Refresh Data from GoPro" ]
                    , text " | " , a [ H.href ("https://plus.gopro.com/media-library/" ++ m.id) ]
@@ -373,7 +376,7 @@ renderOverlay z (mm, mdls) =
                         , dts "Dims"
                         , dd [] [text (String.fromInt m.width ++ "x" ++ String.fromInt m.height)]
                         , dts "Size"
-                        , dd [ H.title (F.comma m.file_size) ] [text <| F.bytes m.file_size ]
+                        , dd [ H.title sizeStr ] [text sizeStr]
                         , dts "Type"
                         , dd [] [ text (mediaTypeStr m.media_type) ]
                         , dts "Ready State"
