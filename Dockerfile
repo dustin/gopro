@@ -1,4 +1,4 @@
-FROM haskell:9.0.2-buster
+FROM haskell:9.2.8-buster
 
 RUN apt-get update
 RUN apt-get install -y ffmpeg libpq5 libpq-dev zlib1g zlib1g-dev
