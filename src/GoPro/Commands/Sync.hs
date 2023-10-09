@@ -241,18 +241,19 @@ findGPSReadings = do
 syncFiles :: GoPro ()
 syncFiles = do
   db@Database{..} <- asks database
-  -- c <- asksOpt optDownloadConcurrency
   todo <- fileTODO
   unless (null todo) $ do
     logInfoL ["Found ", tshow (length todo), " media with files to process"]
-    -- pooledMapConcurrentlyN_ c process todo
     traverse_ (process db) todo
 
     where
       process Database{..} mid = do
-        c <- asksOpt optDownloadConcurrency
         stuff <- extractFiles mid <$> retrieve mid
-        unless (null stuff) $
+        if null stuff
+        then logInfoL ["No files found for ", mid]
+        else do
+          logDbgL ["Found ", tshow (length stuff), " files for ", mid]
+          c <- asksOpt optDownloadConcurrency
           storeFiles =<< pooledMapConcurrentlyN c updateLength stuff
 
       updateLength (hu, f) = do
