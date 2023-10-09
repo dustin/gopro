@@ -2,6 +2,7 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
+{-# LANGUAGE TypeApplications    #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Use any" #-}
 
@@ -44,6 +45,7 @@ import           GoPro.Plus.Media
 import           GoPro.Resolve
 import           GoPro.S3
 import           UnliftIO.Async        (pooledMapConcurrentlyN, pooledMapConcurrentlyN_)
+import           UnliftIO.Exception    (SomeException, try)
 
 data SyncType = Full
     | Incremental
@@ -254,12 +256,13 @@ syncFiles = do
         else do
           logDbgL ["Found ", tshow (length stuff), " files for ", mid]
           c <- asksOpt optDownloadConcurrency
-          storeFiles =<< pooledMapConcurrentlyN c updateLength stuff
+          storeFiles . catMaybes =<< pooledMapConcurrentlyN c updateLength stuff
 
       updateLength (hu, f) = do
-        r <- liftIO $ head_ hu
-        len <- maybe (fail "no length found") pure (r ^? responseHeader "Content-Length")
-        pure f{_fd_file_size = read (BC.unpack len)}
+        r <- try @_ @SomeException $ liftIO (head_ hu)
+        case r ^? _Right . responseHeader "Content-Length" of
+          Nothing  -> logErrorL ["Could not find data for ", tshow f, tshow r] $> Nothing
+          Just len -> pure (Just f{_fd_file_size = read (BC.unpack len)})
 
 extractFiles :: MediumID -> FileInfo -> [(String, FileData)]
 extractFiles mid fi = filter desirable $ fold [ ex variations,
