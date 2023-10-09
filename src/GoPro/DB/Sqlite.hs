@@ -89,7 +89,10 @@ withSQLite name a = withConnection name (a . mkDatabase)
       fixupQuery = GoPro.DB.Sqlite.fixupQuery db,
       foldGPSReadings = GoPro.DB.Sqlite.foldGPSReadings db,
       storeGPSReadings = GoPro.DB.Sqlite.storeGPSReadings db,
-      gpsReadingsTODO = GoPro.DB.Sqlite.gpsReadingsTODO db
+      gpsReadingsTODO = GoPro.DB.Sqlite.gpsReadingsTODO db,
+      fileTODO = GoPro.DB.Sqlite.fileTODO db,
+      storeFiles = GoPro.DB.Sqlite.storeFiles db,
+      loadFiles = GoPro.DB.Sqlite.loadFiles db
       }
 
 initQueries :: [(Int, Query)]
@@ -143,7 +146,15 @@ initQueries = [
         speed3d float not null,
         dop float not null,
         fix int4 not null)|]),
-  (18, "create index gps_readings_by_media_id on gps_readings(media_id)")
+  (18, "create index gps_readings_by_media_id on gps_readings(media_id)"),
+  (19, [sql|create table if not exists files (
+          media_id varchar not null,
+          label text not null,
+          type text not null,
+          item_number int4 not null,
+          file_size int8 not null
+        )|]),
+  (19, "create index files_by_media_id on files(media_id)")
   ]
 
 initTables :: MonadIO m => Connection -> m ()
@@ -592,3 +603,23 @@ gpsReadingsTODO = oq_ [sql|select m.media_id from meta m
                                   where lat is not null
                                   and mb.format = 'gpmf'
                                   and not exists (select 1 from gps_readings where media_id = m.media_id)|]
+
+fileTODO :: MonadIO m => Connection -> m [MediumID]
+fileTODO = oq_ [sql|
+       select media_id
+       from media m
+       where not exists (select 1 from files where media_id = m.media_id)
+       order by created_at desc
+      |]
+
+storeFiles :: MonadIO m => Connection -> [FileData] -> m ()
+storeFiles db fds = do
+  let vals = [(_fd_medium, _fd_label, _fd_type, _fd_item_num, _fd_file_size) | FileData{..} <- fds]
+  em "insert into files (media_id, label, type, item_number, file_size) values (?, ?, ?, ?, ?)" vals db
+
+instance FromRow FileData where
+  fromRow = FileData <$> field <*> field <*> field <*> field <*> field
+
+loadFiles :: MonadIO m => Connection -> Maybe MediumID -> m [FileData]
+loadFiles db = \case Nothing -> q_ "select media_id, label, type, item_number, file_size from files" db
+                     Just mid -> q' "select media_id, label, type, item_number, file_size from files where media_id = ?" (Only mid) db

@@ -16,13 +16,14 @@ module GoPro.DB (MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_varia
                  ConfigOption(..), strOption, optionStr,
                  Database(..),
                  AuthResult(..),
+                 FileData(..), fd_medium, fd_label, fd_type, fd_item_num, fd_file_size,
                  ) where
 
 import           Control.Foldl          (Fold (..))
-import           Control.Lens           hiding (Fold)
+import           Control.Lens           hiding (Fold, (.=))
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Aeson             (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
-                                         genericToEncoding)
+                                         genericToEncoding, (.=))
 import qualified Data.Aeson             as J
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BL
@@ -60,6 +61,9 @@ data MediaRow = MediaRow
     , _row_raw_json  :: J.Value
     } deriving (Show, Eq)
 makeLenses ''MediaRow
+
+instance ToJSON MediaRow where
+  toJSON (MediaRow m _ v r) = J.object [ "medium" .= m , "variants" .= v , "raw" .= r ]
 
 row_fileInfo :: Lens' MediaRow (Maybe FileInfo)
 row_fileInfo = lens (\(MediaRow _ _ v _) -> unj v) (\(MediaRow m t _ r) x -> MediaRow m t (J.toJSON x) r)
@@ -99,6 +103,19 @@ data AuthResult = AuthResult {
   arExpired :: Bool
   }
   deriving Show
+
+data FileData = FileData {
+  _fd_medium    :: MediumID,
+  _fd_label     :: Text,
+  _fd_type      :: Text,
+  _fd_item_num  :: Int,
+  _fd_file_size :: Int
+  } deriving (Generic, Show)
+
+makeLenses ''FileData
+
+instance ToJSON FileData where
+  toEncoding = genericToEncoding defaultOptions { fieldLabelModifier = drop 4}
 
 data Database = Database {
   initTables          :: forall m. MonadIO m => m (),
@@ -143,6 +160,11 @@ data Database = Database {
   foldGPSReadings     :: forall m b. MonadIO m => MediumID -> Int -> Fold GPSReading b -> m b,
   storeGPSReadings    :: forall m. MonadIO m => MediumID -> [GPSReading] -> m (),
   gpsReadingsTODO     :: forall m. MonadIO m => m [MediumID],
+
+  -- Low-level file things.
+  fileTODO            :: forall m. MonadIO m => m [MediumID],
+  storeFiles          :: forall m. MonadIO m => [FileData] -> m (),
+  loadFiles           :: forall m. MonadIO m => Maybe MediumID -> m [FileData],
 
   fixupQuery          :: forall m. MonadIO m => Text -> m [[(Text, J.Value)]]
   }

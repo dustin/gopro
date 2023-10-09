@@ -104,7 +104,10 @@ withPostgres (fromString -> c) a = withConn c (a . mkDatabase)
       fixupQuery = GoPro.DB.Postgres.fixupQuery db,
       foldGPSReadings = GoPro.DB.Postgres.foldGPSReadings db,
       storeGPSReadings = GoPro.DB.Postgres.storeGPSReadings db,
-      gpsReadingsTODO = GoPro.DB.Postgres.gpsReadingsTODO db
+      gpsReadingsTODO = GoPro.DB.Postgres.gpsReadingsTODO db,
+      fileTODO = GoPro.DB.Postgres.fileTODO db,
+      storeFiles = GoPro.DB.Postgres.storeFiles db,
+      loadFiles = GoPro.DB.Postgres.loadFiles db
       }
 
 initQueries :: [(Int64, ByteString)]
@@ -206,7 +209,16 @@ initQueries = [
   (8, "create index gps_readings_by_media_id on gps_readings(media_id)"),
 
   (9, "alter table media alter column raw_json type jsonb using (encode(raw_json, 'escape'))::jsonb"),
-  (9, "alter table media alter column variants type jsonb using (encode(variants, 'escape'))::jsonb")
+  (9, "alter table media alter column variants type jsonb using (encode(variants, 'escape'))::jsonb"),
+
+  (10, [r|create table if not exists files (
+          media_id varchar not null,
+          label text not null,
+          type text not null,
+          item_number int4 not null,
+          file_size int8 not null
+        )|]),
+  (10, "create index files_by_media_id on files(media_id)")
   ]
 
 initTables :: MonadIO m => Connection -> m ()
@@ -672,3 +684,38 @@ gpsReadingsTODO = queryStrings [r|select m.media_id from meta m
                                   where lat is not null
                                   and mb.format = 'GPMF'
                                   and not exists (select 1 from gps_readings where media_id = m.media_id)|]
+
+fileTODO :: MonadIO m => Connection -> m [MediumID]
+fileTODO = queryStrings sql
+  where
+    sql = [r|
+       select media_id::text
+       from media m
+       where not exists (select 1 from files where media_id = m.media_id)
+       order by created_at desc
+      |]
+
+storeFiles :: MonadIO m => Connection -> [FileData] -> m ()
+storeFiles db wps = mightFail . Session.run (transaction TX.Serializable TX.Write tx) $ db
+  where
+    tx = do
+      -- TX.statement mid (Statement "delete from files where media_id = $1 :: text" (Encoders.param (Encoders.nonNullable Encoders.text)) noResult True)
+      traverse_ (\FileData{..} -> TX.statement (_fd_medium, _fd_label, _fd_type, fromIntegral _fd_item_num, fromIntegral _fd_file_size) ist) wps
+
+    ist = [resultlessStatement|insert into files (media_id, label, type, item_number, file_size)
+           values ($1 :: text, $2 :: text, $3 :: text, $4 :: int4, $5 :: int8)|]
+
+loadFiles :: MonadIO m => Connection -> Maybe MediumID -> m [FileData]
+loadFiles db mmid = mightFail $ Session.run (maybe runAll runOne mmid) db
+  where
+    runAll = Session.statement () stAll
+    stAll = Statement "select media_id, label, type, item_number, filename, file_size from files" noParams (rowList dec) True
+    runOne mid = Session.statement mid stOne
+    stOne = Statement "select media_id, label, type, item_number, filename, file_size from files where media_id = ? :: text" (Encoders.param (Encoders.nonNullable Encoders.text)) (rowList dec) True
+
+    dec = FileData <$> column (nonNullable Decoders.text)
+        <*> column (nonNullable Decoders.text)
+        <*> column (nonNullable Decoders.text)
+        <*> (fromIntegral <$> column (nonNullable Decoders.int4))
+        <*> (fromIntegral <$> column (nonNullable Decoders.int8))
+

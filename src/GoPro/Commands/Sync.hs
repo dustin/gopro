@@ -16,21 +16,24 @@ import           Control.Monad.Loops   (iterateWhile, whileM_)
 import           Control.Monad.Reader  (asks)
 import           Control.Retry         (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
 import qualified Data.ByteString       as BS
+import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy  as BL
 import           Data.Foldable         (asum, fold, for_, traverse_)
 import           Data.List.Extra       (chunksOf)
 import           Data.List.NonEmpty    (NonEmpty (..))
 import qualified Data.List.NonEmpty    as NE
 import qualified Data.Map.Strict       as Map
-import           Data.Maybe            (catMaybes, isJust)
+import           Data.Maybe            (catMaybes, fromMaybe, isJust, maybeToList)
 import qualified Data.Set              as Set
 import qualified Data.Text             as T
 import           Exif
 import           FFMPeg
 import           Graphics.HsExif       (parseExif)
-import           Network.HTTP.Simple   (getResponseBody, httpSource, parseRequest)
+import           Network.HTTP.Conduit
+import           Network.HTTP.Simple   (getResponseBody, httpSource)
+import           Network.Wreq          (head_, responseHeader)
 import           System.Directory      (createDirectoryIfMissing, doesFileExist, removeFile, renameFile)
-import           System.FilePath.Posix ((</>))
+import           System.FilePath.Posix (takeExtension, (</>))
 
 import           Data.Functor          (($>))
 import           GoPro.Commands
@@ -41,7 +44,6 @@ import           GoPro.Plus.Media
 import           GoPro.Resolve
 import           GoPro.S3
 import           UnliftIO.Async        (pooledMapConcurrentlyN, pooledMapConcurrentlyN_)
-
 
 data SyncType = Full
     | Incremental
@@ -236,6 +238,64 @@ findGPSReadings = do
       Just (GPMF, Just bs) -> storeGPSReadings mid =<< either fail pure (extractReadings bs)
       _                    -> pure ()
 
+syncFiles :: GoPro ()
+syncFiles = do
+  db@Database{..} <- asks database
+  -- c <- asksOpt optDownloadConcurrency
+  todo <- fileTODO
+  unless (null todo) $ do
+    logInfoL ["Found ", tshow (length todo), " media with files to process"]
+    -- pooledMapConcurrentlyN_ c process todo
+    traverse_ (process db) todo
+
+    where
+      process Database{..} mid = do
+        c <- asksOpt optDownloadConcurrency
+        stuff <- extractFiles mid <$> retrieve mid
+        unless (null stuff) $
+          storeFiles =<< pooledMapConcurrentlyN c updateLength stuff
+
+      updateLength (hu, f) = do
+        r <- liftIO $ head_ hu
+        len <- maybe (fail "no length found") pure (r ^? responseHeader "Content-Length")
+        pure f{_fd_file_size = read (BC.unpack len)}
+
+extractFiles :: MediumID -> FileInfo -> [(String, FileData)]
+extractFiles mid fi = filter desirable $ fold [ ex variations,
+                                                ex sidecar_files,
+                                                otherFiles
+                                              ]
+  where
+
+    -- Explicitly ignoring concats because they're derived and huge.
+    desirable (_, FileData{..}) = _fd_label `elem` ["source", "baked_source", "jpg", "raw_photo"]
+
+    ex l = fi ^.. fileStuff . l . folded . to conv . folded
+      where
+        conv v = maybeToList $ do
+          lbl <- v ^? media_label
+          typ <- v ^? media_type
+          pure (v ^. media_head, FileData{
+            _fd_medium = mid,
+            _fd_label = T.pack lbl,
+            _fd_type = T.pack typ,
+            _fd_item_num = fromMaybe 0 (v ^. media_item_number),
+            _fd_file_size = 0 -- Filled in before being stored
+            })
+
+    otherFiles = fi ^.. fileStuff . files . folded . to conv
+      where
+        typ = fi ^. filename . to (drop 1 . takeExtension)
+        conv v = let i = v ^. file_item_number
+                     lbl = show i <> "." <> typ
+                 in (v ^. media_head, FileData{
+                      _fd_medium = mid,
+                      _fd_label = T.pack lbl,
+                      _fd_type = T.pack typ,
+                      _fd_item_num = fromMaybe 0 (v ^. media_item_number),
+                      _fd_file_size = 0 -- TBD
+                    })
+
 runFullSync :: GoPro ()
 runFullSync = do
   runFetch Incremental
@@ -248,4 +308,5 @@ runFullSync = do
     unless (bn == "") $ runStoreMeta' metas
     pure metas
   runGetMoments
+  syncFiles
   findGPSReadings

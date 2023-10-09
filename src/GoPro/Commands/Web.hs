@@ -89,6 +89,10 @@ runServer = do
                                         & _Object . at "meta_data" ?~ J.toJSON g
                    ) ms
 
+      get "/api/files" do
+        Database{..} <- asks database
+        json =<< loadFiles Nothing
+
       post "/api/sync" do
         _ <- lift . async $ do
           runFullSync
