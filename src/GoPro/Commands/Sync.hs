@@ -19,6 +19,7 @@ import           Control.Retry         (RetryStatus (..), exponentialBackoff, li
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy  as BL
+import           Data.Char             (toLower)
 import           Data.Foldable         (asum, fold, for_, traverse_)
 import           Data.List.Extra       (chunksOf)
 import           Data.List.NonEmpty    (NonEmpty (..))
@@ -272,7 +273,7 @@ extractFiles mid fi = filter desirable $ fold [ ex variations,
   where
 
     -- Explicitly ignoring concats because they're derived and huge.
-    desirable (_, FileData{..}) = _fd_label `elem` ["source", "baked_source", "jpg", "raw_photo"]
+    desirable (_, FileData{..}) = _fd_label `elem` ["source", "baked_source", "jpg", "1.jpg", "1.mp4", "1.", "raw_photo"]
 
     ex l = fi ^.. fileStuff . l . folded . to conv . folded
       where
@@ -289,7 +290,7 @@ extractFiles mid fi = filter desirable $ fold [ ex variations,
 
     otherFiles = fi ^.. fileStuff . files . folded . to conv
       where
-        typ = fi ^. filename . to (drop 1 . takeExtension)
+        typ = fi ^. filename . to (fmap toLower . drop 1 . takeExtension)
         conv v = let i = v ^. file_item_number
                      lbl = show i <> "." <> typ
                  in (v ^. media_head, FileData{
