@@ -23,7 +23,7 @@ import           Control.Foldl          (Fold (..))
 import           Control.Lens           hiding (Fold, (.=))
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Aeson             (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
-                                         genericToEncoding, (.=))
+                                         genericToEncoding, genericToJSON, (.=))
 import qualified Data.Aeson             as J
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BL
@@ -116,6 +116,7 @@ makeLenses ''FileData
 
 instance ToJSON FileData where
   toEncoding = genericToEncoding defaultOptions { fieldLabelModifier = drop 4}
+  toJSON = genericToJSON defaultOptions { fieldLabelModifier = drop 4}
 
 data Database = Database {
   initTables          :: forall m. MonadIO m => m (),

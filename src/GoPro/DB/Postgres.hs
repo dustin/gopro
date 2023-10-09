@@ -709,9 +709,9 @@ loadFiles :: MonadIO m => Connection -> Maybe MediumID -> m [FileData]
 loadFiles db mmid = mightFail $ Session.run (maybe runAll runOne mmid) db
   where
     runAll = Session.statement () stAll
-    stAll = Statement "select media_id, label, type, item_number, filename, file_size from files" noParams (rowList dec) True
+    stAll = Statement "select media_id, label, type, item_number, file_size from files" noParams (rowList dec) True
     runOne mid = Session.statement mid stOne
-    stOne = Statement "select media_id, label, type, item_number, filename, file_size from files where media_id = ? :: text" (Encoders.param (Encoders.nonNullable Encoders.text)) (rowList dec) True
+    stOne = Statement "select media_id, label, type, item_number, file_size from files where media_id = ? :: text" (Encoders.param (Encoders.nonNullable Encoders.text)) (rowList dec) True
 
     dec = FileData <$> column (nonNullable Decoders.text)
         <*> column (nonNullable Decoders.text)

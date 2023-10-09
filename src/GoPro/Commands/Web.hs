@@ -16,11 +16,13 @@ import           Control.Monad.Reader           (MonadReader, ask, asks, lift)
 import qualified Data.Aeson                     as J
 import qualified Data.Aeson.KeyMap              as KM
 import           Data.Aeson.Lens                (_Object)
+import qualified Data.Aeson.Types               as J
 import           Data.Cache                     (insert)
 import           Data.Foldable                  (fold)
 import           Data.List                      (intercalate)
 import           Data.List.NonEmpty             (NonEmpty (..))
 import qualified Data.Map.Strict                as Map
+import           Data.Maybe                     (fromMaybe)
 import           Data.String                    (fromString)
 import qualified Data.Text                      as T
 import qualified Data.Text.Lazy                 as LT
@@ -30,6 +32,7 @@ import           GoPro.Commands
 import           GoPro.Commands.Sync            (refreshMedia, runFullSync)
 import           GoPro.DB
 import           GoPro.DEVC                     (GPSReading (..))
+import           GoPro.File
 import           GoPro.Notification
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
@@ -41,7 +44,7 @@ import qualified Network.Wai.Middleware.Gzip    as GZ
 import           Network.Wai.Middleware.Static  (addBase, noDots, staticPolicy, (>->))
 import qualified Network.WebSockets             as WS
 import           Numeric
-import           System.FilePath.Posix          ((</>))
+import           System.FilePath.Posix          (takeFileName, (</>))
 import           Text.XML.Light
 import           UnliftIO                       (async)
 import           Web.Scotty.Trans               (ActionT, ScottyError, ScottyT, file, get, json, middleware, param,
@@ -91,7 +94,17 @@ runServer = do
 
       get "/api/files" do
         Database{..} <- asks database
-        json =<< loadFiles Nothing
+        ms <- loadMedia
+        fs <- Map.fromListWith (<>) . fmap (\x -> (_fd_medium x, [x])) <$> loadFiles Nothing
+        json $ map (\m@Medium{..} -> fromMaybe (J.toJSON m) $ do
+                    basename <- parseGPFileName =<< _medium_filename
+                    fd <- Map.lookup _medium_id fs
+                    let names = Map.fromList $ zip [1 .. length fd] (iterate nextFile basename)
+                        numbered n = maybe (fromMaybe "" _medium_filename) (takeFileName . _gpFilePath) $ Map.lookup n names
+                        name d@FileData{..} = J.toJSON d & _Object . at "filename" ?~ J.toJSON (numbered _fd_item_num)
+                        j = J.toJSON m
+                    pure (j & _Object . at "files" ?~ J.listValue name fd)
+                   ) ms
 
       post "/api/sync" do
         _ <- lift . async $ do
