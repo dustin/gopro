@@ -106,6 +106,7 @@ data AuthResult = AuthResult {
 
 data FileData = FileData {
   _fd_medium    :: MediumID,
+  _fd_section   :: Text,
   _fd_label     :: Text,
   _fd_type      :: Text,
   _fd_item_num  :: Int,

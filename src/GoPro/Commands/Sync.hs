@@ -259,29 +259,26 @@ syncFiles = do
           c <- asksOpt optDownloadConcurrency
           storeFiles . catMaybes =<< pooledMapConcurrentlyN c updateLength stuff
 
-      updateLength (hu, f) = do
+      updateLength (hu, _, f) = do
         r <- try @_ @SomeException $ liftIO (head_ hu)
         case r ^? _Right . responseHeader "Content-Length" of
           Nothing  -> logErrorL ["Could not find data for ", tshow f, tshow r] $> Nothing
           Just len -> pure (Just f{_fd_file_size = read (BC.unpack len)})
 
-extractFiles :: MediumID -> FileInfo -> [(String, FileData)]
-extractFiles mid fi = filter desirable $ fold [ ex variations,
-                                                ex sidecar_files,
-                                                otherFiles
-                                              ]
+extractFiles :: MediumID -> FileInfo -> [(String, String, FileData)]
+extractFiles mid fi = fold [ ex "var" variations,
+                             ex "sidecar" sidecar_files,
+                             otherFiles
+                           ]
   where
-
-    -- Explicitly ignoring concats because they're derived and huge.
-    desirable (_, FileData{..}) = _fd_label `elem` ["source", "baked_source", "jpg", "1.jpg", "1.mp4", "1.", "raw_photo"]
-
-    ex l = fi ^.. fileStuff . l . folded . to conv . folded
+    ex p l = fi ^.. fileStuff . l . folded . to conv . folded
       where
         conv v = maybeToList $ do
           lbl <- v ^? media_label
           typ <- v ^? media_type
-          pure (v ^. media_head, FileData{
+          pure (v ^. media_head, v ^. media_url, FileData{
             _fd_medium = mid,
+            _fd_section = p,
             _fd_label = T.pack lbl,
             _fd_type = T.pack typ,
             _fd_item_num = fromMaybe 0 (v ^. media_item_number),
@@ -293,8 +290,9 @@ extractFiles mid fi = filter desirable $ fold [ ex variations,
         typ = fi ^. filename . to (fmap toLower . drop 1 . takeExtension)
         conv v = let i = v ^. file_item_number
                      lbl = show i <> "." <> typ
-                 in (v ^. media_head, FileData{
+                 in (v ^. media_head, v ^. media_url, FileData{
                       _fd_medium = mid,
+                      _fd_section = "files",
                       _fd_label = T.pack lbl,
                       _fd_type = T.pack typ,
                       _fd_item_num = fromMaybe 0 (v ^. media_item_number),

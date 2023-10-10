@@ -218,7 +218,8 @@ initQueries = [
           item_number int4 not null,
           file_size int8 not null
         )|]),
-  (10, "create index files_by_media_id on files(media_id)")
+  (10, "create index files_by_media_id on files(media_id)"),
+  (11, "alter table files add column section text not null")
   ]
 
 initTables :: MonadIO m => Connection -> m ()
@@ -700,20 +701,22 @@ storeFiles db wps = mightFail . Session.run (transaction TX.Serializable TX.Writ
   where
     tx = do
       -- TX.statement mid (Statement "delete from files where media_id = $1 :: text" (Encoders.param (Encoders.nonNullable Encoders.text)) noResult True)
-      traverse_ (\FileData{..} -> TX.statement (_fd_medium, _fd_label, _fd_type, fromIntegral _fd_item_num, fromIntegral _fd_file_size) ist) wps
+      traverse_ (\FileData{..} -> TX.statement (_fd_medium, _fd_section, _fd_label, _fd_type, fromIntegral _fd_item_num, fromIntegral _fd_file_size) ist) wps
 
-    ist = [resultlessStatement|insert into files (media_id, label, type, item_number, file_size)
-           values ($1 :: text, $2 :: text, $3 :: text, $4 :: int4, $5 :: int8)|]
+    ist = [resultlessStatement|insert into files (media_id, section, label, type, item_number, file_size)
+           values ($1 :: text, $2 :: text, $3 :: text, $4 :: text, $5 :: int4, $6 :: int8)|]
 
 loadFiles :: MonadIO m => Connection -> Maybe MediumID -> m [FileData]
 loadFiles db mmid = mightFail $ Session.run (maybe runAll runOne mmid) db
   where
     runAll = Session.statement () stAll
-    stAll = Statement "select media_id, label, type, item_number, file_size from files" noParams (rowList dec) True
+    stAll = Statement "select media_id, section, label, type, item_number, file_size from files" noParams (rowList dec) True
     runOne mid = Session.statement mid stOne
-    stOne = Statement "select media_id, label, type, item_number, file_size from files where media_id = ? :: text" (Encoders.param (Encoders.nonNullable Encoders.text)) (rowList dec) True
+    stOne = Statement "select media_id, section, label, type, item_number, file_size from files where media_id = ? :: text" (Encoders.param (Encoders.nonNullable Encoders.text)) (rowList dec) True
 
-    dec = FileData <$> column (nonNullable Decoders.text)
+    dec = FileData
+        <$> column (nonNullable Decoders.text)
+        <*> column (nonNullable Decoders.text)
         <*> column (nonNullable Decoders.text)
         <*> column (nonNullable Decoders.text)
         <*> (fromIntegral <$> column (nonNullable Decoders.int4))
