@@ -29,7 +29,7 @@ import qualified Data.Text.Lazy                 as LT
 import qualified Data.Vector                    as V
 
 import           GoPro.Commands
-import           GoPro.Commands.Sync            (refreshMedia, runFullSync)
+import           GoPro.Commands.Sync            (extractFiles, refreshMedia, runFullSync)
 import           GoPro.DB
 import           GoPro.DEVC                     (GPSReading (..))
 import           GoPro.File
@@ -52,6 +52,14 @@ import           Web.Scotty.Trans               (ActionT, ScottyError, ScottyT, 
 
 ltshow :: Show a => a -> LT.Text
 ltshow = LT.pack . show
+
+namedFiles :: Medium -> Int -> (a -> FileData) -> [a] -> [(String, a)]
+namedFiles Medium{..} mx fdf = fmap nameOne
+  where
+    names = maybe mempty (\base -> Map.fromList $ zip [1 .. mx] (iterate nextFile base)) (parseGPFileName =<< _medium_filename)
+    nameOne a = (maybe (fromMaybe "" _medium_filename) (takeFileName . _gpFilePath) $ Map.lookup _fd_item_num names, a)
+      where
+        FileData{..} = fdf a
 
 runServer :: GoPro ()
 runServer = do
@@ -146,6 +154,17 @@ runServer = do
       get "/api/retrieve/:id" do
         imgid <- param "id"
         json @J.Value =<< lift (retrieve imgid)
+
+      get "/api/files/:id" do
+        imgid <- param "id"
+        Database{..} <- asks database
+        Just med <- lift $ loadMedium imgid
+        fs <- extractFiles imgid <$> lift (retrieve imgid)
+        let named = namedFiles med (length fs) (\(_,_,nf) -> nf) fs
+        json $ fmap (\(fn, (h, u, _fd)) -> J.object [
+                        ("url", J.toJSON u),
+                        ("head", J.toJSON h),
+                        ("filename", J.toJSON fn)]) named
 
       get "/api/gpslog/:id" do
         Database{..} <- asks database
