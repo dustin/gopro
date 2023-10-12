@@ -1,4 +1,5 @@
-{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections   #-}
 
 module GoPro.File where
 
@@ -6,6 +7,7 @@ module GoPro.File where
 https://community.gopro.com/t5/en/GoPro-Camera-File-Naming-Convention/ta-p/390220
 -}
 
+import           Control.Lens                    hiding (from, to)
 import           Control.Monad.IO.Class          (MonadIO (..))
 import           Control.Monad.Trans.Class       (lift)
 import           Control.Monad.Trans.Writer.Lazy (execWriterT, tell)
@@ -38,11 +40,6 @@ instance Ord Grouping where
       i (BasicGrouping x g) = (show g, x)
       i (LoopGrouping x g)  = (g, x)
 
-nextGrouping :: Grouping -> Grouping
-nextGrouping (NoGrouping x p)    = NoGrouping (succ x) p
-nextGrouping (BasicGrouping x g) = BasicGrouping (succ x) g
-nextGrouping (LoopGrouping x g)  = LoopGrouping (succ x) g
-
 data VideoCodec = GoProAVC | GoProHEVC | GoPro360 | GoProJPG deriving (Eq, Show, Bounded, Enum)
 
 data File = File {
@@ -51,11 +48,32 @@ data File = File {
   _gpGrouping :: Grouping
   } deriving (Eq, Show)
 
-nextFile :: File -> File
-nextFile f@File{..} = f{_gpGrouping=next, _gpFilePath=nextF}
+makeLenses ''File
+
+nextGrouping :: Grouping -> Grouping
+nextGrouping = over grouping succ
+
+grouping :: Lens' Grouping Int
+grouping = lens r w
   where
-    next = nextGrouping _gpGrouping
-    nextF = takeDirectory _gpFilePath
+    r (NoGrouping x _)    = x
+    r (BasicGrouping x _) = x
+    r (LoopGrouping x _)  = x
+
+    w (NoGrouping _ p)    x = NoGrouping x p
+    w (BasicGrouping _ g) x = BasicGrouping x g
+    w (LoopGrouping _ g)  x = LoopGrouping x g
+
+nextFile :: File -> File
+nextFile = over fileNum succ
+
+fileAt :: File -> Int -> File
+fileAt f 0 = f -- there's no such thing as a zeroth file
+fileAt f 1 = f -- Assume we're handed the first file
+fileAt f@File{..} n = f{_gpGrouping=next, _gpFilePath=pathAt}
+  where
+    next = _gpGrouping & grouping .~ n
+    pathAt = takeDirectory _gpFilePath
       </> if "GOPR" `isInfixOf` _gpFilePath
           then replace (ident _gpGrouping) (ident next) (replace "GOPR" "GH01" (takeFileName _gpFilePath))
           else replace (ident _gpGrouping) (ident next) (takeFileName _gpFilePath)
@@ -73,9 +91,12 @@ nextFile f@File{..} = f{_gpGrouping=next, _gpFilePath=nextF}
     replace from to = intercalate to . splitOn from
 
     padded s x = prefix "0" s (show x)
-    prefix p n x
-      | length x == n = x
-      | otherwise = prefix p n (p <> x)
+    prefix p pn x
+      | length x == pn = x
+      | otherwise = prefix p pn (p <> x)
+
+fileNum :: Lens' File Int
+fileNum = lens (view (gpGrouping . grouping)) fileAt
 
 sameGroup :: Grouping -> Grouping -> Bool
 sameGroup (BasicGrouping _ a) (BasicGrouping _ b) = a == b
