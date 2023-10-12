@@ -712,7 +712,7 @@ loadFiles db mmid = mightFail $ Session.run (maybe runAll runOne mmid) db
     runAll = Session.statement () stAll
     stAll = Statement "select media_id, section, label, type, item_number, file_size from files" noParams (rowList dec) True
     runOne mid = Session.statement mid stOne
-    stOne = Statement "select media_id, section, label, type, item_number, file_size from files where media_id = ? :: text" (Encoders.param (Encoders.nonNullable Encoders.text)) (rowList dec) True
+    stOne = Statement "select media_id, section, label, type, item_number, file_size from files where media_id = $1 :: text" (Encoders.param (Encoders.nonNullable Encoders.text)) (rowList dec) True
 
     dec = FileData
         <$> column (nonNullable Decoders.text)

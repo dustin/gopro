@@ -16,7 +16,7 @@ module GoPro.DB (MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_varia
                  ConfigOption(..), strOption, optionStr,
                  Database(..),
                  AuthResult(..),
-                 FileData(..), fd_medium, fd_label, fd_type, fd_item_num, fd_file_size,
+                 FileData(..), fd_medium, fd_section, fd_label, fd_type, fd_item_num, fd_file_size,
                  ) where
 
 import           Control.Foldl          (Fold (..))

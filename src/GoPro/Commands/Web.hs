@@ -6,7 +6,7 @@
 
 module GoPro.Commands.Web where
 
-import           Control.Applicative            ((<|>))
+import           Control.Applicative            (asum, (<|>))
 import           Control.Concurrent.STM         (atomically, dupTChan, readTChan)
 import qualified Control.Foldl                  as Foldl
 import           Control.Lens
@@ -106,7 +106,7 @@ runServer = do
         fs <- Map.fromListWith (<>) . fmap (\x -> (_fd_medium x, [x])) <$> loadFiles Nothing
         json $ map (\m@Medium{..} -> fromMaybe (J.toJSON m) $ do
                     basename <- parseGPFileName =<< _medium_filename
-                    fd <- Map.lookup _medium_id fs
+                    fd <- sources <$> Map.lookup _medium_id fs
                     let names = Map.fromList $ zip [1 .. length fd] (iterate nextFile basename)
                         numbered n = maybe (fromMaybe "" _medium_filename) (takeFileName . _gpFilePath) $ Map.lookup n names
                         name d@FileData{..} = J.toJSON d & _Object . at "filename" ?~ J.toJSON (numbered _fd_item_num)
@@ -159,11 +159,14 @@ runServer = do
         imgid <- param "id"
         Database{..} <- asks database
         Just med <- lift $ loadMedium imgid
+        mfiles <- Map.fromList . fmap (\FileData{..} -> ((_fd_section, _fd_label, _fd_item_num), _fd_file_size)) <$> loadFiles (Just imgid)
+        let adjustSize f@FileData{..} = f{_fd_file_size=Map.findWithDefault 0 (_fd_section, _fd_label, _fd_item_num) mfiles}
         fs <- extractFiles imgid <$> lift (retrieve imgid)
         let named = namedFiles med (length fs) (\(_,_,nf) -> nf) fs
-        json $ fmap (\(fn, (h, u, _fd)) -> J.object [
+        json $ fmap (\(fn, (h, u, fd)) -> J.object [
                         ("url", J.toJSON u),
                         ("head", J.toJSON h),
+                        ("fileData", J.toJSON (adjustSize fd)),
                         ("filename", J.toJSON fn)]) named
 
       get "/api/gpslog/:id" do
@@ -208,6 +211,9 @@ runServer = do
                                          ("width", jn (f ^. var_width)),
                                          ("height", jn (f ^. var_height))]) _variations
               )
+
+sources :: [FileData] -> [FileData]
+sources fd = asum [filter ((== "source") . _fd_label) fd] -- add some extras here
 
 gpsExport :: (ScottyError e, MonadReader Env m, MonadIO m) => LT.Text -> LT.Text -> (Medium -> MDSummary -> Foldl.Fold GPSReading LT.Text) -> MediumID -> ActionT e m ()
 gpsExport mime ext f mid = do
