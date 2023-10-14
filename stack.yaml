@@ -17,7 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-20.26
+resolver: lts-21.11
 
 allow-newer: true
 
@@ -52,16 +52,13 @@ extra-deps:
 - tomland-1.3.3.2@sha256:0b4a24f8584f636b7799d9044586762967978f9c225392493307617057f0d288,9063
 - iconv-0.4.1.3@sha256:4f0b2f09bb8c33199e3c3fdfcd35e576d17cbf5188b18f404ffdfa68a8ccc40e,1192
 - validation-selective-0.1.0.2@sha256:c878846bfffeba69efa3b4866025f249656e0e0a129fed6d446eb602382d328b,3856
-- github: brendanhay/amazonka
-  commit: 31f3d044d84912b99e396a97085a9678e699d91f
-  subdirs:
-  - lib/amazonka
-  - lib/amazonka-core
-  - lib/services/amazonka-sso
-  - lib/services/amazonka-sts
-  - lib/services/amazonka-s3
-  - lib/services/amazonka-sqs
-  - lib/services/amazonka-lambda
+- amazonka-2.0@sha256:3481da2fda6b210d15d41c1db7a588adf68123cfb7ea3882797a6230003259db,3505
+- amazonka-core-2.0@sha256:d9f0533c272ac92bd7b18699077038b6b51b3552e91b65743af4ce646286b4f8,4383
+- amazonka-lambda-2.0@sha256:aa74299380318b04429980eb76b7f0499a8241ff01de859042b0ff09bd7ef420,8281
+- amazonka-s3-2.0@sha256:e3143e11ab9e57ee0dfd9d1dd95a44c5b4a7d34af78c8f5b2e6c00afad118a02,13853
+- amazonka-sqs-2.0@sha256:63c15d7b39a923edd70152cba9ff3b4c246be6c9dda76446c7c303ae988f729e,4078
+- amazonka-sso-2.0@sha256:902be13b604e4a3b51a9b8e1adc6a32f42322ae11f738a72a8c737b2d0a91a5e,2995
+- amazonka-sts-2.0@sha256:5c721083e8d80883a893176de6105c27bbbd8176f467c27ac5f8d548a5e726d8,3209
 
 # Override default flag values for local packages and extra-deps
 # flags: {}
