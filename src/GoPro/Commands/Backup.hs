@@ -215,14 +215,14 @@ runBackup ex = do
   c <- asksOpt optUploadConcurrency
   pooledMapConcurrentlyN_ c (copyMedia λ ex) todo
 
-runLocalBackup :: Extractor -> FilePath -> GoPro ()
-runLocalBackup ex path = do
+runLocalBackup :: Extractor -> NonEmpty FilePath -> GoPro ()
+runLocalBackup ex paths = do
   db <- asks database
-  listToCopyLocally db >>= maybe (pure ()) (runDownload ex path) . NE.nonEmpty
+  listToCopyLocally db >>= maybe (pure ()) (runDownload ex paths) . NE.nonEmpty
 
-runDownload :: Extractor -> FilePath -> NonEmpty MediumID -> GoPro ()
-runDownload ex path mids = do
-  have <- liftIO findHave
+runDownload :: Extractor -> NonEmpty FilePath -> NonEmpty MediumID -> GoPro ()
+runDownload ex paths mids = do
+  have <- fold <$> liftIO (traverse findHave paths)
   db <- asks database
   let todo = filter (`Set.notMember` have) (NE.toList mids)
   logDbgL ["todo: ", tshow todo]
@@ -232,12 +232,13 @@ runDownload ex path mids = do
   where
     one db mid = loadMedium db mid >>= \case
       Nothing -> logErrorL ["Cannot find record for ", mid]
-      Just m  -> downloadLocally path ex m
+      Just m  -> downloadLocally (NE.head paths) ex m
 
-    findHave = execWriterT . pathWalkInterruptible path $ \dir subdirs _filenames ->
+    findHave path = execWriterT . pathWalkInterruptible path $ \dir subdirs _filenames ->
       case takeFileName dir of
-        "tmp" -> pure StopRecursing
-        _     -> tell (Set.fromList (pack <$> subdirs)) $> Continue
+        "Proxy" -> pure StopRecursing
+        "tmp"   -> pure StopRecursing
+        _       -> tell (Set.fromList (pack <$> subdirs)) $> Continue
 
 runStoreMeta :: GoPro ()
 runStoreMeta = do
