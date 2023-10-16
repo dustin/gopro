@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
@@ -105,6 +106,30 @@ type goProMedium struct {
 	mu       sync.Mutex
 }
 
+func (gm *goProMedium) proxyDir() (string, string, error) {
+	r := gm.Root()
+	gr, ok := gm.Root().Operations().(*GoProRoot)
+	if !ok {
+		return "", "", fmt.Errorf("root isn't GoProRoot, it's %v", r)
+	}
+	if gr.proxyDir == "" {
+		return "", "", fmt.Errorf("proxy dir isn't configured")
+	}
+
+	return gr.proxyDir, filepath.Join(gr.proxyDir, fmt.Sprintf("%v/%02d/%v/Proxy", gm.captured.Year(), gm.captured.Month(), gm.id)), nil
+}
+
+func (gm *goProMedium) proxyExists() bool {
+	_, d, err := gm.proxyDir()
+	if err != nil {
+		return false
+	}
+	if stat, err := os.Stat(d); err == nil && stat.IsDir() {
+		return true
+	}
+	return false
+}
+
 func (gm *goProMedium) origURL(f File) (string, error) {
 	gm.mu.Lock()
 	defer gm.mu.Unlock()
@@ -139,6 +164,85 @@ func (gm *goProMedium) origURL(f File) (string, error) {
 		return "", fmt.Errorf("Can't find %v in %v", f, keys)
 	}
 	return u, nil
+}
+
+var _ = (fs.NodeGetattrer)((*goProMedium)(nil))
+var _ = (fs.NodeLookuper)((*goProMedium)(nil))
+var _ = (fs.NodeReaddirer)((*goProMedium)(nil))
+var _ = (fs.NodeMkdirer)((*goProMedium)(nil))
+
+func (gm *goProMedium) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+	if ch := gm.GetChild(name); ch != nil {
+		return ch, 0
+	}
+
+	if name == "Proxy" && gm.proxyExists() {
+		prox, err := gm.createProxy(ctx)
+		if err == nil {
+			return prox, 0
+		}
+	}
+	return nil, syscall.ENOENT
+}
+
+func (gm *goProMedium) Readdir(ctx context.Context) (fs.DirStream, syscall.Errno) {
+	rv := []fuse.DirEntry{}
+
+	for n, i := range gm.Children() {
+		sa := i.StableAttr()
+		rv = append(rv, fuse.DirEntry{Mode: sa.Mode, Name: n, Ino: sa.Ino})
+	}
+
+	if gm.GetChild("Proxy") == nil && gm.proxyExists() {
+		if prox, err := gm.createProxy(ctx); err != nil {
+			log.Printf("Error creating proxy: %v", err)
+		} else {
+			sa := prox.StableAttr()
+			rv = append(rv, fuse.DirEntry{Mode: sa.Mode, Name: "Proxy", Ino: sa.Ino})
+		}
+	}
+
+	sort.Slice(rv, func(i, j int) bool {
+		return rv[i].Name < rv[j].Name
+	})
+
+	return fs.NewListDirStream(rv), 0
+}
+
+func (gm *goProMedium) createProxy(ctx context.Context) (*fs.Inode, error) {
+	gm.mu.Lock()
+	defer gm.mu.Unlock()
+
+	if ch := gm.GetChild("Proxy"); ch != nil {
+		return ch, nil
+	}
+
+	proot, pdir, err := gm.proxyDir()
+	if err != nil {
+		return nil, fmt.Errorf("Error getting proxy dir: %v", err)
+	}
+	if err := os.MkdirAll(pdir, 0777); err != nil {
+		return nil, fmt.Errorf("Error creating %v: %v", pdir, err)
+	}
+	loop, err := fs.NewLoopbackRoot(proot)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating loopback: %v", err)
+	}
+	ch := gm.NewPersistentInode(ctx, loop, fs.StableAttr{Mode: fuse.S_IFDIR})
+	gm.AddChild("Proxy", ch, true)
+	return ch, nil
+}
+
+func (gm *goProMedium) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+	if name != "Proxy" {
+		return nil, syscall.EROFS
+	}
+	prox, err := gm.createProxy(ctx)
+	if err != nil {
+		log.Printf("Error creating proxy directory for %v: %v", gm.id, err)
+		return nil, syscall.EROFS
+	}
+	return prox, 0
 }
 
 func (gm *goProMedium) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
@@ -409,7 +513,6 @@ func (gf *goProFile) Release(ctx context.Context, fh fs.FileHandle) syscall.Errn
 }
 
 func (r *GoProRoot) OnAdd(ctx context.Context) {
-	proxyDirs := map[string]bool{}
 	for y, ms := range r.tree {
 		p := &r.Inode
 
@@ -427,40 +530,15 @@ func (r *GoProRoot) OnAdd(ctx context.Context) {
 				mediumInode := monthInode.NewPersistentInode(ctx, medContainer, fs.StableAttr{Mode: fuse.S_IFDIR})
 				monthInode.AddChild(id, mediumInode, true)
 
-				hasVideo := false
 				for _, f := range medium.Files {
 					f := f
 					gpf := &goProFile{gpf: f, parent: medContainer}
 					ch := mediumInode.NewPersistentInode(ctx, gpf, fs.StableAttr{})
 					mediumInode.AddChild(f.Name, ch, true)
-					if f.Type == "mp4" {
-						hasVideo = true
-					}
-				}
-
-				// Proxy handling
-				if r.proxyDir != "" && hasVideo {
-					proot := filepath.Join(r.proxyDir, fmt.Sprintf("%v/%02d/%v/Proxy", medium.Captured.Year(), medium.Captured.Month(), medium.Id))
-					proxyDirs[proot] = true
-					loop, err := fs.NewLoopbackRoot(r.proxyDir)
-					if err == nil {
-						ch := mediumInode.NewPersistentInode(ctx, loop, fs.StableAttr{Mode: fuse.S_IFDIR})
-						mediumInode.AddChild("Proxy", ch, true)
-					}
 				}
 			}
 		}
 	}
-	// This can block for a silly amount of time.  We'll do it async.
-	go func() {
-		log.Printf("Creating %v proxy dirs", len(proxyDirs))
-		defer log.Printf("Finished creating proxy dirs")
-		for d := range proxyDirs {
-			if err := os.MkdirAll(d, 0777); err != nil {
-				log.Printf("Failed to create proxy dir %v: %v", d, err)
-			}
-		}
-	}()
 }
 
 func (r *GoProRoot) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {

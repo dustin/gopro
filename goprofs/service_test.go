@@ -1,9 +1,9 @@
 package main
 
 import (
-	"testing"
 	"encoding/json"
 	"os"
+	"testing"
 )
 
 func readExample(t *testing.T) []Medium {
