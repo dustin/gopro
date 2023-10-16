@@ -386,6 +386,7 @@ func (gf *goProFile) Release(ctx context.Context, fh fs.FileHandle) syscall.Errn
 			if err := os.Rename(gf.cacheFile+".tmp", gf.cacheFile); err != nil {
 				log.Printf("Error renaming file:  %v", err)
 			}
+			gf.cacheFile = ""
 		} else {
 			completed := []int{}
 			for i, h := range gf.have {
