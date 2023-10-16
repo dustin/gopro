@@ -8,3 +8,4 @@ gopro.cabal
 gopro.db
 stack.yaml.lock
 static/js/gopro.js
+/goprofs/goprofs
