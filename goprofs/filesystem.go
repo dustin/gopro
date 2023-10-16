@@ -588,7 +588,9 @@ func main() {
 		},
 	}
 
-	server, err := fs.Mount(flag.Arg(0), gproot, opts)
+	fsroot := flag.Arg(0)
+	log.Printf("Mounting at %v", fsroot)
+	server, err := fs.Mount(fsroot, gproot, opts)
 	if err != nil {
 		log.Fatalf("Mount fail: %v\n", err)
 	}
