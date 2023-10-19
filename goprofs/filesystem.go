@@ -246,7 +246,7 @@ func (gm *goProMedium) Mkdir(ctx context.Context, name string, mode uint32, out 
 }
 
 func (gm *goProMedium) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
-	out.Mode = 0555
+	out.Mode = 0777
 	out.Nlink = 1
 	out.Mtime = uint64(gm.captured.Unix())
 	out.Atime = out.Mtime
