@@ -61,6 +61,112 @@ func (fs *GoProRoot) trackClose(f File, p string) {
 	}
 }
 
+type refreshFile struct {
+	fs.Inode
+	msg string
+}
+
+var _ = (fs.NodeOpener)((*refreshFile)(nil))
+var _ = (fs.NodeReader)((*refreshFile)(nil))
+
+func (r *refreshFile) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, flg uint32, errno syscall.Errno) {
+	r.msg = "ok"
+	root := r.Root()
+	gr, ok := root.Root().Operations().(*GoProRoot)
+	if ok {
+		if err := gr.refresh(ctx); err != nil {
+			r.msg = fmt.Sprintf("Failed to refresh: %v", err)
+		}
+	} else {
+		r.msg = fmt.Sprintf("Root isn't GoProRoot, it's %v", r)
+	}
+	return r, fuse.FOPEN_KEEP_CACHE, 0
+}
+
+func (r *refreshFile) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
+	log.Printf("Reading should return %v", r.msg)
+	return fuse.ReadResultData([]byte(r.msg)), 0
+}
+
+func (r *refreshFile) Release(ctx context.Context, fh fs.FileHandle) syscall.Errno {
+	log.Printf("Closing refresh file")
+	return 0
+}
+
+func (gr *GoProRoot) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+	if ch := gr.GetChild(name); ch != nil {
+		return ch, 0
+	}
+
+	if name == ".refresh" {
+		return gr.NewPersistentInode(ctx, &refreshFile{}, fs.StableAttr{}), 0
+	}
+
+	return nil, syscall.ENOENT
+}
+
+func (gp *GoProRoot) refresh(ctx context.Context) error {
+	log.Printf("Refreshing")
+	defer log.Printf("Refreshed")
+	res, err := fetchList(gp.baseURL)
+	if err != nil {
+		return fmt.Errorf("failed to get media list: %v", err)
+	}
+	gp.mu.Lock()
+	defer gp.mu.Unlock()
+	gp.tree = treeMedia(res)
+	gp.updateTree(ctx)
+	return nil
+}
+
+func (gr *GoProRoot) updateTree(ctx context.Context) {
+	for y, ms := range gr.tree {
+		p := &gr.Inode
+
+		yn := fmt.Sprintf("%v", y)
+		yearInode := p.GetChild(yn)
+		if yearInode == nil {
+			yearInode = p.NewPersistentInode(ctx, &fs.Inode{}, fs.StableAttr{Mode: fuse.S_IFDIR})
+			p.AddChild(yn, yearInode, true)
+		}
+
+		for m, ids := range ms {
+			m := m
+			mn := fmt.Sprintf("%02d", m)
+			monthInode := yearInode.GetChild(mn)
+			if monthInode == nil {
+				monthInode = yearInode.NewPersistentInode(ctx, &fs.Inode{}, fs.StableAttr{Mode: fuse.S_IFDIR})
+				yearInode.AddChild(mn, monthInode, true)
+			}
+
+			for id, medium := range ids {
+				if monthInode.GetChild(id) != nil {
+					continue
+				}
+
+				id := id
+				medium := medium
+				medContainer := &goProMedium{captured: medium.Captured, id: medium.Id}
+				mediumInode := monthInode.NewPersistentInode(ctx, medContainer, fs.StableAttr{Mode: fuse.S_IFDIR})
+				monthInode.AddChild(id, mediumInode, true)
+
+				for _, f := range medium.Files {
+					f := f
+					gpf := &goProFile{gpf: f, parent: medContainer}
+					ch := mediumInode.NewPersistentInode(ctx, gpf, fs.StableAttr{})
+					mediumInode.AddChild(f.Name, ch, true)
+				}
+			}
+		}
+	}
+}
+
+func (gr *GoProRoot) bgRefresh(ctx context.Context) {
+	for range time.After(time.Hour) {
+		gr.refresh(ctx)
+	}
+}
+
 func (fs *GoProRoot) Statfs(ctx context.Context, out *fuse.StatfsOut) syscall.Errno {
 	var totalSize, numFiles uint64
 	for _, ms := range fs.tree {
@@ -182,7 +288,7 @@ func (gm *goProMedium) Unlink(ctx context.Context, name string) syscall.Errno {
 	return 0
 }
 
-func  (gm *goProMedium) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
+func (gm *goProMedium) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	if name == ".Proxy.lock" {
 		log.Printf("Creating .Proxy.lock")
 		gm.mu.Lock()
@@ -199,7 +305,6 @@ func  (gm *goProMedium) Create(ctx context.Context, name string, flags uint32, m
 	log.Printf("Attempting to create %v", name)
 	return nil, nil, 0, syscall.EROFS
 }
-
 
 func (gm *goProMedium) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	if ch := gm.GetChild(name); ch != nil {
@@ -562,31 +667,8 @@ func (gf *goProFile) Release(ctx context.Context, fh fs.FileHandle) syscall.Errn
 }
 
 func (r *GoProRoot) OnAdd(ctx context.Context) {
-	for y, ms := range r.tree {
-		p := &r.Inode
-
-		yearInode := p.NewPersistentInode(ctx, &fs.Inode{}, fs.StableAttr{Mode: fuse.S_IFDIR})
-		p.AddChild(fmt.Sprintf("%v", y), yearInode, true)
-
-		for m, ids := range ms {
-			m := m
-			monthInode := yearInode.NewPersistentInode(ctx, &fs.Inode{}, fs.StableAttr{Mode: fuse.S_IFDIR})
-			yearInode.AddChild(fmt.Sprintf("%02d", m), monthInode, true)
-			for id, medium := range ids {
-				id := id
-				medium := medium
-				medContainer := &goProMedium{captured: medium.Captured, id: medium.Id}
-				mediumInode := monthInode.NewPersistentInode(ctx, medContainer, fs.StableAttr{Mode: fuse.S_IFDIR})
-				monthInode.AddChild(id, mediumInode, true)
-
-				for _, f := range medium.Files {
-					f := f
-					gpf := &goProFile{gpf: f, parent: medContainer}
-					ch := mediumInode.NewPersistentInode(ctx, gpf, fs.StableAttr{})
-					mediumInode.AddChild(f.Name, ch, true)
-				}
-			}
-		}
+	if err := r.refresh(ctx); err != nil {
+		log.Printf("Error initializing root: %v", err)
 	}
 }
 
@@ -597,6 +679,7 @@ func (r *GoProRoot) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.Att
 
 var _ = (fs.NodeGetattrer)((*GoProRoot)(nil))
 var _ = (fs.NodeOnAdder)((*GoProRoot)(nil))
+var _ = (fs.NodeLookuper)((*GoProRoot)(nil))
 
 type stringListFlag []string
 
@@ -622,12 +705,6 @@ func main() {
 		log.Fatal("Usage:\n  goprofs MOUNTPOINT")
 	}
 
-	res, err := fetchList(gproot.baseURL)
-	if err != nil {
-		log.Fatalf("failed to fetch media: %v", err)
-	}
-	gproot.tree = treeMedia(res)
-
 	opts := &fs.Options{
 		MountOptions: fuse.MountOptions{
 			Debug:         *debug,
@@ -636,6 +713,8 @@ func main() {
 			DisableXAttrs: true,
 		},
 	}
+
+	go gproot.bgRefresh(context.Background())
 
 	fsroot := flag.Arg(0)
 	log.Printf("Mounting at %v", fsroot)
