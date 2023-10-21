@@ -52,8 +52,6 @@ func (gf *goProFile) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, 
 		log.Printf("Ignoring open call")
 		return nil, 0, syscall.EPERM
 	}
-	gf.mu.Lock()
-	defer gf.mu.Unlock()
 
 	r := gf.Root()
 	gr, ok := gf.Root().Operations().(*GoProRoot)
@@ -61,7 +59,7 @@ func (gf *goProFile) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, 
 		log.Printf("Root isn't GoProRoot, it's %v", r)
 		return nil, 0, syscall.EIO
 	}
-	gfh := goProFileHandle{procName: procName(ctx), size: gf.gpf.Size, med: gf.parent, gpf: gf.gpf}
+	gfh := &goProFileHandle{procName: procName(ctx), size: gf.gpf.Size, med: gf.parent, gpf: gf.gpf}
 
 	defer func() {
 		if errno == 0 {
@@ -70,16 +68,26 @@ func (gf *goProFile) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, 
 		}
 	}()
 
-	myPath := fmt.Sprintf("%v/%02d/%v/%v", gf.parent.captured.Year(), gf.parent.captured.Month(), gf.parent.id, gf.gpf.Name)
+	fh, flg, errno = gf.openExisting(ctx, flags, gr, gfh)
+	if errno == 0 {
+		return fh, flg, errno
+	}
+	return gf.openOrigin(ctx, flags, gr, gfh)
+}
+
+func (gf *goProFile) myPath() string {
+	return fmt.Sprintf("%v/%02d/%v/%v", gf.parent.captured.Year(), gf.parent.captured.Month(), gf.parent.id, gf.gpf.Name)
+}
+
+func (gf *goProFile) openExisting(ctx context.Context, flags uint32, gr *GoProRoot, gfh *goProFileHandle) (fh fs.FileHandle, flg uint32, errno syscall.Errno) {
 	caches := append(gr.sources, gr.cacheDir)
 
 	for _, root := range caches {
-		p := filepath.Join(root, myPath)
+		p := filepath.Join(root, gf.myPath())
 
-		log.Printf("Trying %v", p)
 		f, err := os.OpenFile(p, os.O_RDONLY, 0444)
 		if err == nil {
-			log.Printf(" -- found %v", p)
+			log.Printf("Found %v", p)
 			gfh.file = f
 			return gfh, fuse.FOPEN_KEEP_CACHE, 0
 		}
@@ -90,9 +98,13 @@ func (gf *goProFile) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, 
 		return nil, 0, syscall.EIO
 	}
 
+	return nil, 0, syscall.ENOENT
+}
+
+func (gf *goProFile) openOrigin(ctx context.Context, flags uint32, gr *GoProRoot, gfh *goProFileHandle) (fh fs.FileHandle, flg uint32, errno syscall.Errno) {
 	log.Printf("Not found locally.  Let's do some cloud streaming stuff.")
 
-	p := filepath.Join(gr.cacheDir, myPath)
+	p := filepath.Join(gr.cacheDir, gf.myPath())
 	err := os.MkdirAll(filepath.Dir(p), 0777)
 	if err != nil {
 		return nil, 0, syscall.EIO
