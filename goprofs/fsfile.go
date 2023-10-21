@@ -31,9 +31,7 @@ type goProFile struct {
 	cacheFile string
 	parent    *goProMedium
 
-	// Stuff wants to grab the end, so let's prepare it
-	have []blockState
-	mu   sync.Mutex
+	mu sync.Mutex
 }
 
 func (gf *goProFile) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
@@ -47,22 +45,6 @@ func (gf *goProFile) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.Att
 	out.Blksize = bs
 	out.Blocks = (out.Size + bs - 1) / bs
 	return 0
-}
-
-func (gf *goProFile) initBlocks(p string) {
-	gf.have = make([]blockState, 1+int(blockCount(uint64(gf.gpf.Size))))
-	f, err := os.Open(p + ".blocks")
-	if err != nil {
-		return
-	}
-	defer f.Close()
-	nums := []int{}
-	if err := json.NewDecoder(f).Decode(&nums); err != nil {
-		return
-	}
-	for _, i := range nums {
-		gf.have[i] = ready
-	}
 }
 
 func (gf *goProFile) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, flg uint32, errno syscall.Errno) {
@@ -79,7 +61,7 @@ func (gf *goProFile) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, 
 		log.Printf("Root isn't GoProRoot, it's %v", r)
 		return nil, 0, syscall.EIO
 	}
-	gfh := goProFileHandle{procName: procName(ctx)}
+	gfh := goProFileHandle{procName: procName(ctx), size: gf.gpf.Size, med: gf.parent, gpf: gf.gpf}
 
 	defer func() {
 		if errno == 0 {
@@ -121,45 +103,45 @@ func (gf *goProFile) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, 
 		return nil, 0, syscall.EIO
 	}
 	gf.cacheFile = p
-	gf.initBlocks(p)
+	gfh.initBlocks(p)
 
 	gfh.file = f
 	return gfh, fuse.FOPEN_KEEP_CACHE, 0
 }
 
-func (gf *goProFile) startFetch(f *os.File, block uint64) error {
+func (gfh *goProFileHandle) startFetch(f *os.File, block uint64) error {
 	// This is called with a lock held.
-	u, err := gf.parent.origURL(gf.gpf)
+	u, err := gfh.med.origURL(gfh.gpf)
 	if err != nil {
 		return err
 	}
-	log.Printf("Fetching block %v for %v", block, gf.gpf.Name)
+	log.Printf("Fetching block %v for %v", block, gfh.gpf.Name)
 	l, h := blockRange(block)
-	gf.have[block] = fetching
+	gfh.have[block] = fetching
 	_, err = fillHole(f, u, l, h)
 	if err != nil {
 		log.Printf("Failed to fetch block %v: %v", block, err)
-		gf.have[int(block)] = missing
+		gfh.have[int(block)] = missing
 	} else {
-		gf.have[int(block)] = ready
+		gfh.have[int(block)] = ready
 	}
 	return err
 }
 
-func (gf *goProFile) waitForBlocks(f *os.File, blocks []uint64) error {
-	gf.mu.Lock()
-	defer gf.mu.Unlock()
+func (gfh *goProFileHandle) waitForBlocks(f *os.File, blocks []uint64) error {
+	gfh.mu.Lock()
+	defer gfh.mu.Unlock()
 
-	if gf.have == nil {
+	if gfh.have == nil {
 		return nil
 	}
 
 	for {
 		allDone := true
 		for _, b := range blocks {
-			switch gf.have[int(b)] {
+			switch gfh.have[int(b)] {
 			case missing:
-				if err := gf.startFetch(f, b); err != nil {
+				if err := gfh.startFetch(f, b); err != nil {
 					log.Printf("Failed starting a fetch: %v", err)
 					return err
 				}
@@ -187,7 +169,7 @@ func (gf *goProFile) Read(ctx context.Context, fh fs.FileHandle, dest []byte, of
 		blocks = append(blocks, i)
 	}
 
-	if err := gf.waitForBlocks(gfh.file, blocks); err != nil {
+	if err := gfh.waitForBlocks(gfh.file, blocks); err != nil {
 		return fuse.ReadResultData(nil), syscall.EIO
 	}
 
@@ -196,7 +178,28 @@ func (gf *goProFile) Read(ctx context.Context, fh fs.FileHandle, dest []byte, of
 
 type goProFileHandle struct {
 	procName string
+	gpf      File
+	med      *goProMedium
 	file     *os.File
+	size     uint64
+	have     []blockState
+	mu       sync.Mutex
+}
+
+func (gfh *goProFileHandle) initBlocks(p string) {
+	gfh.have = make([]blockState, 1+int(blockCount(gfh.size)))
+	f, err := os.Open(p + ".blocks")
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	nums := []int{}
+	if err := json.NewDecoder(f).Decode(&nums); err != nil {
+		return
+	}
+	for _, i := range nums {
+		gfh.have[i] = ready
+	}
 }
 
 func (gf *goProFile) Getxattr(ctx context.Context, attr string, dest []byte) (uint32, syscall.Errno) {
@@ -228,7 +231,7 @@ func (gf *goProFile) Release(ctx context.Context, fh fs.FileHandle) syscall.Errn
 	if gf.cacheFile != "" {
 		allDone := true
 		for i := uint64(0); i <= blockCount(uint64(gf.gpf.Size)); i++ {
-			allDone = allDone && gf.have[i] == ready
+			allDone = allDone && gfh.have[i] == ready
 		}
 		if allDone {
 			log.Printf("All blocks are ready for %v, moving file into place.", gf.gpf.Name)
@@ -238,7 +241,7 @@ func (gf *goProFile) Release(ctx context.Context, fh fs.FileHandle) syscall.Errn
 			gf.cacheFile = ""
 		} else {
 			completed := []int{}
-			for i, h := range gf.have {
+			for i, h := range gfh.have {
 				if h == ready {
 					completed = append(completed, i)
 				}
