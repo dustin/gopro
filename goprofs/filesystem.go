@@ -170,6 +170,36 @@ var _ = (fs.NodeGetattrer)((*goProMedium)(nil))
 var _ = (fs.NodeLookuper)((*goProMedium)(nil))
 var _ = (fs.NodeReaddirer)((*goProMedium)(nil))
 var _ = (fs.NodeMkdirer)((*goProMedium)(nil))
+var _ = (fs.NodeCreater)((*goProMedium)(nil))
+var _ = (fs.NodeUnlinker)((*goProMedium)(nil))
+
+func (gm *goProMedium) Unlink(ctx context.Context, name string) syscall.Errno {
+	if name != ".Proxy.lock" {
+		fmt.Printf("Trying to unlink %v", name)
+		return syscall.EPERM
+	}
+	gm.RmChild(name)
+	return 0
+}
+
+func  (gm *goProMedium) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
+	if name == ".Proxy.lock" {
+		log.Printf("Creating .Proxy.lock")
+		gm.mu.Lock()
+		defer gm.mu.Unlock()
+
+		if ch := gm.GetChild(".Proxy.lock"); ch != nil {
+			return ch, nil, 0, 0
+		}
+
+		ch := gm.NewPersistentInode(ctx, &fs.MemRegularFile{}, fs.StableAttr{})
+		gm.AddChild(name, ch, true)
+		return ch, nil, fuse.FOPEN_KEEP_CACHE, 0
+	}
+	log.Printf("Attempting to create %v", name)
+	return nil, nil, 0, syscall.EROFS
+}
+
 
 func (gm *goProMedium) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	if ch := gm.GetChild(name); ch != nil {
@@ -180,8 +210,11 @@ func (gm *goProMedium) Lookup(ctx context.Context, name string, out *fuse.EntryO
 		prox, err := gm.createProxy(ctx)
 		if err == nil {
 			return prox, 0
+		} else {
+			log.Printf("Error creating proxy: %v", err)
 		}
 	}
+	log.Printf("Trying to lookup a missing file: %v", name)
 	return nil, syscall.ENOENT
 }
 
@@ -235,6 +268,7 @@ func (gm *goProMedium) createProxy(ctx context.Context) (*fs.Inode, error) {
 
 func (gm *goProMedium) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	if name != "Proxy" {
+		log.Printf("Trying to create a non-proxy directory:  %v", name)
 		return nil, syscall.EROFS
 	}
 	prox, err := gm.createProxy(ctx)
@@ -346,6 +380,7 @@ func (gf *goProFile) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, 
 	defer func() {
 		if errno == 0 {
 			gr.trackOpen(gf.gpf, gfh.procName)
+			log.Printf("%v opened %v", fh.(goProFileHandle).procName, gf.gpf.Name)
 		}
 	}()
 
@@ -464,6 +499,19 @@ var _ = (fs.NodeOpener)((*goProFile)(nil))
 var _ = (fs.NodeGetattrer)((*goProFile)(nil))
 var _ = (fs.NodeReader)((*goProFile)(nil))
 var _ = (fs.NodeReleaser)((*goProFile)(nil))
+var _ = (fs.NodeGetattrer)((*goProFile)(nil))
+var _ = (fs.NodeGetxattrer)((*goProFile)(nil))
+var _ = (fs.NodeSetxattrer)((*goProFile)(nil))
+
+func (gf *goProFile) Getxattr(ctx context.Context, attr string, dest []byte) (uint32, syscall.Errno) {
+	log.Printf("Attempting to get xattributes for %v: attr", gf.gpf.Name, attr)
+	return 0, syscall.ENOATTR
+}
+
+func (gf *goProFile) Setxattr(ctx context.Context, attr string, data []byte, flags uint32) syscall.Errno {
+	log.Printf("Attempting to set xattr %v: %v", gf.gpf.Name, attr)
+	return syscall.ENOATTR
+}
 
 func (gf *goProFile) Release(ctx context.Context, fh fs.FileHandle) syscall.Errno {
 	gf.mu.Lock()
@@ -478,6 +526,7 @@ func (gf *goProFile) Release(ctx context.Context, fh fs.FileHandle) syscall.Errn
 		log.Printf("Root isn't GoProRoot, it's %v", r)
 	} else {
 		gr.trackClose(gf.gpf, fh.(goProFileHandle).procName)
+		log.Printf("%v closed %v", fh.(goProFileHandle).procName, gf.gpf.Name)
 	}
 
 	if gf.cacheFile != "" {
