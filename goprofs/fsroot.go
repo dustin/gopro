@@ -28,7 +28,8 @@ type GoProRoot struct {
 	mu sync.Mutex
 }
 
-func (fs *GoProRoot) trackOpen(f File, p string) {
+func (fs *GoProRoot) trackOpen(f File, p string) func() {
+	log.Printf("%v opened %v", p, f.Name)
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -39,9 +40,14 @@ func (fs *GoProRoot) trackOpen(f File, p string) {
 		fs.current[f] = map[string]int{}
 	}
 	fs.current[f][p] = fs.current[f][p] + 1
+
+	return func() {
+		fs.trackClose(f, p)
+	}
 }
 
 func (fs *GoProRoot) trackClose(f File, p string) {
+	log.Printf("%v closed %v", p, f.Name)
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 

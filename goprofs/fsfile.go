@@ -26,10 +26,9 @@ const (
 
 type goProFile struct {
 	fs.Inode
-	id        string
-	gpf       File
-	cacheFile string
-	parent    *goProMedium
+	id     string
+	gpf    File
+	parent *goProMedium
 
 	mu sync.Mutex
 }
@@ -59,27 +58,28 @@ func (gf *goProFile) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, 
 		log.Printf("Root isn't GoProRoot, it's %v", r)
 		return nil, 0, syscall.EIO
 	}
-	gfh := &goProFileHandle{procName: procName(ctx), size: gf.gpf.Size, med: gf.parent, gpf: gf.gpf}
+	caller := procName(ctx)
 
 	defer func() {
 		if errno == 0 {
-			gr.trackOpen(gf.gpf, gfh.procName)
-			log.Printf("%v opened %v", fh.(goProFileHandle).procName, gf.gpf.Name)
+			if t, ok := fh.(disposalTracker); ok {
+				t.addCallback(gr.trackOpen(gf.gpf, caller))
+			}
 		}
 	}()
 
-	fh, flg, errno = gf.openExisting(ctx, flags, gr, gfh)
+	fh, flg, errno = gf.openExisting(ctx, flags, gr)
 	if errno == 0 {
 		return fh, flg, errno
 	}
-	return gf.openOrigin(ctx, flags, gr, gfh)
+	return gf.openOrigin(ctx, flags, gr)
 }
 
 func (gf *goProFile) myPath() string {
 	return fmt.Sprintf("%v/%02d/%v/%v", gf.parent.captured.Year(), gf.parent.captured.Month(), gf.parent.id, gf.gpf.Name)
 }
 
-func (gf *goProFile) openExisting(ctx context.Context, flags uint32, gr *GoProRoot, gfh *goProFileHandle) (fh fs.FileHandle, flg uint32, errno syscall.Errno) {
+func (gf *goProFile) openExisting(ctx context.Context, flags uint32, gr *GoProRoot) (fh fs.FileHandle, flg uint32, errno syscall.Errno) {
 	caches := append(gr.sources, gr.cacheDir)
 
 	for _, root := range caches {
@@ -88,8 +88,7 @@ func (gf *goProFile) openExisting(ctx context.Context, flags uint32, gr *GoProRo
 		f, err := os.OpenFile(p, os.O_RDONLY, 0444)
 		if err == nil {
 			log.Printf("Found %v", p)
-			gfh.file = f
-			return gfh, fuse.FOPEN_KEEP_CACHE, 0
+			return &goProLoopHandle{file: f, onClose: func() { log.Printf("existing closed") }}, fuse.FOPEN_KEEP_CACHE, 0
 		}
 		if os.IsNotExist(err) {
 			continue
@@ -101,9 +100,10 @@ func (gf *goProFile) openExisting(ctx context.Context, flags uint32, gr *GoProRo
 	return nil, 0, syscall.ENOENT
 }
 
-func (gf *goProFile) openOrigin(ctx context.Context, flags uint32, gr *GoProRoot, gfh *goProFileHandle) (fh fs.FileHandle, flg uint32, errno syscall.Errno) {
+func (gf *goProFile) openOrigin(ctx context.Context, flags uint32, gr *GoProRoot) (fh fs.FileHandle, flg uint32, errno syscall.Errno) {
 	log.Printf("Not found locally.  Let's do some cloud streaming stuff.")
 
+	gfh := &goProFileHandle{size: gf.gpf.Size, med: gf.parent, gpf: gf.gpf}
 	p := filepath.Join(gr.cacheDir, gf.myPath())
 	err := os.MkdirAll(filepath.Dir(p), 0777)
 	if err != nil {
@@ -114,7 +114,7 @@ func (gf *goProFile) openOrigin(ctx context.Context, flags uint32, gr *GoProRoot
 	if err != nil {
 		return nil, 0, syscall.EIO
 	}
-	gf.cacheFile = p
+	gfh.cacheFile = p
 	gfh.initBlocks(p)
 
 	gfh.file = f
@@ -169,13 +169,7 @@ func (gfh *goProFileHandle) waitForBlocks(f *os.File, blocks []uint64) error {
 	}
 }
 
-func (gf *goProFile) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
-	if off >= int64(gf.gpf.Size) {
-		return fuse.ReadResultData(nil), fs.ToErrno(io.EOF)
-	}
-
-	gfh := fh.(goProFileHandle)
-
+func (gfh *goProFileHandle) Read(ctx context.Context, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
 	blocks := []uint64{blockCount(uint64(off))}
 	for i := blocks[0] + 1; i < blockCount(uint64(off+int64(len(dest)))); i++ {
 		blocks = append(blocks, i)
@@ -188,14 +182,56 @@ func (gf *goProFile) Read(ctx context.Context, fh fs.FileHandle, dest []byte, of
 	return fuse.ReadResultFd(gfh.file.Fd(), off, len(dest)), 0
 }
 
+func (gf *goProFile) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
+	if off >= int64(gf.gpf.Size) {
+		return fuse.ReadResultData(nil), fs.ToErrno(io.EOF)
+	}
+
+	return fh.(fs.FileReader).Read(ctx, dest, off)
+}
+
+type goProLoopHandle struct {
+	onClose func()
+	file    *os.File
+}
+
+func (h *goProLoopHandle) Release(ctx context.Context) syscall.Errno {
+	h.onClose()
+	return fs.ToErrno(h.file.Close())
+}
+
+func (h *goProLoopHandle) Read(ctx context.Context, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
+	return fuse.ReadResultFd(h.file.Fd(), off, len(dest)), 0
+}
+
+func (h *goProLoopHandle) addCallback(f func()) {
+	h.onClose = f
+}
+
+type disposalTracker interface {
+	addCallback(func())
+}
+
+var _ = (fs.FileReleaser)((*goProLoopHandle)(nil))
+var _ = (fs.FileReader)((*goProLoopHandle)(nil))
+var _ = (disposalTracker)((*goProLoopHandle)(nil))
+var _ = (fs.FileReleaser)((*goProFileHandle)(nil))
+var _ = (fs.FileReader)((*goProFileHandle)(nil))
+var _ = (disposalTracker)((*goProFileHandle)(nil))
+
 type goProFileHandle struct {
-	procName string
-	gpf      File
-	med      *goProMedium
-	file     *os.File
-	size     uint64
-	have     []blockState
-	mu       sync.Mutex
+	gpf       File
+	med       *goProMedium
+	file      *os.File
+	size      uint64
+	have      []blockState
+	cacheFile string
+	onClose   func()
+	mu        sync.Mutex
+}
+
+func (h *goProFileHandle) addCallback(f func()) {
+	h.onClose = f
 }
 
 func (gfh *goProFileHandle) initBlocks(p string) {
@@ -224,52 +260,40 @@ func (gf *goProFile) Setxattr(ctx context.Context, attr string, data []byte, fla
 	return syscall.ENOATTR
 }
 
-func (gf *goProFile) Release(ctx context.Context, fh fs.FileHandle) syscall.Errno {
-	gf.mu.Lock()
-	defer gf.mu.Unlock()
+func (gfh *goProFileHandle) Release(ctx context.Context) syscall.Errno {
+	gfh.mu.Lock()
+	defer gfh.mu.Unlock()
 
-	gfh := fh.(goProFileHandle)
-	gfh.file.Close()
-
-	r := gf.Root()
-	gr, ok := gf.Root().Operations().(*GoProRoot)
-	if !ok {
-		log.Printf("Root isn't GoProRoot, it's %v", r)
-	} else {
-		gr.trackClose(gf.gpf, fh.(goProFileHandle).procName)
-		log.Printf("%v closed %v", fh.(goProFileHandle).procName, gf.gpf.Name)
+	allDone := true
+	for i := uint64(0); i <= blockCount(uint64(gfh.size)); i++ {
+		allDone = allDone && gfh.have[i] == ready
 	}
-
-	if gf.cacheFile != "" {
-		allDone := true
-		for i := uint64(0); i <= blockCount(uint64(gf.gpf.Size)); i++ {
-			allDone = allDone && gfh.have[i] == ready
+	if allDone {
+		log.Printf("All blocks are ready for %v, moving file into place.", gfh.gpf.Name)
+		if err := os.Rename(gfh.cacheFile+".tmp", gfh.cacheFile); err != nil {
+			log.Printf("Error renaming file:  %v", err)
 		}
-		if allDone {
-			log.Printf("All blocks are ready for %v, moving file into place.", gf.gpf.Name)
-			if err := os.Rename(gf.cacheFile+".tmp", gf.cacheFile); err != nil {
-				log.Printf("Error renaming file:  %v", err)
+	} else {
+		completed := []int{}
+		for i, h := range gfh.have {
+			if h == ready {
+				completed = append(completed, i)
 			}
-			gf.cacheFile = ""
-		} else {
-			completed := []int{}
-			for i, h := range gfh.have {
-				if h == ready {
-					completed = append(completed, i)
-				}
-			}
-			j, err := json.Marshal(completed)
-			if err != nil {
-				log.Printf("Error marshaling blocks: %v", err)
-				return 0
-			}
-			if err := os.WriteFile(gf.cacheFile+".blocks", j, 0666); err != nil {
-				log.Printf("Error writing block file: %v", err)
-				return 0
-			}
+		}
+		j, err := json.Marshal(completed)
+		if err != nil {
+			log.Printf("Error marshaling blocks: %v", err)
+			return 0
+		}
+		if err := os.WriteFile(gfh.cacheFile+".blocks", j, 0666); err != nil {
+			log.Printf("Error writing block file: %v", err)
 		}
 	}
 	return 0
+}
+
+func (gf *goProFile) Release(ctx context.Context, fh fs.FileHandle) syscall.Errno {
+	return fh.(fs.FileReleaser).Release(ctx)
 }
 
 var _ = (fs.NodeOpener)((*goProFile)(nil))
