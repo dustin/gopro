@@ -112,6 +112,16 @@ func (gm *goProMedium) Create(ctx context.Context, name string, flags uint32, mo
 	return nil, nil, 0, syscall.EROFS
 }
 
+func (gm *goProMedium) wasMissing(name string) {
+	r := gm.Root()
+	gr, ok := gm.Root().Operations().(*GoProRoot)
+	if !ok {
+		log.Printf("root isn't GoRoot while remembering missing: %v", r)
+		return
+	}
+	gr.wasMissing(fmt.Sprintf("%v/%02d/%v/%v", gm.captured.Year(), gm.captured.Month(), gm.id, name))
+}
+
 func (gm *goProMedium) Lookup(ctx context.Context, name string, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
 	if ch := gm.GetChild(name); ch != nil {
 		return ch, 0
@@ -125,7 +135,7 @@ func (gm *goProMedium) Lookup(ctx context.Context, name string, out *fuse.EntryO
 			log.Printf("Error creating proxy: %v", err)
 		}
 	}
-	log.Printf("Trying to lookup a missing file: %v", name)
+	gm.wasMissing(name)
 	return nil, syscall.ENOENT
 }
 

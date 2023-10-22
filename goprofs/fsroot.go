@@ -15,15 +15,19 @@ import (
 	"github.com/hanwen/go-fuse/v2/fuse"
 )
 
-const SIGINFO = syscall.Signal(29)
+const (
+	SIGINFO    = syscall.Signal(29)
+	maxMissing = 10
+)
 
 type GoProRoot struct {
-	sources  stringListFlag
-	cacheDir string
-	proxyDir string
-	baseURL  string
-	tree     fstree
-	current  map[File]map[string]int
+	sources       stringListFlag
+	cacheDir      string
+	proxyDir      string
+	baseURL       string
+	tree          fstree
+	current       map[File]map[string]int
+	recentMissing []string
 	fs.Inode
 	mu sync.Mutex
 }
@@ -57,6 +61,18 @@ func (fs *GoProRoot) trackClose(f File, p string) {
 	}
 	if len(fs.current[f]) == 0 {
 		delete(fs.current, f)
+	}
+}
+
+func (fs *GoProRoot) wasMissing(name string) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if len(fs.recentMissing) > 0 && fs.recentMissing[len(fs.recentMissing)-1] == name {
+		return
+	}
+	fs.recentMissing = append(fs.recentMissing, name)
+	if len(fs.recentMissing) > maxMissing {
+		fs.recentMissing = fs.recentMissing[:maxMissing]
 	}
 }
 
@@ -160,10 +176,20 @@ func (fs *GoProRoot) info(ch chan os.Signal, tracker *httputil.HTTPTracker) {
 			fs.mu.Lock()
 			defer fs.mu.Unlock()
 
-			for f, procs := range fs.current {
-				fmt.Printf("Procs with %v open:\n", f.Name)
-				for proc, n := range procs {
-					fmt.Printf("\t%v: %v\n", proc, n)
+			if len(fs.current) > 0 {
+				fmt.Printf("Open files:\n")
+				for f, procs := range fs.current {
+					fmt.Printf("  * %v:\n", f.Name)
+					for proc, n := range procs {
+						fmt.Printf("    * %v: %v\n", proc, n)
+					}
+				}
+			}
+
+			if len(fs.recentMissing) > 0 {
+				fmt.Printf("Recent missing:\n")
+				for _, n := range fs.recentMissing {
+					fmt.Printf(" * %v\n", n)
 				}
 			}
 		}()

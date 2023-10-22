@@ -101,7 +101,7 @@ func (gf *goProFile) openExisting(ctx context.Context, flags uint32, gr *GoProRo
 }
 
 func (gf *goProFile) openOrigin(ctx context.Context, flags uint32, gr *GoProRoot) (fh fs.FileHandle, flg uint32, errno syscall.Errno) {
-	log.Printf("Not found locally.  Let's do some cloud streaming stuff.")
+	log.Printf("%v not found locally.  Let's do some cloud streaming stuff.", gf.myPath())
 
 	gfh := &goProFileHandle{size: gf.gpf.Size, med: gf.parent, gpf: gf.gpf}
 	p := filepath.Join(gr.cacheDir, gf.myPath())
