@@ -91,7 +91,7 @@ func (gr *GoProRoot) Lookup(ctx context.Context, name string, out *fuse.EntryOut
 func (gp *GoProRoot) refresh(ctx context.Context) error {
 	log.Printf("Refreshing")
 	defer log.Printf("Refreshed")
-	res, err := fetchList(gp.baseURL)
+	res, err := fetchList(ctx, gp.baseURL)
 	if err != nil {
 		return fmt.Errorf("failed to get media list: %v", err)
 	}

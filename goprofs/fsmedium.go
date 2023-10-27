@@ -49,7 +49,7 @@ func (gm *goProMedium) proxyExists() bool {
 	return false
 }
 
-func (gm *goProMedium) origURL(f File) (string, error) {
+func (gm *goProMedium) origURL(ctx context.Context, f File) (string, error) {
 	gm.mu.Lock()
 	defer gm.mu.Unlock()
 	if gm.origUrls == nil {
@@ -60,7 +60,7 @@ func (gm *goProMedium) origURL(f File) (string, error) {
 			return "", fmt.Errorf("root isn't GoProRoot: %v", r)
 		}
 		log.Printf("Fetching origin URLs for %v", gm.id)
-		m, err := fetchURLs(gr.baseURL, gm.id)
+		m, err := fetchURLs(ctx, gr.baseURL, gm.id)
 		if err != nil {
 			log.Printf("failed to get URLs for %v: %v", gm.id, err)
 			return "", err

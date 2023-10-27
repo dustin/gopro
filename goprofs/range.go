@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 )
 
 const (
@@ -26,11 +28,14 @@ func blockRange(s uint64) (uint64, uint64) {
 	return s * BlockSize, (s + 1) * BlockSize
 }
 
-func fillHole(w io.WriteSeeker, u string, from uint64, to uint64) (int64, error) {
+func fillHole(ctx context.Context, w io.WriteSeeker, u string, from uint64, to uint64) (int64, error) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
 	if _, err := w.Seek(int64(from), io.SeekStart); err != nil {
 		return 0, err
 	}
-	req, err := http.NewRequest("GET", u, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
 		return 0, err
 	}

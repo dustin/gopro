@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -28,8 +29,14 @@ type Medium struct {
 	Files    []File    `json:"files"`
 }
 
-func fetchList(baseu string) ([]Medium, error) {
-	res, err := http.Get(baseu + mediaListURL)
+func fetchList(ctx context.Context, baseu string) ([]Medium, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, "GET", baseu+mediaListURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -42,8 +49,14 @@ func fetchList(baseu string) ([]Medium, error) {
 	return msg, nil
 }
 
-func fetchURLs(baseu string, mid string) (map[File]string, error) {
-	res, err := http.Get(baseu + retrieveURL + mid)
+func fetchURLs(ctx context.Context, baseu string, mid string) (map[File]string, error) {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, "GET", baseu+retrieveURL+mid, nil)
+	if err != nil {
+		return nil, err
+	}
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

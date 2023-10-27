@@ -121,16 +121,16 @@ func (gf *goProFile) openOrigin(ctx context.Context, flags uint32, gr *GoProRoot
 	return gfh, fuse.FOPEN_KEEP_CACHE, 0
 }
 
-func (gfh *goProFileHandle) startFetch(f *os.File, block uint64) error {
+func (gfh *goProFileHandle) startFetch(ctx context.Context, f *os.File, block uint64) error {
 	// This is called with a lock held.
-	u, err := gfh.med.origURL(gfh.gpf)
+	u, err := gfh.med.origURL(ctx, gfh.gpf)
 	if err != nil {
 		return err
 	}
 	log.Printf("Fetching block %v for %v", block, gfh.gpf.Name)
 	l, h := blockRange(block)
 	gfh.have[block] = fetching
-	_, err = fillHole(f, u, l, h)
+	_, err = fillHole(ctx, f, u, l, h)
 	if err != nil {
 		log.Printf("Failed to fetch block %v: %v", block, err)
 		gfh.have[int(block)] = missing
@@ -140,7 +140,7 @@ func (gfh *goProFileHandle) startFetch(f *os.File, block uint64) error {
 	return err
 }
 
-func (gfh *goProFileHandle) waitForBlocks(f *os.File, blocks []uint64) error {
+func (gfh *goProFileHandle) waitForBlocks(ctx context.Context, f *os.File, blocks []uint64) error {
 	gfh.mu.Lock()
 	defer gfh.mu.Unlock()
 
@@ -153,7 +153,7 @@ func (gfh *goProFileHandle) waitForBlocks(f *os.File, blocks []uint64) error {
 		for _, b := range blocks {
 			switch gfh.have[int(b)] {
 			case missing:
-				if err := gfh.startFetch(f, b); err != nil {
+				if err := gfh.startFetch(ctx, f, b); err != nil {
 					log.Printf("Failed starting a fetch: %v", err)
 					return err
 				}
@@ -175,7 +175,7 @@ func (gfh *goProFileHandle) Read(ctx context.Context, dest []byte, off int64) (f
 		blocks = append(blocks, i)
 	}
 
-	if err := gfh.waitForBlocks(gfh.file, blocks); err != nil {
+	if err := gfh.waitForBlocks(ctx, gfh.file, blocks); err != nil {
 		return fuse.ReadResultData(nil), syscall.EIO
 	}
 
