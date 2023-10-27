@@ -121,8 +121,7 @@ func (gfh *goProFileHandle) startFetch(ctx context.Context, f *os.File, block ui
 	}
 	log.Printf("Fetching block %v for %v", block, gfh.gpf.Name)
 	l, h := blockRange(block)
-	_, err = fillHole(ctx, f, u, l, h)
-	if err != nil {
+	if _, err = fillHole(ctx, f, u, l, h); err != nil {
 		log.Printf("Failed to fetch block %v: %v", block, err)
 	} else {
 		gfh.have[int(block)] = true
@@ -253,10 +252,15 @@ func (gfh *goProFileHandle) Release(ctx context.Context) syscall.Errno {
 		if err := os.Rename(gfh.cacheFile+".tmp", gfh.cacheFile); err != nil {
 			log.Printf("Error renaming file:  %v", err)
 		}
+		if err := os.Remove(gfh.cacheFile + ".blocks"); err != nil {
+			log.Printf("Error removing blocks file: %v", err)
+		}
 	} else {
 		completed := []int{}
-		for i := range gfh.have {
-			completed = append(completed, i)
+		for i, v := range gfh.have {
+			if v {
+				completed = append(completed, i)
+			}
 		}
 		j, err := json.Marshal(completed)
 		if err != nil {
