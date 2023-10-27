@@ -26,19 +26,19 @@ type GoProRoot struct {
 	proxyDir      string
 	baseURL       string
 	tree          fstree
-	current       map[File]map[string]int
+	current       map[string]map[string]int
 	recentMissing []string
 	fs.Inode
 	mu sync.Mutex
 }
 
-func (fs *GoProRoot) trackOpen(f File, p string) func() {
-	log.Printf("%v opened %v", p, f.Name)
+func (fs *GoProRoot) trackOpen(f string, p string) func() {
+	log.Printf("%v opened %v", p, f)
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
 	if fs.current == nil {
-		fs.current = map[File]map[string]int{}
+		fs.current = map[string]map[string]int{}
 	}
 	if fs.current[f] == nil {
 		fs.current[f] = map[string]int{}
@@ -50,8 +50,8 @@ func (fs *GoProRoot) trackOpen(f File, p string) func() {
 	}
 }
 
-func (fs *GoProRoot) trackClose(f File, p string) {
-	log.Printf("%v closed %v", p, f.Name)
+func (fs *GoProRoot) trackClose(f string, p string) {
+	log.Printf("%v closed %v", p, f)
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
@@ -179,7 +179,7 @@ func (fs *GoProRoot) info(ch chan os.Signal, tracker *httputil.HTTPTracker) {
 			if len(fs.current) > 0 {
 				fmt.Printf("Open files:\n")
 				for f, procs := range fs.current {
-					fmt.Printf("  * %v:\n", f.Name)
+					fmt.Printf("  * %v:\n", f)
 					for proc, n := range procs {
 						fmt.Printf("    * %v: %v\n", proc, n)
 					}

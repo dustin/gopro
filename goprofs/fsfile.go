@@ -55,7 +55,7 @@ func (gf *goProFile) Open(ctx context.Context, flags uint32) (fh fs.FileHandle, 
 	defer func() {
 		if errno == 0 {
 			if t, ok := fh.(disposalTracker); ok {
-				t.addCallback(gr.trackOpen(gf.gpf, caller))
+				t.addCallback(gr.trackOpen(gf.myPath(), caller))
 			}
 		}
 	}()
