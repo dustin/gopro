@@ -616,7 +616,7 @@ fileTODO = oq_ [sql|
 storeFiles :: MonadIO m => Connection -> [FileData] -> m ()
 storeFiles db fds = do
   let vals = [(_fd_medium, _fd_section, _fd_label, _fd_type, _fd_item_num, _fd_file_size) | FileData{..} <- fds]
-  em "insert into files (media_id, section, label, type, item_number, file_size) values (?, ?, ?, ?, ?)" vals db
+  em "insert into files (media_id, section, label, type, item_number, file_size) values (?, ?, ?, ?, ?, ?)" vals db
 
 instance FromRow FileData where
   fromRow = FileData <$> field <*> field <*> field <*> field <*> field <*> field
