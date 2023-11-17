@@ -24,6 +24,7 @@ type MediaType = Photo
     | ExternalVideo
     | Session
     | MultiClipEdit
+    | Audio
     | Unknown
 
 
@@ -42,6 +43,7 @@ mediaTypeStr t = case t of
                      ExternalVideo -> "ExternalVideo"
                      Session -> "Session"
                      MultiClipEdit -> "MultiClipEdit"
+                     Audio -> "Audio"
                      Unknown -> "Unknown"
 
 strMediaType s = case s of
@@ -59,6 +61,7 @@ strMediaType s = case s of
                      "ExternalVideo" -> ExternalVideo
                      "Session" -> Session
                      "MultiClipEdit" -> MultiClipEdit
+                     "Audio" -> Audio
                      _ -> Unknown
 
 
