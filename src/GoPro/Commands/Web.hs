@@ -56,7 +56,7 @@ ltshow = LT.pack . show
 namedFiles :: Medium -> Int -> (a -> FileData) -> [a] -> [(String, a)]
 namedFiles Medium{..} mx fdf = fmap nameOne
   where
-    names = maybe mempty (\base -> Map.fromList $ zip [1 .. mx] (iterate nextFile base)) (parseGPFileName =<< _medium_filename)
+    names = maybe mempty (Map.fromList . zip [1 .. mx] . iterate nextFile) (parseGPFileName =<< _medium_filename)
     nameOne a = (maybe (fromMaybe "" _medium_filename) (takeFileName . _gpFilePath) $ Map.lookup _fd_item_num names, a)
       where
         FileData{..} = fdf a
