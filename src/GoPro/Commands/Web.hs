@@ -65,7 +65,7 @@ runServer :: GoPro ()
 runServer = do
   env <- ask
   let settings = Warp.setPort 8008 Warp.defaultSettings
-  app <- scottyAppT (runIO env) application
+  app <- scottyAppT (runIO env) (application env)
   logInfo "Starting web server at http://localhost:8008/"
   liftIO $ Warp.runSettings settings $ WaiWS.websocketsOr WS.defaultConnectionOptions (wsapp env) app
 
@@ -77,9 +77,9 @@ runServer = do
       WS.withPingThread conn 30 (pure ()) $
         forever (WS.sendTextData conn . J.encode =<< (atomically . readTChan) ch)
 
-    application :: ScottyT LT.Text GoPro ()
-    application = do
-      let staticPath = "static"
+    application :: Env -> ScottyT LT.Text GoPro ()
+    application env = do
+      let staticPath = optStaticPath . gpOptions $ env
       middleware $ GZ.gzip GZ.def {GZ.gzipFiles = GZ.GzipCompress}
       middleware $ staticPolicy (noDots >-> addBase staticPath)
 
