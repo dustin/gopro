@@ -202,6 +202,11 @@ deleted some data from `gopro.db`.
 The `cleanup` command cleans unprocessed data both on the GoPro side
 as well as the local state regarding what is being uploaded.
 
+This only includes files that aren't expected to be fully uploaded.
+i.e., items in `registered`, `uploading`, or `failed` states.  It does
+_not_ include items in `transcoding` or similar states where GoPro has
+the item in full and is processing it.
+
 If you've ever tried to upload things from the web UI and had it tell
 you the media's already been upload (when it hasn't), or if you
 started an upload you don't intend to finish and want to get rid of

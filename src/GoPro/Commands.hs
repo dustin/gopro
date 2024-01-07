@@ -53,7 +53,7 @@ data Command = AuthCmd
              | ReprocessCmd (NonEmpty MediumID)
              | BackupCmd Extractor
              | ProcessSQSCmd
-             | BackupLocalCmd Extractor FilePath
+             | BackupLocalCmd Extractor (NonEmpty FilePath)
              | DownloadCmd Extractor FilePath (NonEmpty MediumID)
              | ConfigListCmd
              | ConfigGetCmd ConfigOption

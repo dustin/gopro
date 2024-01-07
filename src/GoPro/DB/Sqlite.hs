@@ -154,7 +154,8 @@ initQueries = [
           item_number int4 not null,
           file_size int8 not null
         )|]),
-  (19, "create index files_by_media_id on files(media_id)")
+  (19, "create index files_by_media_id on files(media_id)"),
+  (20, "alter table files add column section not null")
   ]
 
 initTables :: MonadIO m => Connection -> m ()
@@ -614,12 +615,12 @@ fileTODO = oq_ [sql|
 
 storeFiles :: MonadIO m => Connection -> [FileData] -> m ()
 storeFiles db fds = do
-  let vals = [(_fd_medium, _fd_label, _fd_type, _fd_item_num, _fd_file_size) | FileData{..} <- fds]
-  em "insert into files (media_id, label, type, item_number, file_size) values (?, ?, ?, ?, ?)" vals db
+  let vals = [(_fd_medium, _fd_section, _fd_label, _fd_type, _fd_item_num, _fd_file_size) | FileData{..} <- fds]
+  em "insert into files (media_id, section, label, type, item_number, file_size) values (?, ?, ?, ?, ?, ?)" vals db
 
 instance FromRow FileData where
-  fromRow = FileData <$> field <*> field <*> field <*> field <*> field
+  fromRow = FileData <$> field <*> field <*> field <*> field <*> field <*> field
 
 loadFiles :: MonadIO m => Connection -> Maybe MediumID -> m [FileData]
-loadFiles db = \case Nothing -> q_ "select media_id, label, type, item_number, file_size from files" db
-                     Just mid -> q' "select media_id, label, type, item_number, file_size from files where media_id = ?" (Only mid) db
+loadFiles db = \case Nothing -> q_ "select media_id, section, label, type, item_number, file_size from files" db
+                     Just mid -> q' "select media_id, section, label, type, item_number, file_size from files where media_id = ?" (Only mid) db

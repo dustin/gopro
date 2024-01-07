@@ -255,3 +255,15 @@ unit_nextFile = mapM_ (uncurry testOne) [
       case nextFile <$> parseGPFileName input of
         Just got -> assertEqual ("nexting " <> show got) want (_gpFilePath got)
         Nothing  -> fail ("Failed to parse " <> input)
+
+instance Arbitrary File where
+  arbitrary = QC.elements ["GH012345.MP4", "GOPR1234.MP4", "GHAA0001.MP4"] `suchThatMap` parseGPFileName
+
+newtype FileNum = FileNum Int deriving (Eq, Show, Ord)
+
+instance Arbitrary FileNum where
+  arbitrary = FileNum <$> QC.choose (1, 25)
+  shrink (FileNum x) = FileNum <$> shrink x
+
+prop_nextFileAt :: File -> FileNum -> Property
+prop_nextFileAt f (FileNum n) = maybe (-1) (view fileNum) (parseGPFileName (_gpFilePath (fileAt f n))) === n

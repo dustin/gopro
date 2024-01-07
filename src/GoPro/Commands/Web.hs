@@ -6,7 +6,7 @@
 
 module GoPro.Commands.Web where
 
-import           Control.Applicative            ((<|>))
+import           Control.Applicative            (asum, (<|>))
 import           Control.Concurrent.STM         (atomically, dupTChan, readTChan)
 import qualified Control.Foldl                  as Foldl
 import           Control.Lens
@@ -16,20 +16,23 @@ import           Control.Monad.Reader           (MonadReader, ask, asks, lift)
 import qualified Data.Aeson                     as J
 import qualified Data.Aeson.KeyMap              as KM
 import           Data.Aeson.Lens                (_Object)
+import qualified Data.Aeson.Types               as J
 import           Data.Cache                     (insert)
 import           Data.Foldable                  (fold)
 import           Data.List                      (intercalate)
 import           Data.List.NonEmpty             (NonEmpty (..))
 import qualified Data.Map.Strict                as Map
+import           Data.Maybe                     (fromMaybe)
 import           Data.String                    (fromString)
 import qualified Data.Text                      as T
 import qualified Data.Text.Lazy                 as LT
 import qualified Data.Vector                    as V
 
 import           GoPro.Commands
-import           GoPro.Commands.Sync            (refreshMedia, runFullSync)
+import           GoPro.Commands.Sync            (extractFiles, refreshMedia, runFullSync)
 import           GoPro.DB
 import           GoPro.DEVC                     (GPSReading (..))
+import           GoPro.File
 import           GoPro.Notification
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
@@ -41,7 +44,7 @@ import qualified Network.Wai.Middleware.Gzip    as GZ
 import           Network.Wai.Middleware.Static  (addBase, noDots, staticPolicy, (>->))
 import qualified Network.WebSockets             as WS
 import           Numeric
-import           System.FilePath.Posix          ((</>))
+import           System.FilePath.Posix          (takeFileName, (</>))
 import           Text.XML.Light
 import           UnliftIO                       (async)
 import           Web.Scotty.Trans               (ActionT, ScottyError, ScottyT, file, get, json, middleware, param,
@@ -50,11 +53,19 @@ import           Web.Scotty.Trans               (ActionT, ScottyError, ScottyT, 
 ltshow :: Show a => a -> LT.Text
 ltshow = LT.pack . show
 
+namedFiles :: Medium -> Int -> (a -> FileData) -> [a] -> [(String, a)]
+namedFiles Medium{..} mx fdf = fmap nameOne
+  where
+    names = maybe mempty (Map.fromList . zip [1 .. mx] . iterate nextFile) (parseGPFileName =<< _medium_filename)
+    nameOne a = (maybe (fromMaybe "" _medium_filename) (takeFileName . _gpFilePath) $ Map.lookup _fd_item_num names, a)
+      where
+        FileData{..} = fdf a
+
 runServer :: GoPro ()
 runServer = do
   env <- ask
   let settings = Warp.setPort 8008 Warp.defaultSettings
-  app <- scottyAppT (runIO env) application
+  app <- scottyAppT (runIO env) (application env)
   logInfo "Starting web server at http://localhost:8008/"
   liftIO $ Warp.runSettings settings $ WaiWS.websocketsOr WS.defaultConnectionOptions (wsapp env) app
 
@@ -66,9 +77,9 @@ runServer = do
       WS.withPingThread conn 30 (pure ()) $
         forever (WS.sendTextData conn . J.encode =<< (atomically . readTChan) ch)
 
-    application :: ScottyT LT.Text GoPro ()
-    application = do
-      let staticPath = "static"
+    application :: Env -> ScottyT LT.Text GoPro ()
+    application env = do
+      let staticPath = optStaticPath . gpOptions $ env
       middleware $ GZ.gzip GZ.def {GZ.gzipFiles = GZ.GzipCompress}
       middleware $ staticPolicy (noDots >-> addBase staticPath)
 
@@ -91,7 +102,17 @@ runServer = do
 
       get "/api/files" do
         Database{..} <- asks database
-        json =<< loadFiles Nothing
+        ms <- loadMedia
+        fs <- Map.fromListWith (<>) . fmap (\x -> (_fd_medium x, [x])) <$> loadFiles Nothing
+        json $ map (\m@Medium{..} -> fromMaybe (J.toJSON m) $ do
+                    basename <- parseGPFileName =<< _medium_filename
+                    fd <- sources <$> Map.lookup _medium_id fs
+                    let names = Map.fromList $ zip [1 .. length fd] (iterate nextFile basename)
+                        numbered n = maybe (fromMaybe "" _medium_filename) (takeFileName . _gpFilePath) $ Map.lookup n names
+                        name d@FileData{..} = J.toJSON d & _Object . at "filename" ?~ J.toJSON (numbered _fd_item_num)
+                        j = J.toJSON m
+                    pure (j & _Object . at "files" ?~ J.listValue name fd)
+                   ) ms
 
       post "/api/sync" do
         _ <- lift . async $ do
@@ -133,6 +154,20 @@ runServer = do
       get "/api/retrieve/:id" do
         imgid <- param "id"
         json @J.Value =<< lift (retrieve imgid)
+
+      get "/api/files/:id" do
+        imgid <- param "id"
+        Database{..} <- asks database
+        Just med <- lift $ loadMedium imgid
+        mfiles <- Map.fromList . fmap (\FileData{..} -> ((_fd_section, _fd_label, _fd_item_num), _fd_file_size)) <$> loadFiles (Just imgid)
+        let adjustSize f@FileData{..} = f{_fd_file_size=Map.findWithDefault 0 (_fd_section, _fd_label, _fd_item_num) mfiles}
+        fs <- extractFiles imgid <$> lift (retrieve imgid)
+        let named = namedFiles med (length fs) (\(_,_,nf) -> nf) fs
+        json $ fmap (\(fn, (h, u, fd)) -> J.object [
+                        ("url", J.toJSON u),
+                        ("head", J.toJSON h),
+                        ("fileData", J.toJSON (adjustSize fd)),
+                        ("filename", J.toJSON fn)]) named
 
       get "/api/gpslog/:id" do
         Database{..} <- asks database
@@ -176,6 +211,9 @@ runServer = do
                                          ("width", jn (f ^. var_width)),
                                          ("height", jn (f ^. var_height))]) _variations
               )
+
+sources :: [FileData] -> [FileData]
+sources fd = asum [filter ((== "source") . _fd_label) fd] -- add some extras here
 
 gpsExport :: (ScottyError e, MonadReader Env m, MonadIO m) => LT.Text -> LT.Text -> (Medium -> MDSummary -> Foldl.Fold GPSReading LT.Text) -> MediumID -> ActionT e m ()
 gpsExport mime ext f mid = do

@@ -16,14 +16,14 @@ module GoPro.DB (MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_varia
                  ConfigOption(..), strOption, optionStr,
                  Database(..),
                  AuthResult(..),
-                 FileData(..), fd_medium, fd_label, fd_type, fd_item_num, fd_file_size,
+                 FileData(..), fd_medium, fd_section, fd_label, fd_type, fd_item_num, fd_file_size,
                  ) where
 
 import           Control.Foldl          (Fold (..))
 import           Control.Lens           hiding (Fold, (.=))
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Aeson             (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
-                                         genericToEncoding, (.=))
+                                         genericToEncoding, genericToJSON, (.=))
 import qualified Data.Aeson             as J
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BL
@@ -106,6 +106,7 @@ data AuthResult = AuthResult {
 
 data FileData = FileData {
   _fd_medium    :: MediumID,
+  _fd_section   :: Text,
   _fd_label     :: Text,
   _fd_type      :: Text,
   _fd_item_num  :: Int,
@@ -116,6 +117,7 @@ makeLenses ''FileData
 
 instance ToJSON FileData where
   toEncoding = genericToEncoding defaultOptions { fieldLabelModifier = drop 4}
+  toJSON = genericToJSON defaultOptions { fieldLabelModifier = drop 4}
 
 data Database = Database {
   initTables          :: forall m. MonadIO m => m (),

@@ -87,8 +87,8 @@ options Options{..} = Options
                                         _       -> Left (inv "MediumType" s mtypes)
     mtypes = [show t | t <- [minBound..] :: [MediumType]]
 
-    backupLocalCmd = BackupLocalCmd extractOrig <$> argument str (metavar "path" <> action "directory")
-    backupLocalAllCmd = BackupLocalCmd extractMedia <$> argument str (metavar "path" <> action "directory")
+    backupLocalCmd = BackupLocalCmd extractOrig <$> some1 (argument str (metavar "path" <> action "directory"))
+    backupLocalAllCmd = BackupLocalCmd extractMedia <$> some1 (argument str (metavar "path" <> action "directory"))
     downloadCmd = DownloadCmd extractMedia
                     <$> argument str (metavar "path" <> action "directory")
                     <*> some1 (argument str (metavar "mIDs..."))
@@ -160,7 +160,7 @@ run (ReprocessCmd ms)     = runReprocessCmd ms
 run (BackupCmd x)         = runBackup x >> runReceiveS3CopyQueue
 run ProcessSQSCmd         = runReceiveS3CopyQueue
 run (BackupLocalCmd x p)  = runLocalBackup x p
-run (DownloadCmd x p l)   = runDownload x p l
+run (DownloadCmd x p l)   = runDownload x (pure p) l
 run ConfigListCmd         = runListConfig
 run (ConfigGetCmd k)      = runGetConfig k
 run (ConfigSetCmd k v)    = runSetConfig k v
