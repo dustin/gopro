@@ -4,7 +4,6 @@
 .stack-work/
 /.cache/
 elm-stuff
-gopro.cabal
 gopro.db
 stack.yaml.lock
 static/js/gopro.js
