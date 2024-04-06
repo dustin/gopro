@@ -47,7 +47,7 @@ import           Numeric
 import           System.FilePath.Posix          (takeFileName, (</>))
 import           Text.XML.Light
 import           UnliftIO                       (async)
-import           Web.Scotty.Trans               (ActionT, ScottyError, ScottyT, file, get, json, middleware, param,
+import           Web.Scotty.Trans               (ActionT, ScottyT, file, get, json, middleware, captureParam,
                                                  post, raw, scottyAppT, setHeader, status, text)
 
 ltshow :: Show a => a -> LT.Text
@@ -77,7 +77,7 @@ runServer = do
       WS.withPingThread conn 30 (pure ()) $
         forever (WS.sendTextData conn . J.encode =<< (atomically . readTChan) ch)
 
-    application :: Env -> ScottyT LT.Text GoPro ()
+    application :: Env -> ScottyT GoPro ()
     application env = do
       let staticPath = optStaticPath . gpOptions $ env
       middleware $ GZ.gzip GZ.def {GZ.gzipFiles = GZ.GzipCompress}
@@ -88,7 +88,7 @@ runServer = do
         file $ staticPath </> "index.html"
 
       get "/api/media" do
-        Database{..} <- asks database
+        Database{..} <- lift $ asks database
         ms <- loadMedia
         gs <- selectMeta
         json $ map (\m@Medium{..} ->
@@ -101,7 +101,7 @@ runServer = do
                    ) ms
 
       get "/api/files" do
-        Database{..} <- asks database
+        Database{..} <- lift $ asks database
         ms <- loadMedia
         fs <- Map.fromListWith (<>) . fmap (\x -> (_fd_medium x, [x])) <$> loadFiles Nothing
         json $ map (\m@Medium{..} -> fromMaybe (J.toJSON m) $ do
@@ -121,7 +121,7 @@ runServer = do
         status noContent204
 
       post "/api/refresh/:id" do
-        imgid <- param "id"
+        imgid <- captureParam "id"
         lift . logInfoL $ ["Refreshing ", imgid]
         lift (refreshMedia (imgid :| []))
         status noContent204
@@ -139,8 +139,8 @@ runServer = do
         status noContent204
 
       get "/thumb/:id" do
-        i <- param "id"
-        db <- asks database
+        i <- captureParam "id"
+        db <- lift $ asks database
         loadThumbnail db i >>= \case
           Nothing ->
             file $ staticPath </> "nothumb.jpg"
@@ -149,15 +149,15 @@ runServer = do
             setHeader "Cache-Control" "max-age=86400"
             raw b
 
-      get "/api/areas" $ asks database >>= \Database{..} -> selectAreas >>= json
+      get "/api/areas" $ lift (asks database) >>= \Database{..} -> selectAreas >>= json
 
       get "/api/retrieve/:id" do
-        imgid <- param "id"
+        imgid <- captureParam "id"
         json @J.Value =<< lift (retrieve imgid)
 
       get "/api/files/:id" do
-        imgid <- param "id"
-        Database{..} <- asks database
+        imgid <- captureParam "id"
+        Database{..} <- lift $ asks database
         Just med <- lift $ loadMedium imgid
         mfiles <- Map.fromList . fmap (\FileData{..} -> ((_fd_section, _fd_label, _fd_item_num), _fd_file_size)) <$> loadFiles (Just imgid)
         let adjustSize f@FileData{..} = f{_fd_file_size=Map.findWithDefault 0 (_fd_section, _fd_label, _fd_item_num) mfiles}
@@ -170,8 +170,8 @@ runServer = do
                         ("filename", J.toJSON fn)]) named
 
       get "/api/gpslog/:id" do
-        Database{..} <- asks database
-        mid <- param "id"
+        Database{..} <- lift $ asks database
+        mid <- captureParam "id"
         setHeader "Content-Type" "text/csv"
         setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> ".csv\"")
         text =<< foldGPSReadings mid 1000 (Foldl.Fold (\o GPSReading{..} ->
@@ -186,13 +186,13 @@ runServer = do
                                                                ltshow _gpsr_fix] : o) ["time,lat,lon,alt,speed2d,speed3d,dop,fix"] (LT.intercalate "\n" . reverse))
 
       get "/api/gpspath/:id" do
-        gpsExport "application/gpx+xml" "gpx" (\med meta -> Foldl.Fold kmlStep [] (kmlDone med meta)) =<< param "id"
+        gpsExport "application/gpx+xml" "gpx" (\med meta -> Foldl.Fold kmlStep [] (kmlDone med meta)) =<< captureParam "id"
 
       get "/api/gpxpath/:id" do
-        gpsExport "application/gpx+xml" "gpx" (\med _ -> Foldl.Fold gpxStep [] (gpxDone med)) =<< param "id"
+        gpsExport "application/gpx+xml" "gpx" (\med _ -> Foldl.Fold gpxStep [] (gpxDone med)) =<< captureParam "id"
 
       get "/api/retrieve2/:id" do
-        imgid <- param "id"
+        imgid <- captureParam "id"
         fi <- _fileStuff <$> lift (retrieve imgid)
         json (encd fi)
           where
@@ -215,9 +215,9 @@ runServer = do
 sources :: [FileData] -> [FileData]
 sources fd = asum [filter ((== "source") . _fd_label) fd] -- add some extras here
 
-gpsExport :: (ScottyError e, MonadReader Env m, MonadIO m) => LT.Text -> LT.Text -> (Medium -> MDSummary -> Foldl.Fold GPSReading LT.Text) -> MediumID -> ActionT e m ()
+gpsExport :: (MonadReader Env m, MonadIO m) => LT.Text -> LT.Text -> (Medium -> MDSummary -> Foldl.Fold GPSReading LT.Text) -> MediumID -> ActionT m ()
 gpsExport mime ext f mid = do
-  Database{..} <- asks database
+  Database{..} <- lift $ asks database
   Just med <- loadMedium mid
   Just meta <- loadMeta mid
   setHeader "Content-Type" mime

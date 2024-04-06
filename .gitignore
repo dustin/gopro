@@ -10,3 +10,4 @@ static/js/gopro.js
 /goprofs/goprofs
 /dist-newstyle/
 flake-profile*
+ghcid.txt

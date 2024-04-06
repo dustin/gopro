@@ -6,21 +6,14 @@ module DBSpec where
 
 import           Control.Lens                         hiding (elements)
 import           Control.Monad                        (forM_)
-import           Control.Monad.IO.Class               (MonadIO (..))
-import           Control.Monad.Reader                 (ReaderT (..))
 import qualified Data.Aeson                           as J
 import           Data.ByteString                      (ByteString)
-import qualified Data.ByteString.Char8                as BS8
 import           Data.List                            (sortOn)
-import           Data.Map.Strict                      (Map)
 import qualified Data.Map.Strict                      as Map
 import           Data.Ord                             (Down (..))
-import qualified Data.Text                            as T
 import           Data.Time
-import           Database.SQLite.Simple
 
 import           Test.QuickCheck.Instances.ByteString ()
-import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck                as QC
 
@@ -30,7 +23,6 @@ import           GoPro.Plus.Auth                      (AuthInfo (..))
 import           GoPro.Plus.Media
 
 import           GoPro.DB
-import           GoPro.DB.Postgres                    as PDB
 import           GoPro.DB.Sqlite                      as SDB
 import           GoPro.Resolve
 

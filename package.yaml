@@ -64,7 +64,7 @@ dependencies:
 - retry
 - safe
 - scientific
-- scotty < 0.20
+- scotty >= 0.20 && < 0.21
 - semigroupoids
 - shelly
 - split

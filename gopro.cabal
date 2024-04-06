@@ -99,7 +99,7 @@ library
     , retry
     , safe
     , scientific
-    , scotty <0.20
+    , scotty ==0.20.*
     , semigroupoids
     , shelly
     , split
@@ -182,7 +182,7 @@ executable gopro
     , retry
     , safe
     , scientific
-    , scotty <0.20
+    , scotty ==0.20.*
     , semigroupoids
     , shelly
     , split
@@ -270,7 +270,7 @@ test-suite gopro-test
     , retry
     , safe
     , scientific
-    , scotty <0.20
+    , scotty ==0.20.*
     , semigroupoids
     , shelly
     , split

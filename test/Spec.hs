@@ -4,10 +4,8 @@ import           Control.Lens
 import qualified Data.Aeson            as J
 import qualified Data.ByteString.Lazy  as BL
 import qualified Data.List.NonEmpty    as NE
-import           Data.Maybe            (fromMaybe)
 import           Data.These
 
-import           Test.Tasty
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck as QC
 
@@ -15,8 +13,6 @@ import           GoPro.Commands.Backup (extractMedia, extractOrig)
 import           GoPro.Commands.Sync   (metadataSources)
 import           GoPro.File
 import           GoPro.Plus.Media      (FileInfo)
-
-import qualified DBSpec
 
 unit_extractMedia :: Assertion
 unit_extractMedia = do
