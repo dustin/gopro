@@ -11,6 +11,9 @@ mkShell {
     ghcid
     haskell-language-server
     haskellPackages.tasty-discover
+    cabal-install
+    ghc
+    zlib
   ];
 
   shellHook = ''

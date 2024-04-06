@@ -1,6 +1,6 @@
 *~
 .DS_Store
-.direnv
+/.direnv/
 .stack-work/
 /.cache/
 elm-stuff
@@ -9,3 +9,5 @@ gopro.db
 stack.yaml.lock
 static/js/gopro.js
 /goprofs/goprofs
+/dist-newstyle/
+flake-profile*
