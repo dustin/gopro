@@ -29,8 +29,6 @@ import           GoPro.Plus.Arbitrary
 import           GoPro.Plus.Auth                      (AuthInfo (..))
 import           GoPro.Plus.Media
 
-import           Database.Postgres.Temp
-
 import           GoPro.DB
 import           GoPro.DB.Postgres                    as PDB
 import           GoPro.DB.Sqlite                      as SDB
@@ -48,13 +46,6 @@ prop_authStorage (NonEmpty ais) = ioProperty . runDB $ \db -> do
   mapM_ (updateAuth db) ais
   AuthResult loaded _ <- loadAuth db
   pure (loaded === last ais)
-
-runPostgresDB :: (Database -> IO a) -> IO a
-runPostgresDB a = do
-  x <- with $ \dbh -> withPostgres (BS8.unpack $ toConnectionString dbh) $ \db -> do
-    initTables db
-    a db
-  either (fail . show) pure x
 
 runSQLiteDB :: (Database -> IO a) -> IO a
 runSQLiteDB a = withSQLite ":memory:" $ \db -> do

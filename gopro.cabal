@@ -108,7 +108,6 @@ library
     , text
     , these
     , time
-    , tmp-postgres
     , tomland
     , transformers
     , unix
@@ -192,7 +191,6 @@ executable gopro
     , text
     , these
     , time
-    , tmp-postgres
     , tomland
     , transformers
     , unix
@@ -285,7 +283,6 @@ test-suite gopro-test
     , text
     , these
     , time
-    , tmp-postgres
     , tomland
     , transformers
     , unix

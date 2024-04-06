@@ -73,7 +73,6 @@ dependencies:
 - text
 - these
 - time
-- tmp-postgres
 - tomland
 - transformers
 - unix
