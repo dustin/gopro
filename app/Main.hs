@@ -112,7 +112,7 @@ some1 :: Parser a -> Parser (NonEmpty a)
 some1 p = NE.fromList <$> some p
 
 runCleanup :: GoPro ()
-runCleanup = asks database >>= \DB.Database{..} -> clearUploads *> (mapM_ rm =<< (filter wanted <$> notReady))
+runCleanup = asks database >>= \DB.Database{..} -> clearUploads *> (mapM_ rm . filter wanted =<< notReady)
   where
     wanted Medium{..} = _medium_ready_to_view `elem` [ViewRegistered, ViewUploading, ViewFailure]
     rm Medium{..} = do
@@ -172,7 +172,7 @@ ifne l a = traverse_ a (NE.nonEmpty l)
 
 main :: IO ()
 main = do
-  homeConfig <- loadConfigFile defaultOptions =<< (</> ".config/gopro/config.toml") <$> getHomeDirectory
+  homeConfig <- loadConfigFile defaultOptions . (</> ".config/gopro/config.toml") =<< getHomeDirectory
   localConfig <- loadConfigFile homeConfig ".gopro.toml"
   o@Options{..} <- customExecParser (prefs showHelpOnError) (opts localConfig)
   runWithOptions o (run optCommand)
