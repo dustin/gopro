@@ -17,9 +17,14 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-21.11
+resolver: lts-22.15
 
 allow-newer: true
+
+allow-newer-deps:
+  - iconv
+  - tomland
+  - validation-selective
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -59,6 +64,7 @@ extra-deps:
 - amazonka-sqs-2.0@sha256:63c15d7b39a923edd70152cba9ff3b4c246be6c9dda76446c7c303ae988f729e,4078
 - amazonka-sso-2.0@sha256:902be13b604e4a3b51a9b8e1adc6a32f42322ae11f738a72a8c737b2d0a91a5e,2995
 - amazonka-sts-2.0@sha256:5c721083e8d80883a893176de6105c27bbbd8176f467c27ac5f8d548a5e726d8,3209
+- scotty-0.12.1@sha256:15c06ece267187c4324645e54f2104a63fe3eb8ce6eb5698e4093735daba1f1a,5437
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

@@ -12,7 +12,6 @@
 
 module GoPro.DB.Postgres (withPostgres) where
 
-import           Control.Applicative        (liftA2)
 import           Control.Foldl              (Fold (..))
 import           Control.Monad.Catch        (bracket)
 import           Control.Monad.IO.Class     (MonadIO (..))

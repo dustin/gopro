@@ -13,7 +13,6 @@
 
 module GoPro.DB.Sqlite (withSQLite) where
 
-import           Control.Applicative              (liftA2)
 import           Control.Foldl                    (Fold (..))
 import           Control.Monad.IO.Class           (MonadIO (..))
 import           Data.Aeson                       (FromJSON (..), ToJSON (..))

@@ -14,6 +14,7 @@ mkShell {
     cabal-install
     ghc
     zlib
+    postgresql
   ];
 
   shellHook = ''
