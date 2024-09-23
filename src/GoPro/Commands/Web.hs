@@ -6,13 +6,15 @@
 
 module GoPro.Commands.Web where
 
+import           Cleff
+import           Cleff.Fail
+import           Cleff.Reader
 import           Control.Applicative            (asum, (<|>))
 import           Control.Concurrent.STM         (atomically, dupTChan, readTChan)
 import qualified Control.Foldl                  as Foldl
 import           Control.Lens
 import           Control.Monad                  (forever)
-import           Control.Monad.IO.Class         (MonadIO (..))
-import           Control.Monad.Reader           (MonadReader, ask, asks, lift)
+import           Control.Monad.Reader           (lift)
 import qualified Data.Aeson                     as J
 import qualified Data.Aeson.KeyMap              as KM
 import           Data.Aeson.Lens                (_Object)
@@ -33,6 +35,7 @@ import           GoPro.Commands.Sync            (extractFiles, refreshMedia, run
 import           GoPro.DB
 import           GoPro.DEVC                     (GPSReading (..))
 import           GoPro.File
+import           GoPro.Logging
 import           GoPro.Notification
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
@@ -47,8 +50,8 @@ import           Numeric
 import           System.FilePath.Posix          (takeFileName, (</>))
 import           Text.XML.Light
 import           UnliftIO                       (async)
-import           Web.Scotty.Trans               (ActionT, ScottyT, file, get, json, middleware, captureParam,
-                                                 post, raw, scottyAppT, setHeader, status, text)
+import           Web.Scotty.Trans               (ActionT, ScottyT, captureParam, file, get, json, middleware, post, raw,
+                                                 scottyAppT, setHeader, status, text)
 
 ltshow :: Show a => a -> LT.Text
 ltshow = LT.pack . show
@@ -61,13 +64,14 @@ namedFiles Medium{..} mx fdf = fmap nameOne
       where
         FileData{..} = fdf a
 
-runServer :: GoPro ()
+runServer :: forall es. [Reader Env, LogFX, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 runServer = do
-  env <- ask
   let settings = Warp.setPort 8008 Warp.defaultSettings
-  app <- scottyAppT (runIO env) (application env)
-  logInfo "Starting web server at http://localhost:8008/"
-  liftIO $ Warp.runSettings settings $ WaiWS.websocketsOr WS.defaultConnectionOptions (wsapp env) app
+  env <- ask
+  withRunInIO \runIO -> do
+    app <- scottyAppT runIO (application env)
+    runIO $ logInfo "Starting web server at http://localhost:8008/"
+    liftIO $ Warp.runSettings settings $ WaiWS.websocketsOr WS.defaultConnectionOptions (wsapp env) app
 
   where
     wsapp :: Env -> WS.ServerApp
@@ -77,7 +81,7 @@ runServer = do
       WS.withPingThread conn 30 (pure ()) $
         forever (WS.sendTextData conn . J.encode =<< (atomically . readTChan) ch)
 
-    application :: Env -> ScottyT GoPro ()
+    application :: Env -> ScottyT (Eff es) ()
     application env = do
       let staticPath = optStaticPath . gpOptions $ env
       middleware $ GZ.gzip GZ.def {GZ.gzipFiles = GZ.GzipCompress}
@@ -88,9 +92,8 @@ runServer = do
         file $ staticPath </> "index.html"
 
       get "/api/media" do
-        Database{..} <- lift $ asks database
-        ms <- loadMedia
-        gs <- selectMeta
+        ms <- lift loadMedia
+        gs <- lift selectMeta
         json $ map (\m@Medium{..} ->
                       let j = J.toJSON m in
                         case Map.lookup _medium_id gs of
@@ -101,9 +104,8 @@ runServer = do
                    ) ms
 
       get "/api/files" do
-        Database{..} <- lift $ asks database
-        ms <- loadMedia
-        fs <- Map.fromListWith (<>) . fmap (\x -> (_fd_medium x, [x])) <$> loadFiles Nothing
+        ms <- lift loadMedia
+        fs <- Map.fromListWith (<>) . fmap (\x -> (_fd_medium x, [x])) <$> lift (loadFiles Nothing)
         json $ map (\m@Medium{..} -> fromMaybe (J.toJSON m) $ do
                     basename <- parseGPFileName =<< _medium_filename
                     fd <- sources <$> Map.lookup _medium_id fs
@@ -128,7 +130,6 @@ runServer = do
 
       post "/api/reauth" do
         lift do
-          Database{..} <- asks database
           res <- refreshAuth . arInfo =<< loadAuth
           -- Replace the DB value
           updateAuth res
@@ -140,8 +141,7 @@ runServer = do
 
       get "/thumb/:id" do
         i <- captureParam "id"
-        db <- lift $ asks database
-        loadThumbnail db i >>= \case
+        lift (loadThumbnail i) >>= \case
           Nothing ->
             file $ staticPath </> "nothumb.jpg"
           Just b -> do
@@ -149,7 +149,7 @@ runServer = do
             setHeader "Cache-Control" "max-age=86400"
             raw b
 
-      get "/api/areas" $ lift (asks database) >>= \Database{..} -> selectAreas >>= json
+      get "/api/areas" $ lift selectAreas >>= json
 
       get "/api/retrieve/:id" do
         imgid <- captureParam "id"
@@ -157,9 +157,8 @@ runServer = do
 
       get "/api/files/:id" do
         imgid <- captureParam "id"
-        Database{..} <- lift $ asks database
         Just med <- lift $ loadMedium imgid
-        mfiles <- Map.fromList . fmap (\FileData{..} -> ((_fd_section, _fd_label, _fd_item_num), _fd_file_size)) <$> loadFiles (Just imgid)
+        mfiles <- Map.fromList . fmap (\FileData{..} -> ((_fd_section, _fd_label, _fd_item_num), _fd_file_size)) <$> lift (loadFiles (Just imgid))
         let adjustSize f@FileData{..} = f{_fd_file_size=Map.findWithDefault 0 (_fd_section, _fd_label, _fd_item_num) mfiles}
         fs <- extractFiles imgid <$> lift (retrieve imgid)
         let named = namedFiles med (length fs) (\(_,_,nf) -> nf) fs
@@ -170,11 +169,10 @@ runServer = do
                         ("filename", J.toJSON fn)]) named
 
       get "/api/gpslog/:id" do
-        Database{..} <- lift $ asks database
         mid <- captureParam "id"
         setHeader "Content-Type" "text/csv"
         setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> ".csv\"")
-        text =<< foldGPSReadings mid 1000 (Foldl.Fold (\o GPSReading{..} ->
+        text =<< lift (foldGPSReadings mid 1000 (Foldl.Fold (\o GPSReading{..} ->
                                                          LT.intercalate "," [
                                                                ltshow _gpsr_time,
                                                                ltshow _gpsr_lat,
@@ -183,7 +181,7 @@ runServer = do
                                                                ltshow _gpsr_speed2d,
                                                                ltshow _gpsr_speed3d,
                                                                ltshow _gpsr_dop,
-                                                               ltshow _gpsr_fix] : o) ["time,lat,lon,alt,speed2d,speed3d,dop,fix"] (LT.intercalate "\n" . reverse))
+                                                               ltshow _gpsr_fix] : o) ["time,lat,lon,alt,speed2d,speed3d,dop,fix"] (LT.intercalate "\n" . reverse)))
 
       get "/api/gpspath/:id" do
         gpsExport "application/gpx+xml" "gpx" (\med meta -> Foldl.Fold kmlStep [] (kmlDone med meta)) =<< captureParam "id"
@@ -212,17 +210,17 @@ runServer = do
                                          ("height", jn (f ^. var_height))]) _variations
               )
 
+    gpsExport :: LT.Text -> LT.Text -> (Medium -> MDSummary -> Foldl.Fold GPSReading LT.Text) -> MediumID -> ActionT (Eff es) ()
+    gpsExport mime ext f mid = do
+      Just med <- lift $ loadMedium mid
+      Just meta <- lift $ loadMeta mid
+      setHeader "Content-Type" mime
+      setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> "." <> ext <> "\"")
+      text =<< lift (foldGPSReadings mid 50 (f med meta))
+
+
 sources :: [FileData] -> [FileData]
 sources fd = asum [filter ((== "source") . _fd_label) fd] -- add some extras here
-
-gpsExport :: (MonadReader Env m, MonadIO m) => LT.Text -> LT.Text -> (Medium -> MDSummary -> Foldl.Fold GPSReading LT.Text) -> MediumID -> ActionT m ()
-gpsExport mime ext f mid = do
-  Database{..} <- lift $ asks database
-  Just med <- loadMedium mid
-  Just meta <- loadMeta mid
-  setHeader "Content-Type" mime
-  setHeader "Content-Disposition" ("attachment; filename=\"" <> LT.fromStrict mid <> "." <> ext <> "\"")
-  text =<< foldGPSReadings mid 50 (f med meta)
 
 -- XML helpers
 elc :: String -> [Attr] -> [Content] -> Element

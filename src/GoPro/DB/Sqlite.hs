@@ -1,5 +1,9 @@
+{-# LANGUAGE BlockArguments             #-}
+{-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
@@ -7,14 +11,15 @@
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeOperators              #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Avoid lambda using `infix`" #-}
 
-module GoPro.DB.Sqlite (withSQLite) where
+module GoPro.DB.Sqlite (runDatabaseSqlite, runDatabaseSqliteStr) where
 
+import           Cleff
 import           Control.Foldl                    (Fold (..))
-import           Control.Monad.IO.Class           (MonadIO (..))
 import           Data.Aeson                       (FromJSON (..), ToJSON (..))
 import qualified Data.Aeson                       as J
 import qualified Data.ByteString                  as BS
@@ -30,7 +35,7 @@ import           Data.String                      (fromString)
 import           Data.Text                        (Text)
 import qualified Data.Text.Encoding               as TE
 import           Data.Typeable                    (Typeable)
-import           Database.SQLite.Simple           hiding (bind, close)
+import           Database.SQLite.Simple           hiding (bind)
 import           Database.SQLite.Simple.FromField
 import           Database.SQLite.Simple.Ok
 import           Database.SQLite.Simple.QQ        (sql)
@@ -46,53 +51,58 @@ import           GoPro.Plus.Media                 (Medium (..), MediumID, Medium
 import           GoPro.Plus.Upload                (DerivativeID, Upload (..), UploadPart (..))
 import           GoPro.Resolve                    (MDSummary (..))
 
-withSQLite :: String -> (Database -> IO a) -> IO a
-withSQLite name a = withConnection name (a . mkDatabase)
-  where
-    mkDatabase db = Database {
-      initTables = GoPro.DB.Sqlite.initTables db,
-      loadConfig = GoPro.DB.Sqlite.loadConfig db,
-      updateConfig = \m -> GoPro.DB.Sqlite.updateConfig m db,
-      updateAuth = GoPro.DB.Sqlite.updateAuth db,
-      loadAuth = GoPro.DB.Sqlite.loadAuth db,
-      storeMedia = \r -> GoPro.DB.Sqlite.storeMedia r db,
-      loadMediaIDs = GoPro.DB.Sqlite.loadMediaIDs db,
-      loadMediaRows = GoPro.DB.Sqlite.loadMediaRows db,
-      loadMedia = GoPro.DB.Sqlite.loadMedia db,
-      loadMedium = GoPro.DB.Sqlite.loadMedium db,
-      loadThumbnail = GoPro.DB.Sqlite.loadThumbnail db,
-      storeMoments = \mid moms -> GoPro.DB.Sqlite.storeMoments mid moms db,
-      loadMoments = GoPro.DB.Sqlite.loadMoments db,
-      momentsTODO = GoPro.DB.Sqlite.momentsTODO db,
-      metaBlobTODO = GoPro.DB.Sqlite.metaBlobTODO db,
-      insertMetaBlob = \m mdt bs -> GoPro.DB.Sqlite.insertMetaBlob m mdt bs db,
-      loadMetaBlob = GoPro.DB.Sqlite.loadMetaBlob db,
-      selectMetaBlob = GoPro.DB.Sqlite.selectMetaBlob db,
-      clearMetaBlob = \ms -> GoPro.DB.Sqlite.clearMetaBlob ms db,
-      metaTODO = GoPro.DB.Sqlite.metaTODO db,
-      insertMeta = \mid mds -> GoPro.DB.Sqlite.insertMeta mid mds db,
-      selectMeta = GoPro.DB.Sqlite.selectMeta db,
-      loadMeta = GoPro.DB.Sqlite.loadMeta db,
-      storeUpload = \fp mid up did part size -> GoPro.DB.Sqlite.storeUpload fp mid up did part size db,
-      completedUploadPart = \mid i p -> GoPro.DB.Sqlite.completedUploadPart mid i p db,
-      completedUpload = \mid i -> GoPro.DB.Sqlite.completedUpload mid i db,
-      listPartialUploads = GoPro.DB.Sqlite.listPartialUploads db,
-      clearUploads = GoPro.DB.Sqlite.clearUploads db,
-      listQueuedFiles = GoPro.DB.Sqlite.listQueuedFiles db,
-      listToCopyToS3 = GoPro.DB.Sqlite.listToCopyToS3 db,
-      queuedCopyToS3 = \stuff -> GoPro.DB.Sqlite.queuedCopyToS3 stuff db,
-      markS3CopyComplete = \stuff -> GoPro.DB.Sqlite.markS3CopyComplete stuff db,
-      listS3Waiting = GoPro.DB.Sqlite.listS3Waiting db,
-      listToCopyLocally = GoPro.DB.Sqlite.listToCopyLocally db,
-      selectAreas = GoPro.DB.Sqlite.selectAreas db,
-      fixupQuery = GoPro.DB.Sqlite.fixupQuery db,
-      foldGPSReadings = GoPro.DB.Sqlite.foldGPSReadings db,
-      storeGPSReadings = GoPro.DB.Sqlite.storeGPSReadings db,
-      gpsReadingsTODO = GoPro.DB.Sqlite.gpsReadingsTODO db,
-      fileTODO = GoPro.DB.Sqlite.fileTODO db,
-      storeFiles = GoPro.DB.Sqlite.storeFiles db,
-      loadFiles = GoPro.DB.Sqlite.loadFiles db
-      }
+runDatabaseSqliteStr :: IOE :> es => String -> Eff (DatabaseEff : es) a -> Eff es a
+runDatabaseSqliteStr str f = liftIO (open str) >>= flip runDatabaseSqlite f
+
+runDatabaseSqlite :: IOE :> es => Connection -> Eff (DatabaseEff : es) a -> Eff es a
+runDatabaseSqlite db = interpretIO \case
+  InitTables -> GoPro.DB.Sqlite.initTables db
+  LoadConfig -> GoPro.DB.Sqlite.loadConfig db
+  UpdateConfig config -> GoPro.DB.Sqlite.updateConfig config db
+
+  UpdateAuth authInfo -> GoPro.DB.Sqlite.updateAuth db authInfo
+  LoadAuth -> GoPro.DB.Sqlite.loadAuth db
+
+  StoreMedia mediaRows -> GoPro.DB.Sqlite.storeMedia mediaRows db
+  LoadMediaIDs -> GoPro.DB.Sqlite.loadMediaIDs db
+  LoadMediaRows -> GoPro.DB.Sqlite.loadMediaRows db
+  LoadMedia -> GoPro.DB.Sqlite.loadMedia db
+  LoadMedium mediumID -> GoPro.DB.Sqlite.loadMedium db mediumID
+  LoadThumbnail mediumID -> GoPro.DB.Sqlite.loadThumbnail db mediumID
+  StoreMoments mediumID moments -> GoPro.DB.Sqlite.storeMoments mediumID moments db
+  LoadMoments -> GoPro.DB.Sqlite.loadMoments db
+  MomentsTODO -> GoPro.DB.Sqlite.momentsTODO db
+  MetaBlobTODO -> GoPro.DB.Sqlite.metaBlobTODO db
+  InsertMetaBlob mediumID metadataType bs -> GoPro.DB.Sqlite.insertMetaBlob mediumID metadataType bs db
+  LoadMetaBlob mediumID -> GoPro.DB.Sqlite.loadMetaBlob db mediumID
+  SelectMetaBlob -> GoPro.DB.Sqlite.selectMetaBlob db
+  ClearMetaBlob mediumIDs -> GoPro.DB.Sqlite.clearMetaBlob mediumIDs db
+  MetaTODO -> GoPro.DB.Sqlite.metaTODO db
+  InsertMeta mediumID mdSummary -> GoPro.DB.Sqlite.insertMeta mediumID mdSummary db
+  SelectMeta -> GoPro.DB.Sqlite.selectMeta db
+  LoadMeta mediumID -> GoPro.DB.Sqlite.loadMeta db mediumID
+  StoreUpload filePath mediumID upload derivativeID i1 i2 -> GoPro.DB.Sqlite.storeUpload filePath mediumID upload derivativeID i1 i2 db
+  CompletedUploadPart mediumID i1 i2 -> GoPro.DB.Sqlite.completedUploadPart mediumID i1 i2 db
+  CompletedUpload mediumID i -> GoPro.DB.Sqlite.completedUpload mediumID i db
+  ListPartialUploads -> GoPro.DB.Sqlite.listPartialUploads db
+  ClearUploads -> GoPro.DB.Sqlite.clearUploads db
+  ListQueuedFiles -> GoPro.DB.Sqlite.listQueuedFiles db
+  ListToCopyToS3 -> GoPro.DB.Sqlite.listToCopyToS3 db
+  QueuedCopyToS3 pairs -> GoPro.DB.Sqlite.queuedCopyToS3 pairs db
+  MarkS3CopyComplete results -> GoPro.DB.Sqlite.markS3CopyComplete results db
+  ListS3Waiting -> GoPro.DB.Sqlite.listS3Waiting db
+  ListToCopyLocally -> GoPro.DB.Sqlite.listToCopyLocally db
+  SelectAreas -> GoPro.DB.Sqlite.selectAreas db
+
+  FoldGPSReadings mediumID maxDop f -> GoPro.DB.Sqlite.foldGPSReadings db mediumID maxDop f
+  StoreGPSReadings mediumID readings -> GoPro.DB.Sqlite.storeGPSReadings db mediumID readings
+  GPSReadingsTODO -> GoPro.DB.Sqlite.gpsReadingsTODO db
+
+  FileTODO -> GoPro.DB.Sqlite.fileTODO db
+  StoreFiles files -> GoPro.DB.Sqlite.storeFiles db files
+  LoadFiles maybeMediumID -> GoPro.DB.Sqlite.loadFiles db maybeMediumID
+
+  FixupQuery q -> GoPro.DB.Sqlite.fixupQuery db q
 
 initQueries :: [(Int, Query)]
 initQueries = [

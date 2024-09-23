@@ -27,6 +27,7 @@ library
   exposed-modules:
       Exif
       FFMPeg
+      GoPro.Alternative
       GoPro.Commands
       GoPro.Commands.Backup
       GoPro.Commands.Config
@@ -53,6 +54,16 @@ library
       OverloadedStrings
       RecordWildCards
       NamedFieldPuns
+      UndecidableInstances
+      GADTs
+      KindSignatures
+      LambdaCase
+      BlockArguments
+      TypeOperators
+      RankNTypes
+      FlexibleContexts
+      DataKinds
+      ConstraintKinds
   ghc-options: -Wall
   build-depends:
       aeson
@@ -65,6 +76,7 @@ library
     , base >=4.7 && <5
     , bytestring
     , cache
+    , cleff
     , clock
     , conduit
     , conduit-extra
@@ -135,6 +147,16 @@ executable gopro
       OverloadedStrings
       RecordWildCards
       NamedFieldPuns
+      UndecidableInstances
+      GADTs
+      KindSignatures
+      LambdaCase
+      BlockArguments
+      TypeOperators
+      RankNTypes
+      FlexibleContexts
+      DataKinds
+      ConstraintKinds
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -Wall
   build-depends:
       aeson
@@ -147,6 +169,7 @@ executable gopro
     , base >=4.7 && <5
     , bytestring
     , cache
+    , cleff
     , clock
     , conduit
     , conduit-extra
@@ -221,6 +244,16 @@ test-suite gopro-test
       OverloadedStrings
       RecordWildCards
       NamedFieldPuns
+      UndecidableInstances
+      GADTs
+      KindSignatures
+      LambdaCase
+      BlockArguments
+      TypeOperators
+      RankNTypes
+      FlexibleContexts
+      DataKinds
+      ConstraintKinds
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       HUnit
@@ -234,6 +267,7 @@ test-suite gopro-test
     , base >=4.7 && <5
     , bytestring
     , cache
+    , cleff
     , clock
     , conduit
     , conduit-extra

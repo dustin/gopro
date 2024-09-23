@@ -1,7 +1,11 @@
 module GoPro.Interactive where
 
+import           Cleff
+import           Cleff.Reader
 import           GoPro.Commands
+import           GoPro.DB
+import           GoPro.Logging
 
 -- | A convenience function for performing GoPro actions from within GHCI.
-interactively :: String -> GoPro a -> IO a
+interactively :: String -> (forall es. [IOE, DatabaseEff, LogFX, Reader Env] :>> es => Eff es a) -> IO a
 interactively dbp = runWithOptions defaultOptions{optDBPath=dbp}

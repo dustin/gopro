@@ -8,19 +8,21 @@
 
 module GoPro.Commands.Sync where
 
+import           Cleff
+import           Cleff.Fail
+import           Cleff.Reader
 import           Conduit
-import           Control.Applicative   (Alternative (..), optional)
+import           Control.Applicative   (optional)
 import           Control.Concurrent    (threadDelay)
 import           Control.Lens
 import           Control.Monad         (unless, void)
 import           Control.Monad.Loops   (iterateWhile, whileM_)
-import           Control.Monad.Reader  (asks)
 import           Control.Retry         (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy  as BL
 import           Data.Char             (toLower)
-import           Data.Foldable         (asum, fold, for_, traverse_)
+import           Data.Foldable         (fold, for_, traverse_)
 import           Data.List.Extra       (chunksOf)
 import           Data.List.NonEmpty    (NonEmpty (..))
 import qualified Data.List.NonEmpty    as NE
@@ -38,9 +40,11 @@ import           System.Directory      (createDirectoryIfMissing, doesFileExist,
 import           System.FilePath.Posix (takeExtension, (</>))
 
 import           Data.Functor          (($>))
+import           GoPro.Alternative
 import           GoPro.Commands
 import           GoPro.Commands.Backup (runStoreMeta')
 import           GoPro.DB
+import           GoPro.Logging
 import           GoPro.Meta
 import           GoPro.Plus.Media
 import           GoPro.Resolve
@@ -51,21 +55,20 @@ import           UnliftIO.Exception    (SomeException, try)
 data SyncType = Full
     | Incremental
 
-runFetch :: SyncType -> GoPro ()
+runFetch :: [Reader Env, LogFX, DatabaseEff, Fail, IOE] :>> es => SyncType -> Eff es ()
 runFetch stype = do
-  db <- asks database
-  seen <- Set.fromList <$> loadMediaIDs db
+  seen <- Set.fromList <$> loadMediaIDs
   ms <- todo seen
   logInfoL [tshow (length ms), " new items"]
   unless (null ms) $ logDbgL ["new items: ", tshow (ms ^.. folded . medium_id)]
-  mapM_ (storeSome db) $ chunksOf 100 ms
+  mapM_ storeSome $ chunksOf 100 ms
 
     where resolve m = recoverAll policy $ \rt -> do
             unless (rsIterNumber rt == 0) $ logInfoL ["Retrying fetch of ", _medium_id m,
                                                       " attempt ", tshow (rsIterNumber rt)]
             MediaRow m' _ _ r <- medium (_medium_id m)
             Just variants <- fetchVariantsSansURLs (_medium_id m) -- TODO:  Maybe make this total
-            thumbs <- optional (fetchThumbnail m)
+            thumbs <- runTryAlternative . optional $ TryAlternative (fetchThumbnail m)
             pure $ MediaRow m' thumbs variants r
 
           policy = exponentialBackoff 2000000 <> limitRetries 3
@@ -77,29 +80,28 @@ runFetch stype = do
               listPred Full        = const True
               wanted Medium{..} = isJust _medium_file_size && _medium_ready_to_view == ViewReady
 
-          storeSome db l = do
+          storeSome l = do
             logInfoL ["Storing batch of ", tshow (length l)]
             c <- asksOpt optDownloadConcurrency
-            storeMedia db =<< fetch c l
+            storeMedia =<< fetch c l
           fetch c = pooledMapConcurrentlyN c resolve
 
-runGetMoments :: GoPro ()
+runGetMoments :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
 runGetMoments = do
-  Database{..} <- asks database
   need <- momentsTODO
   unless (null need) $ logInfoL ["Need to fetch ", (tshow . length) need, " moments"]
   c <- asksOpt optDownloadConcurrency
   mapM_ (uncurry storeMoments) =<< pooledMapConcurrentlyN c pickup need
     where pickup mid = (mid,) <$> moments mid
 
-runGrokTel :: GoPro [(MediumID, Maybe BS.ByteString)]
-runGrokTel = asks database >>= \db -> fmap catMaybes . traverse (ud db) =<< metaTODO db
+runGrokTel :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Eff es [(MediumID, Maybe BS.ByteString)]
+runGrokTel = fmap catMaybes . traverse ud =<< metaTODO
     where
-      ud db (mid, typ, bs) = do
+      ud (mid, typ, bs) = do
         logInfoL ["Updating ", tshow (mid, typ)]
         case summarize typ bs of
           Left x  -> logErrorL ["Error parsing stuff for ", tshow mid, " show ", tshow x] $> Nothing
-          Right x -> insertMeta db mid x $> Just (mid, Just bs)
+          Right x -> insertMeta mid x $> Just (mid, Just bs)
       summarize :: MetadataType -> BS.ByteString -> Either String MDSummary
       summarize GPMF bs      = summarizeGPMF <$> parseDEVC bs
       summarize EXIF bs      = summarizeEXIF <$> parseExif (BL.fromStrict bs)
@@ -117,17 +119,16 @@ metadataSources fi = fold [variation "mp4_low" "low",
 
     variation var = ls (fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url)
 
-runGetMeta :: GoPro ()
+runGetMeta :: forall es. [Reader Env, LogFX, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 runGetMeta = do
-  db <- asks database
-  needs <- metaBlobTODO db
+  needs <- metaBlobTODO
   logInfoL ["Fetching meta ", tshow (length needs)]
   logDbgL ["Need meta: ", tshow needs]
   c <- asksOpt optDownloadConcurrency
-  pooledMapConcurrentlyN_ c (process db) needs
+  pooledMapConcurrentlyN_ c process needs
     where
-      process :: Database -> (MediumID, String) -> GoPro ()
-      process db mtyp@(mid,typ) = do
+      process :: (MediumID, String) -> Eff es ()
+      process mtyp@(mid,typ) = do
         fi <- retrieve mid
         case typ of
           "Video"          -> processEx fi extractGPMD GPMF ".mp4"
@@ -140,33 +141,33 @@ runGetMeta = do
 
           where
             processEx fi ex fmt fx = do
-              let fv :: String -> String -> FilePath -> GoPro (Maybe BS.ByteString)
+              let fv :: String -> String -> FilePath -> Eff es (Maybe BS.ByteString)
                   fv u v p = Just <$> fetchX ex mid v u p
                   fn v = ".cache" </> T.unpack mid <> "-" <> v <> fx
                   candidates = [ fv u l (fn l) | (u,l) <- metadataSources fi]
-              ms <- asum $ (Just . BL.toStrict <$> getMetaBlob mid) : candidates <> [pure Nothing]
+              ms <- tsum $ (Just . BL.toStrict <$> getMetaBlob mid) : candidates <> [pure Nothing]
               case ms of
                 Nothing -> do
                   logInfoL ["Found no metadata for ", tshow mtyp]
-                  insertMetaBlob db mid NoMetadata Nothing
+                  insertMetaBlob mid NoMetadata Nothing
                 Just s -> do
                   logInfoL ["MetaData stream for ", tshow mtyp, " is ", tshow (BS.length s), " bytes"]
-                  insertMetaBlob db mid fmt (Just s)
+                  insertMetaBlob mid fmt (Just s)
 
               -- Always clean up (should make this optional at some point).
-              mapM_ ((\f -> asum [liftIO (removeFile f), pure ()]) . fn . snd) (metadataSources fi)
+              mapM_ ((\f -> tsum [liftIO (removeFile f), pure ()]) . fn . snd) (metadataSources fi)
 
-      fetchX :: (MediumID -> FilePath -> GoPro BS.ByteString)
-             -> MediumID -> String -> String -> FilePath -> GoPro BS.ByteString
+      fetchX :: (MediumID -> FilePath -> Eff es BS.ByteString)
+             -> MediumID -> String -> String -> FilePath -> Eff es BS.ByteString
       fetchX ex mid var u fn = ex mid =<< dlIf mid var u fn
 
-      dlIf :: MediumID -> String -> String -> FilePath -> GoPro FilePath
+      dlIf :: MediumID -> String -> String -> FilePath -> Eff es FilePath
       dlIf mid var u dest = liftIO (doesFileExist dest) >>=
         \case
           True -> pure dest
           _    -> download mid var u dest
 
-      download :: MediumID -> String -> String -> FilePath -> GoPro FilePath
+      download :: MediumID -> String -> String -> FilePath -> Eff es FilePath
       download mid var u dest = recoverAll policy $ \r -> do
         liftIO $ createDirectoryIfMissing True ".cache"
         logInfoL ["Fetching ", tshow mid, " variant ", tshow var, " attempt ", tshow (rsIterNumber r)]
@@ -179,18 +180,18 @@ runGetMeta = do
           where
             policy = exponentialBackoff 2000000 <> limitRetries 9
 
-      extractEXIF :: MediumID -> FilePath -> GoPro BS.ByteString
+      extractEXIF :: MediumID -> FilePath -> Eff es BS.ByteString
       extractEXIF mid f = liftIO (BL.readFile f) >>= (\case
-          Left s  -> logErrorL ["Can't find EXIF for ", tshow mid, " ", tshow s] *> empty
+          Left s  -> logErrorL ["Can't find EXIF for ", tshow mid, " ", tshow s] *> fail "no exif"
           Right e -> pure (BL.toStrict e)) . minimalEXIF
 
-      extractGPMD :: MediumID -> FilePath -> GoPro BS.ByteString
+      extractGPMD :: MediumID -> FilePath -> Eff es BS.ByteString
       extractGPMD mid f = liftIO (findGPMDStream f) >>=
         \case
-          Nothing -> logErrorL ["Can't find GPMD stream for ", tshow mid] >> empty
+          Nothing -> logErrorL ["Can't find GPMD stream for ", tshow mid] *> fail "no gpmd"
           Just s  -> liftIO $ extractGPMDStream [f] s
 
-runWait :: GoPro ()
+runWait :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
 runWait = whileM_ inProgress (sleep 15)
   where
     inProgress = do
@@ -212,28 +213,26 @@ runWait = whileM_ inProgress (sleep 15)
       putStrLn $ fold [drop 4 t, ":"]
       traverse_ (\(i, fn) -> putStrLn $ fold ["  ", T.unpack i, " - ", show fn]) things
 
-refreshMedia :: NonEmpty MediumID -> GoPro ()
+refreshMedia :: [Reader Env, LogFX, DatabaseEff, Fail, IOE] :>> es => NonEmpty MediumID -> Eff es ()
 refreshMedia = mapM_ refreshSome . chunksOf 100 . NE.toList
   where
     one mid = do
       logDbgL ["Refreshing ", mid]
       MediaRow m _ _ r <- medium mid
-      tn <- optional (fetchThumbnail m)
+      tn <- either (\(_ :: SomeException) -> Nothing) Just <$> try (fetchThumbnail m)
       Just variants <- fetchVariantsSansURLs (_medium_id m) -- TODO:  Maybe make this total
       pure $ MediaRow m tn variants r
 
     refreshSome mids = do
-      Database{..} <- asks database
       c <- asksOpt optDownloadConcurrency
       logInfoL ["Processing batch of ", tshow (length mids)]
       n <- pooledMapConcurrentlyN c one mids
       logDbgL ["Storing ", tshow (length n)]
       storeMedia n
 
-findGPSReadings :: GoPro ()
+findGPSReadings :: [LogFX, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 findGPSReadings = do
-  Database{..} <- asks database
-  todo <- gpsReadingsTODO
+  todo <- gPSReadingsTODO
   unless (null todo) $ logInfoL ["Found ", tshow (length todo), " gps readings to process"]
   for_ todo $ \mid -> do
     logDbgL ["Finding gps readings for ", mid]
@@ -241,16 +240,15 @@ findGPSReadings = do
       Just (GPMF, Just bs) -> storeGPSReadings mid =<< either fail pure (extractReadings bs)
       _                    -> pure ()
 
-syncFiles :: GoPro ()
+syncFiles :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
 syncFiles = do
-  db@Database{..} <- asks database
   todo <- fileTODO
   unless (null todo) $ do
     logInfoL ["Found ", tshow (length todo), " media with files to process"]
-    traverse_ (process db) todo
+    traverse_ process todo
 
     where
-      process Database{..} mid = do
+      process mid = do
         stuff <- extractFiles mid <$> retrieve mid
         if null stuff
         then logInfoL ["No files found for ", mid]
@@ -267,11 +265,25 @@ syncFiles = do
 
 extractFiles :: MediumID -> FileInfo -> [(String, String, FileData)]
 extractFiles mid fi = fold [ ex "var" variations,
-                             ex "sidecar" sidecar_files,
+                             ex2 "sidecar" sidecar_files,
                              otherFiles
                            ]
   where
     ex p l = fi ^.. fileStuff . l . folded . to conv . folded
+      where
+        conv v = maybeToList $ do
+          lbl <- v ^? media_label
+          typ <- v ^? media_type
+          pure (v ^. media_head, v ^. media_url, FileData{
+            _fd_medium = mid,
+            _fd_section = p,
+            _fd_label = T.pack lbl,
+            _fd_type = T.pack typ,
+            _fd_item_num = fromMaybe 0 (v ^. media_item_number),
+            _fd_file_size = 0 -- Filled in before being stored
+            })
+    -- This is a copy of the above due to some monomorphism issue I don't want to deal with yet.  TODO or whatever.
+    ex2 p l = fi ^.. fileStuff . l . folded . to conv . folded
       where
         conv v = maybeToList $ do
           lbl <- v ^? media_label
@@ -299,7 +311,7 @@ extractFiles mid fi = fold [ ex "var" variations,
                       _fd_file_size = 0 -- TBD
                     })
 
-runFullSync :: GoPro ()
+runFullSync :: [Reader Env, LogFX, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 runFullSync = do
   runFetch Incremental
   runGetMeta

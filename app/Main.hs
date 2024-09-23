@@ -6,11 +6,12 @@
 
 module Main where
 
+import           Cleff
+import           Cleff.Fail
+import           Cleff.Reader
 import           Control.Applicative                  ((<|>))
 import           Control.Monad                        (unless)
 import           Control.Monad.Catch                  (bracket_)
-import           Control.Monad.IO.Class               (MonadIO (..))
-import           Control.Monad.Reader                 (asks)
 import           Data.Foldable                        (fold, traverse_)
 import           Data.List                            (intercalate, sortOn)
 import           Data.List.NonEmpty                   (NonEmpty (..))
@@ -34,8 +35,8 @@ import           GoPro.Commands.Sync
 import           GoPro.Commands.Upload
 import           GoPro.Commands.Web
 import           GoPro.ConfigFile
-import           GoPro.DB                             (Database (..))
-import qualified GoPro.DB                             as DB
+import           GoPro.DB
+import           GoPro.Logging
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
 
@@ -44,14 +45,14 @@ atLeast n = auto >>= \i -> if i >= n then pure i else readerError ("must be at l
 
 options :: Options -> Parser Options
 options Options{..} = Options
-  <$> strOption (long "db" <> showDefault <> value optDBPath <> help "db path")
-  <*> strOption (long "static" <> showDefault <> value optStaticPath <> help "static asset path")
+  <$> Options.Applicative.strOption (long "db" <> showDefault <> value optDBPath <> help "db path")
+  <*> Options.Applicative.strOption (long "static" <> showDefault <> value optStaticPath <> help "static asset path")
   <*> switch (short 'v' <> long "verbose" <> help "enable debug logging")
   <*> option auto (short 'u' <> long "upload-concurrency" <> showDefault <> value optUploadConcurrency <> help "Upload concurrency")
   <*> option auto (short 'd' <> long "download-concurrency" <> showDefault <> value optDownloadConcurrency <> help "Download concurrency")
   <*> option (atLeast (5*1024*1024)) (short 's' <> long "chunk-size"
                                       <> showDefault <> value optChunkSize <> help "Upload chunk size.")
-  <*> (optional $ strOption (long "refdir" <> maybe mempty value optReferenceDir <> help "download reference directory"))
+  <*> (optional $ Options.Applicative.strOption (long "refdir" <> maybe mempty value optReferenceDir <> help "download reference directory"))
   <*> hsubparser (command "auth" (info (pure AuthCmd) (progDesc "Authenticate to GoPro"))
                   <> command "reauth" (info (pure ReauthCmd) (progDesc "Refresh authentication credentials"))
                   <> command "sync" (info (pure SyncCmd) (progDesc "Sync recent data from GoPro Plus"))
@@ -97,8 +98,8 @@ options Options{..} = Options
 
     fixupCmd = FixupCmd <$> argument str (metavar "query")
 
-    optCmd o = command (T.unpack (DB.optionStr o))
-               (info opt (progDesc ("get/set " <> T.unpack (DB.optionStr o) <> " config")))
+    optCmd o = command (T.unpack (optionStr o))
+               (info opt (progDesc ("get/set " <> T.unpack (optionStr o) <> " config")))
 
       where
         opt = ConfigSetCmd o <$> argument str (metavar "val")
@@ -111,8 +112,8 @@ options Options{..} = Options
 some1 :: Parser a -> Parser (NonEmpty a)
 some1 p = NE.fromList <$> some p
 
-runCleanup :: GoPro ()
-runCleanup = asks database >>= \DB.Database{..} -> clearUploads *> (mapM_ rm . filter wanted =<< notReady)
+runCleanup :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
+runCleanup = clearUploads *> (mapM_ rm . filter wanted =<< notReady)
   where
     wanted Medium{..} = _medium_ready_to_view `elem` [ViewRegistered, ViewUploading, ViewFailure]
     rm Medium{..} = do
@@ -120,13 +121,11 @@ runCleanup = asks database >>= \DB.Database{..} -> clearUploads *> (mapM_ rm . f
       errs <- delete _medium_id
       unless (null errs) . liftIO . putStrLn $ " error: " <> show errs
 
-runAuth :: GoPro ()
+runAuth :: [DatabaseEff, IOE] :>> es => Eff es ()
 runAuth = do
   u <- liftIO (prompt "Enter email: " >> getLine)
   p <- getPass
-  DB.Database{..} <- asks database
-  res <- authenticate u p
-  updateAuth res
+  updateAuth =<< authenticate u p
 
   where
     prompt x = putStr x >> hFlush stdout
@@ -137,13 +136,10 @@ runAuth = do
 
     getPass = liftIO $ withEcho False getLine
 
-runReauth :: GoPro ()
-runReauth = do
-  DB.Database{..} <- asks database
-  res <- refreshAuth . DB.arInfo =<< loadAuth
-  updateAuth res
+runReauth :: [DatabaseEff, IOE] :>> es => Eff es ()
+runReauth = updateAuth =<< refreshAuth . arInfo =<< loadAuth
 
-run :: Command -> GoPro ()
+run :: [Reader Env, LogFX, DatabaseEff, Fail, IOE] :>> es => Command -> Eff es ()
 run AuthCmd               = runAuth
 run ReauthCmd             = runReauth
 run SyncCmd               = runFullSync

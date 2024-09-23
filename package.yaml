@@ -30,6 +30,7 @@ dependencies:
 - base >= 4.7 && < 5
 - bytestring
 - cache
+- cleff
 - clock
 - conduit
 - conduit-extra
@@ -98,6 +99,16 @@ default-extensions:
   - OverloadedStrings
   - RecordWildCards
   - NamedFieldPuns
+  - UndecidableInstances
+  - GADTs
+  - KindSignatures
+  - LambdaCase
+  - BlockArguments
+  - TypeOperators
+  - RankNTypes
+  - FlexibleContexts
+  - DataKinds
+  - ConstraintKinds
 
 executables:
   gopro:

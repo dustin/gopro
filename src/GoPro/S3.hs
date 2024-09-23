@@ -10,10 +10,12 @@ import           Amazonka                     (Env, Region (..), RequestBody (Ha
 import           Amazonka.Auth                (discover)
 import           Amazonka.S3                  (BucketName (..), StorageClass (..), _ObjectKey, newGetObject,
                                                newListObjectsV2, newPutObject)
+import           Cleff                        hiding (send)
+import           Cleff.Fail
+import           Cleff.Reader
 import           Codec.Compression.GZip       (compress)
 import           Control.Lens
 import           Control.Monad                (void)
-import           Control.Monad.Reader         (asks)
 import           Control.Monad.Trans.Resource (ResourceT)
 import qualified Data.ByteString.Lazy         as BL
 import           Data.Conduit                 (runConduit, (.|))
@@ -25,11 +27,11 @@ import           Data.Maybe                   (fromMaybe)
 import           Data.String                  (fromString)
 import           Data.Text                    (Text, isSuffixOf, pack, unpack)
 import           System.FilePath.Posix        (takeBaseName, takeDirectory)
-import           UnliftIO                     (MonadUnliftIO (..))
 
 import           Control.Monad.Catch          (MonadCatch)
-import           GoPro.Commands
-import           GoPro.DB                     (ConfigOption (..))
+import           GoPro.Commands               as GoPro
+import           GoPro.DB
+import           GoPro.Logging
 import           GoPro.Plus.Media
 
 type Derivative = (MediumID, Text)
@@ -37,12 +39,12 @@ type Derivative = (MediumID, Text)
 inAWS :: (MonadCatch m, MonadUnliftIO m) => (Amazonka.Env -> ResourceT m b) -> m b
 inAWS a = (newEnv discover <&> set #region Oregon) >>= runResourceT . a
 
-s3Bucket :: GoPro BucketName
+s3Bucket :: ([Reader GoPro.Env, Fail, IOE] :>> es) => Eff es BucketName
 s3Bucket = do
   b <- asks (BucketName . configItem CfgBucket)
   if b == "" then fail "s3 bucket is not configured" else pure b
 
-allDerivatives :: GoPro [Derivative]
+allDerivatives :: ([Reader GoPro.Env, Fail, IOE] :>> es) => Eff es [Derivative]
 allDerivatives = s3Bucket >>= \b -> inAWS $ \env ->
   runConduit $ paginate env (newListObjectsV2 b & #prefix ?~ "derivatives/")
     .| CL.concatMap (view (#contents . _Just))
@@ -54,7 +56,7 @@ allDerivatives = s3Bucket >>= \b -> inAWS $ \env ->
   where toDir t = let s = unpack t in
                     (pack . takeBaseName . takeDirectory $ s, pack $ takeBaseName s)
 
-getMetaBlob :: MediumID -> GoPro BL.ByteString
+getMetaBlob :: ([Reader GoPro.Env, Fail, LogFX, IOE] :>> es) => MediumID -> Eff es BL.ByteString
 getMetaBlob mid = do
   b <- s3Bucket
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
@@ -63,7 +65,7 @@ getMetaBlob mid = do
     rs <- send env (newGetObject b key)
     (rs ^. #body) `sinkBody` (ungzip .| CB.sinkLbs)
 
-storeMetaBlob :: MediumID -> Maybe BL.ByteString -> GoPro ()
+storeMetaBlob :: ([Reader GoPro.Env, Fail, LogFX, IOE] :>> es) => MediumID -> Maybe BL.ByteString -> Eff es ()
 storeMetaBlob mid blob = do
   b <- s3Bucket
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
@@ -71,7 +73,7 @@ storeMetaBlob mid blob = do
   inAWS $ \env -> void . send env $ newPutObject b key (Hashed . toHashed . compress . fromMaybe "" $ blob) &
     #storageClass ?~ StorageClass_STANDARD_IA
 
-listMetaBlobs :: GoPro [MediumID]
+listMetaBlobs :: ([Reader GoPro.Env, Fail, LogFX, IOE] :>> es) => Eff es [MediumID]
 listMetaBlobs = s3Bucket >>= \b -> inAWS $ \env ->
   runConduit $ paginate env (newListObjectsV2 b & #prefix ?~ "metablob/")
     .| CL.concatMap (view (#contents . _Just))

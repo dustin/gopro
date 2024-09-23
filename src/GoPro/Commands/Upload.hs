@@ -6,9 +6,10 @@ module GoPro.Commands.Upload (
   runCreateUploads, runCreateMultipart, runResumeUpload, runReprocessCmd
   ) where
 
+import           Cleff
+import           Cleff.Reader              hiding (asks)
 import           Control.Monad             (unless, void)
-import           Control.Monad.IO.Class    (MonadIO (..))
-import           Control.Monad.Reader      (asks, lift)
+import           Control.Monad.Reader      (lift)
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
 import qualified Data.ByteString           as BS
 import qualified Data.ByteString.Lazy      as BL
@@ -28,55 +29,54 @@ import           FFMPeg
 import           GoPro.Commands
 import           GoPro.DB
 import           GoPro.File
+import           GoPro.Logging
 import           GoPro.Plus.Media          (MediumID, MediumType (..), reprocess)
 import           GoPro.Plus.Upload
 import           UnliftIO.Async            (pooledMapConcurrentlyN, pooledMapConcurrentlyN_)
 
-uc :: FilePath -> MediumID -> Integer -> UploadPart -> Uploader GoPro ()
+uc :: ([LogFX, DatabaseEff, IOE] :>> es) => FilePath -> MediumID -> Integer -> UploadPart -> Uploader (Eff es) ()
 uc fp mid partnum up@UploadPart{..} = do
-  Database{..} <- asks database
-  logDbgL ["Uploading part ", tshow _uploadPart, " of ", T.pack fp]
+  lift $ logDbgL ["Uploading part ", tshow _uploadPart, " of ", T.pack fp]
   uploadChunk fp up
-  completedUploadPart mid _uploadPart partnum
-  logDbgL ["Finished part ", tshow _uploadPart, " of ", T.pack fp]
+  lift $ completedUploadPart mid _uploadPart partnum
+  lift $ logDbgL ["Finished part ", tshow _uploadPart, " of ", T.pack fp]
 
-runCreateUploads :: NonEmpty FilePath -> GoPro ()
+runCreateUploads :: ([Reader Env, LogFX, DatabaseEff, IOE] :>> es) => NonEmpty FilePath -> Eff es ()
 runCreateUploads inFilePaths = do
-  db <- asks database
   filePaths <- Set.toList . fold <$> traverse expand (NE.toList inFilePaths)
   -- Exclude any commandline params for files that are already being
   -- uploaded.  This prevents duplicate uploads if you just hit
   -- up-enter, but it also prevents one from uploading a file if it's
   -- already included in a multipart upload.
-  queued <- listQueuedFiles db
+  queued <- listQueuedFiles
   let candidates = filter (`notElem` queued) filePaths
       (bad, good) = these (,[]) ([],) (,) $ maybe (This []) parseAndGroup (NE.nonEmpty candidates)
 
   unless (null bad) $ logInfoL ["Ignoring some unknown files: ", tshow bad]
 
   c <- asksOpt optUploadConcurrency
-  pooledMapConcurrentlyN_ c (upload db) good
+  pooledMapConcurrentlyN_ c upload good
 
   where
     expand fp = liftIO (isDir fp) >>= \case
       True  -> findFiles fp
       False -> pure (Set.singleton fp)
     isDir = fmap isDirectory . getFileStatus
-    upload db files = asksOpt optChunkSize >>= \chunkSize -> runUpload (_gpFilePath <$> files) $ do
+    upload files = asksOpt optChunkSize >>= \chunkSize -> runUpload (_gpFilePath <$> files) $ do
       setMediumType (typeOf (NE.head files))
       setChunkSize chunkSize
       mid <- createMedium
       did <- createSource (length files)
-      c <- asksOpt optUploadConcurrency
+      c <- lift $ asksOpt optUploadConcurrency
       pooledMapConcurrentlyN_ c (\(File{_gpFilePath},n) -> do
                                     fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) _gpFilePath
                                     up@Upload{..} <- createUpload did n (fromInteger fsize)
-                                    logInfoL ["Creating part ", tshow _gpFilePath, " as ", mid, " part ", tshow n,
+                                    lift $ logInfoL ["Creating part ", tshow _gpFilePath, " as ", mid, " part ", tshow n,
                                               ": did=", did, ", upid=", _uploadID]
-                                    storeUpload db _gpFilePath mid up did (fromIntegral n) chunkSize
+                                    lift $ storeUpload _gpFilePath mid up did (fromIntegral n) chunkSize
                                 ) $ zip (NE.toList files) [1..]
-      logInfo "Multipart upload created.  Use the 'upload' command to complete the upload."
-      storeMetaBlob mid (typeOf (NE.head files)) files
+      lift $ logInfo "Multipart upload created.  Use the 'upload' command to complete the upload."
+      lift $ storeMetaBlob mid (typeOf (NE.head files)) files
 
     typeOf File{_gpCodec=GoProAVC}  = Video
     typeOf File{_gpCodec=GoProHEVC} = Video
@@ -94,41 +94,38 @@ runCreateUploads inFilePaths = do
 
     storeMetaBlob mid typ fps = void . runMaybeT $ do
       blob <- liftIO $ blobFor typ fps
-      Database{..} <- lift $ asks database
-      insertMetaBlob mid mtype blob
+      lift $ insertMetaBlob mid mtype blob
       where
         mtype = case typ of
           Photo -> EXIF
           _     -> GPMF
 
-runCreateMultipart :: MediumType -> NonEmpty FilePath -> GoPro ()
+runCreateMultipart :: ([Reader Env, LogFX, DatabaseEff, IOE] :>> es) => MediumType -> NonEmpty FilePath -> Eff es ()
 runCreateMultipart typ fps = do
-  Database{..} <- asks database
   runUpload fps $ do
     setMediumType typ
-    chunkSize <- asksOpt optChunkSize
+    chunkSize <- lift $ asksOpt optChunkSize
     setChunkSize chunkSize
     mid <- createMedium
     did <- createSource (length fps)
-    c <- asksOpt optUploadConcurrency
+    c <- lift $ asksOpt optUploadConcurrency
     pooledMapConcurrentlyN_ c (\(fp,n) -> do
               fsize <- toInteger . fileSize <$> (liftIO . getFileStatus) fp
               up@Upload{..} <- createUpload did n (fromInteger fsize)
-              logInfoL ["Creating part ", tshow fp, " as ", mid, " part ", tshow n,
+              lift $ logInfoL ["Creating part ", tshow fp, " as ", mid, " part ", tshow n,
                         ": did=", did, ", upid=", _uploadID]
-              storeUpload fp mid up did (fromIntegral n) chunkSize
+              lift $ storeUpload fp mid up did (fromIntegral n) chunkSize
           ) $ zip (NE.toList fps) [1..]
-    logInfo "Multipart upload created.  Use the 'upload' command to complete the upload."
+    lift $ logInfo "Multipart upload created.  Use the 'upload' command to complete the upload."
 
-runResumeUpload :: GoPro ()
+runResumeUpload :: ([Reader Env, LogFX, DatabaseEff, IOE] :>> es) => Eff es ()
 runResumeUpload = do
-  db <- asks database
-  ups <- listPartialUploads db
+  ups <- listPartialUploads
   logInfoL ["Have ", tshow (length ups), " media items to upload in ",
             tshow (sum $ fmap length ups), " parts with a total of ",
             tshow (sumOf pu_size (fold ups)), " chunks (",
             tshow (sumOf pu_mb (fold ups)), " MB)"]
-  mapM_ (upAll db) ups
+  mapM_ upAll ups
   where
     pu_size = length . _pu_parts
     pu_mb :: PartialUpload -> Int
@@ -136,16 +133,16 @@ runResumeUpload = do
     sumOf :: Foldable t => (a -> Int) -> t a -> Int
     sumOf f = getSum . foldMap (Sum . f)
 
-    upAll _ [] = pure ()
+    upAll [] = pure ()
 
-    upAll db xs@(PartialUpload{..}:_) = do
+    upAll xs@(PartialUpload{..}:_) = do
       logInfoL ["Uploading ", tshow _pu_medium_id, " in ", tshow (sumOf pu_size xs),
                 " chunks (", tshow (sumOf pu_mb xs), " MB)"]
-      mapM_ (up db) xs
+      mapM_ up xs
       logInfoL ["Finished uploading ", tshow _pu_medium_id]
       resumeUpload (_pu_filename :| []) _pu_medium_id $ markAvailable _pu_did
 
-    up db PartialUpload{..} = do
+    up PartialUpload{..} = do
       let part = fromIntegral _pu_partnum
       fsize <- fromIntegral . fileSize <$> (liftIO . getFileStatus) _pu_filename
       resumeUpload (_pu_filename :| []) _pu_medium_id $ do
@@ -153,13 +150,13 @@ runResumeUpload = do
         Upload{..} <- getUpload _pu_upid _pu_did part fsize
         let chunks = sortOn (Down . _uploadPart) $
                      filter (\UploadPart{..} -> _uploadPart `elem` _pu_parts) _uploadParts
-        logInfoL ["Uploading ", tshow _pu_filename, " (", tshow fsize, " bytes) as ",
+        lift $ logInfoL ["Uploading ", tshow _pu_filename, " (", tshow fsize, " bytes) as ",
                   _pu_medium_id, ":", tshow part, ": did=",
                   _pu_did, ", upid=", _uploadID, ", parts=", tshow (length chunks)]
-        c <- asksOpt optUploadConcurrency
+        c <- lift $ asksOpt optUploadConcurrency
         _ <- pooledMapConcurrentlyN c (uc _pu_filename _pu_medium_id _pu_partnum) chunks
         completeUpload _uploadID _pu_did part (fromIntegral fsize)
-      completedUpload db _pu_medium_id _pu_partnum
+      completedUpload _pu_medium_id _pu_partnum
 
-runReprocessCmd :: NonEmpty MediumID -> GoPro ()
+runReprocessCmd :: ([Reader Env, LogFX, DatabaseEff, IOE] :>> es) => NonEmpty MediumID -> Eff es ()
 runReprocessCmd = mapM_ reprocess

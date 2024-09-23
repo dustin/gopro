@@ -1,5 +1,8 @@
 {-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE GADTs               #-}
+{-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE QuasiQuotes         #-}
@@ -7,6 +10,7 @@
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TypeOperators       #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module GoPro.DB (MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_variants, row_raw_json,
@@ -14,16 +18,25 @@ module GoPro.DB (MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_varia
                  PartialUpload(..),
                  MetadataType(..),
                  ConfigOption(..), strOption, optionStr,
-                 Database(..),
                  AuthResult(..),
                  FileData(..), fd_medium, fd_section, fd_label, fd_type, fd_item_num, fd_file_size,
+                 DatabaseEff(..),
+                 initTables, loadConfig, updateConfig, updateAuth, loadAuth,
+                 storeMedia, loadMediaIDs, loadMediaRows, loadMedia, loadMedium, loadThumbnail,
+                 storeMoments, loadMoments, momentsTODO, metaBlobTODO, insertMetaBlob, loadMetaBlob,
+                 selectMetaBlob, clearMetaBlob, metaTODO, insertMeta, selectMeta, loadMeta,
+                 storeUpload, completedUploadPart, completedUpload, listPartialUploads, clearUploads,
+                 listQueuedFiles, listToCopyToS3, queuedCopyToS3, markS3CopyComplete, listS3Waiting,
+                 listToCopyLocally, selectAreas, foldGPSReadings, storeGPSReadings, gPSReadingsTODO,
+                 fileTODO, storeFiles, loadFiles, fixupQuery
                  ) where
+
+import           Cleff
 
 import           Control.Foldl          (Fold (..))
 import           Control.Lens           hiding (Fold, (.=))
-import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Aeson             (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
-                                         genericToEncoding, genericToJSON, (.=))
+                                         genericToEncoding, (.=))
 import qualified Data.Aeson             as J
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BL
@@ -117,56 +130,55 @@ makeLenses ''FileData
 
 instance ToJSON FileData where
   toEncoding = genericToEncoding defaultOptions { fieldLabelModifier = drop 4}
-  toJSON = genericToJSON defaultOptions { fieldLabelModifier = drop 4}
+  toJSON = J.genericToJSON defaultOptions { fieldLabelModifier = drop 4}
 
-data Database = Database {
-  initTables          :: forall m. MonadIO m => m (),
-  loadConfig          :: forall m. MonadIO m => m (Map ConfigOption Text),
-  updateConfig        :: forall m. MonadIO m => Map ConfigOption Text -> m (),
+data DatabaseEff :: Effect where
+  InitTables :: DatabaseEff m ()
+  LoadConfig :: DatabaseEff m (Map ConfigOption Text)
+  UpdateConfig :: Map ConfigOption Text -> DatabaseEff m ()
 
-  updateAuth          :: forall m. MonadIO m => AuthInfo -> m (),
-  loadAuth            :: forall m. MonadIO m => m AuthResult,
+  UpdateAuth :: AuthInfo -> DatabaseEff m ()
+  LoadAuth :: DatabaseEff m AuthResult
 
-  storeMedia          :: forall m. MonadIO m => [MediaRow] -> m (),
-  loadMediaIDs        :: forall m. MonadIO m => m [MediumID],
-  loadMediaRows       :: forall m. MonadIO m => m [MediaRow],
-  loadMedia           :: forall m. MonadIO m => m [Medium],
-  loadMedium          :: forall m. MonadIO m => MediumID -> m (Maybe Medium),
-  loadThumbnail       :: forall m. MonadIO m => MediumID -> m (Maybe BL.ByteString),
-  storeMoments        :: forall m. MonadIO m => MediumID -> [Moment] -> m (),
-  loadMoments         :: forall m. MonadIO m => m (Map MediumID [Moment]),
-  momentsTODO         :: forall m. MonadIO m => m [MediumID],
-  metaBlobTODO        :: forall m. MonadIO m => m [(MediumID, String)],
-  insertMetaBlob      :: forall m. MonadIO m => MediumID -> MetadataType -> Maybe BS.ByteString -> m (),
-  loadMetaBlob        :: forall m. MonadIO m => MediumID -> m (Maybe (MetadataType, Maybe BS.ByteString)),
-  selectMetaBlob      :: forall m. MonadIO m => m [(MediumID, Maybe BS.ByteString)],
-  clearMetaBlob       :: forall m. MonadIO m => [MediumID] -> m (),
-  metaTODO            :: forall m. MonadIO m => m [(MediumID, MetadataType, BS.ByteString)],
-  insertMeta          :: forall m. MonadIO m => MediumID -> MDSummary -> m (),
-  selectMeta          :: forall m. MonadIO m => m (Map MediumID MDSummary),
-  loadMeta            :: forall m. MonadIO m => MediumID -> m (Maybe MDSummary),
-  storeUpload         :: forall m. MonadIO m => FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> Integer -> m (),
-  completedUploadPart :: forall m. MonadIO m => MediumID -> Integer -> Integer -> m (),
-  completedUpload     :: forall m. MonadIO m => MediumID -> Integer -> m (),
-  listPartialUploads  :: forall m. MonadIO m => m [[PartialUpload]],
-  clearUploads        :: forall m. MonadIO m => m (),
-  listQueuedFiles     :: forall m. MonadIO m => m [FilePath],
-  listToCopyToS3      :: forall m. MonadIO m => m [MediumID],
-  queuedCopyToS3      :: forall m. MonadIO m => [(MediumID, String)] -> m (),
-  markS3CopyComplete  :: forall m j. (MonadIO m, ToJSON j) => [(Text, Bool, j)] -> m (),
-  listS3Waiting       :: forall m. MonadIO m => m [String],
-  listToCopyLocally   :: forall m. MonadIO m => m [MediumID],
-  selectAreas         :: forall m. MonadIO m => m [Area],
+  StoreMedia :: [MediaRow] -> DatabaseEff m ()
+  LoadMediaIDs :: DatabaseEff m [MediumID]
+  LoadMediaRows :: DatabaseEff m [MediaRow]
+  LoadMedia :: DatabaseEff m [Medium]
+  LoadMedium :: MediumID -> DatabaseEff m (Maybe Medium)
+  LoadThumbnail :: MediumID -> DatabaseEff m (Maybe BL.ByteString)
+  StoreMoments :: MediumID -> [Moment] -> DatabaseEff m ()
+  LoadMoments :: DatabaseEff m (Map MediumID [Moment])
+  MomentsTODO :: DatabaseEff m [MediumID]
+  MetaBlobTODO :: DatabaseEff m [(MediumID, String)]
+  InsertMetaBlob :: MediumID -> MetadataType -> Maybe BS.ByteString -> DatabaseEff m ()
+  LoadMetaBlob :: MediumID -> DatabaseEff m (Maybe (MetadataType, Maybe BS.ByteString))
+  SelectMetaBlob :: DatabaseEff m [(MediumID, Maybe BS.ByteString)]
+  ClearMetaBlob :: [MediumID] -> DatabaseEff m ()
+  MetaTODO :: DatabaseEff m [(MediumID, MetadataType, BS.ByteString)]
+  InsertMeta :: MediumID -> MDSummary -> DatabaseEff m ()
+  SelectMeta :: DatabaseEff m (Map MediumID MDSummary)
+  LoadMeta :: MediumID -> DatabaseEff m (Maybe MDSummary)
+  StoreUpload :: FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> Integer -> DatabaseEff m ()
+  CompletedUploadPart :: MediumID -> Integer -> Integer -> DatabaseEff m ()
+  CompletedUpload :: MediumID -> Integer -> DatabaseEff m ()
+  ListPartialUploads :: DatabaseEff m [[PartialUpload]]
+  ClearUploads :: DatabaseEff m ()
+  ListQueuedFiles :: DatabaseEff m [FilePath]
+  ListToCopyToS3 :: DatabaseEff m [MediumID]
+  QueuedCopyToS3 :: [(MediumID, String)] -> DatabaseEff m ()
+  MarkS3CopyComplete :: (ToJSON j) => [(Text, Bool, j)] -> DatabaseEff m ()
+  ListS3Waiting :: DatabaseEff m [String]
+  ListToCopyLocally :: DatabaseEff m [MediumID]
+  SelectAreas :: DatabaseEff m [Area]
 
-  -- | Fold GPS readings for a given medium and maximum DOP value.
-  foldGPSReadings     :: forall m b. MonadIO m => MediumID -> Int -> Fold GPSReading b -> m b,
-  storeGPSReadings    :: forall m. MonadIO m => MediumID -> [GPSReading] -> m (),
-  gpsReadingsTODO     :: forall m. MonadIO m => m [MediumID],
+  FoldGPSReadings :: MediumID -> Int -> Fold GPSReading b -> DatabaseEff m b
+  StoreGPSReadings :: MediumID -> [GPSReading] -> DatabaseEff m ()
+  GPSReadingsTODO :: DatabaseEff m [MediumID]
 
-  -- Low-level file things.
-  fileTODO            :: forall m. MonadIO m => m [MediumID],
-  storeFiles          :: forall m. MonadIO m => [FileData] -> m (),
-  loadFiles           :: forall m. MonadIO m => Maybe MediumID -> m [FileData],
+  FileTODO :: DatabaseEff m [MediumID]
+  StoreFiles :: [FileData] -> DatabaseEff m ()
+  LoadFiles :: Maybe MediumID -> DatabaseEff m [FileData]
 
-  fixupQuery          :: forall m. MonadIO m => Text -> m [[(Text, J.Value)]]
-  }
+  FixupQuery :: Text -> DatabaseEff m [[(Text, J.Value)]]
+
+makeEffect ''DatabaseEff

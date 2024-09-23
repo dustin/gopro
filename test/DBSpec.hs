@@ -2,8 +2,12 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TypeApplications           #-}
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module DBSpec where
 
+import           Cleff
+import           Cleff.Fail
 import           Control.Lens                         hiding (elements)
 import           Control.Monad                        (forM_)
 import qualified Data.Aeson                           as J
@@ -34,18 +38,15 @@ instance Arbitrary MediaRow where
 deriving instance Eq AuthInfo
 
 prop_authStorage :: NonEmptyList AuthInfo -> Property
-prop_authStorage (NonEmpty ais) = ioProperty . runDB $ \db -> do
-  mapM_ (updateAuth db) ais
-  AuthResult loaded _ <- loadAuth db
+prop_authStorage (NonEmpty ais) = ioProperty . runDB $ do
+  mapM_ updateAuth ais
+  AuthResult loaded _ <- loadAuth
   pure (loaded === last ais)
 
-runSQLiteDB :: (Database -> IO a) -> IO a
-runSQLiteDB a = withSQLite ":memory:" $ \db -> do
-  initTables db
-  a db
-
-runDB :: (Database -> IO a) -> IO a
-runDB = runSQLiteDB
+runDB :: Eff [DatabaseEff, Fail, IOE] a -> IO a
+runDB a = runIOE . runFailIO . runDatabaseSqliteStr ":memory:" $ do
+  initTables
+  a
 
 unit_configOption :: Assertion
 unit_configOption = do
@@ -53,14 +54,14 @@ unit_configOption = do
   assertEqual "negative case" (strOption "garbage") Nothing
 
 unit_config :: Assertion
-unit_config = runDB $ \db -> do
-  orig <- loadConfig db
-  updateConfig db (Map.insert CfgBucket "busket" orig)
-  updated <- loadConfig db
-  assertBool "modified" (orig /= updated)
-  updateConfig db orig
-  restored <- loadConfig db
-  assertEqual "restored" orig restored
+unit_config = runDB $ do
+  orig <- loadConfig
+  updateConfig (Map.insert CfgBucket "busket" orig)
+  updated <- loadConfig
+  liftIO $ assertBool "modified" (orig /= updated)
+  updateConfig orig
+  restored <- loadConfig
+  liftIO $ assertEqual "restored" orig restored
 
 -- MediaRow with unique media
 newtype MediaRowSet = MediaRowSet [MediaRow]
@@ -74,7 +75,7 @@ instance Arbitrary TruncatedMedium where
     where clean m = m & medium_captured_at %~ truncUTC & medium_created_at %~ truncUTC
 
 truncUTC :: UTCTime -> UTCTime
-truncUTC (UTCTime d t) = UTCTime d (fromIntegral $ truncate t)
+truncUTC (UTCTime d t) = UTCTime d (fromIntegral @Int $ truncate t)
 
 instance Arbitrary MediaRowSet where
   arbitrary = MediaRowSet . Map.elems . Map.fromList . fmap (\mr -> (mr ^. row_media . medium_id , mr)) <$> listOf arbitrary
@@ -83,27 +84,27 @@ instance Arbitrary MediaRowSet where
 
 prop_storeLoad :: MediaRowSet -> Property
 prop_storeLoad (MediaRowSet rows) = ioProperty $ do
-  got <- runDB $ \db -> storeMedia db rows *> loadMediaRows db
+  got <- runDB $ storeMedia rows *> loadMediaRows
   pure $ sort (rows & traversed . row_media . medium_token .~ "") === sort got
     where sort = sortOn (_medium_id . _row_media)
 
 prop_storeLoadOne :: MediaRowSet -> Property
-prop_storeLoadOne (MediaRowSet rows) = ioProperty . runDB $ \db -> do
-  storeMedia db rows
+prop_storeLoadOne (MediaRowSet rows) = ioProperty . runDB $ do
+  storeMedia rows
   forM_ rows $ \MediaRow{_row_media=m@Medium{..}} -> do
-    got <- loadMedium db _medium_id
+    got <- loadMedium _medium_id
     pure (got === Just m)
 
 prop_storeLoad2 :: MediaRowSet -> Property
 prop_storeLoad2 (MediaRowSet rows) = ioProperty $ do
-  got <- runDB $ \db -> storeMedia db rows *> loadMedia db
+  got <- runDB $ storeMedia rows *> loadMedia
   let media = sortOn (Down . _medium_captured_at) $ rows ^.. folded . row_media
   pure $ sort (media & traversed . medium_token .~ "") === sort got
     where sort = sortOn _medium_id
 
 prop_storeLoadIDs :: MediaRowSet -> Property
 prop_storeLoadIDs (MediaRowSet rows) = ioProperty $ do
-  got <- runDB $ \db -> storeMedia db rows *> loadMediaIDs db
+  got <- runDB $ storeMedia rows *> loadMediaIDs
   pure $ (sortOn (Down . _medium_captured_at . _row_media) rows ^.. folded . row_media . medium_id) === got
 
 instance Arbitrary MetadataType where arbitrary = arbitraryBoundedEnum
@@ -131,25 +132,27 @@ instance Arbitrary Location where
   arbitrary = elements [Snow, Urban, Indoor, Water, Vegetation, Beach]
 
 prop_metaBlob :: TruncatedMedium -> MetadataType -> ByteString -> Property
-prop_metaBlob (TruncatedMedium m@(Medium{_medium_id})) mt bs = ioProperty . runDB $ \db -> do
-  storeMedia db [MediaRow m Nothing "" (J.toJSON m)]
-  todo <- fmap fst <$> metaBlobTODO db
-  assertEqual "todo" [_medium_id] todo
+prop_metaBlob (TruncatedMedium m@(Medium{_medium_id})) mt bs = ioProperty . runDB $ do
+  storeMedia [MediaRow m Nothing "" (J.toJSON m)]
+  todo <- fmap fst <$> metaBlobTODO
+  liftIO $ assertEqual "todo" [_medium_id] todo
 
-  insertMetaBlob db _medium_id mt (Just bs)
-  todo' <- fmap fst <$> metaBlobTODO db
-  assertEqual "todo after" [] todo'
+  insertMetaBlob _medium_id mt (Just bs)
+  todo' <- fmap fst <$> metaBlobTODO
+  liftIO $ assertEqual "todo after" [] todo'
 
-  [(i,t,b)] <- metaTODO db
-  assertEqual "md todo id" _medium_id i
-  assertEqual "md todo type" mt t
-  assertEqual "md todo bytes" bs b
+  [(i,t,b)] <- metaTODO
+  liftIO $ do
+    assertEqual "md todo id" _medium_id i
+    assertEqual "md todo type" mt t
+    assertEqual "md todo bytes" bs b
 
-  [(i, Just b)] <- selectMetaBlob db
-  assertEqual "sel id" _medium_id i
-  assertEqual "sel blob" bs b
+  [(i, Just b)] <- selectMetaBlob
+  liftIO $ do
+    assertEqual "sel id" _medium_id i
+    assertEqual "sel blob" bs b
   -- nullBlobs >>= \n -> liftIO $ assertEqual "null blobs" 0 n
-  clearMetaBlob db [_medium_id]
+  clearMetaBlob [_medium_id]
   -- nullBlobs >>= \n -> liftIO $ assertEqual "null blobs" 1 n
 
 {-
@@ -159,12 +162,12 @@ prop_metaBlob (TruncatedMedium m@(Medium{_medium_id})) mt bs = ioProperty . runD
 -}
 
 prop_meta :: TruncatedMedium -> MetadataType -> ByteString -> MDSummary -> Property
-prop_meta (TruncatedMedium m@(Medium{_medium_id})) mt bs md = ioProperty . runDB $ \db -> do
-    storeMedia db [MediaRow m Nothing "" (J.toJSON m)]
-    insertMetaBlob db _medium_id mt (Just bs)
-    insertMeta db _medium_id md
-    nmd <- selectMeta db
-    assertEqual "summary metadata" (Map.singleton _medium_id md) nmd
+prop_meta (TruncatedMedium m@(Medium{_medium_id})) mt bs md = ioProperty . runDB $ do
+    storeMedia [MediaRow m Nothing "" (J.toJSON m)]
+    insertMetaBlob _medium_id mt (Just bs)
+    insertMeta _medium_id md
+    nmd <- selectMeta
+    liftIO $ assertEqual "summary metadata" (Map.singleton _medium_id md) nmd
 
-    nmd' <- loadMeta db _medium_id
-    assertEqual "summary metadata" (Just md) nmd'
+    nmd' <- loadMeta _medium_id
+    liftIO $ assertEqual "summary metadata" (Just md) nmd'

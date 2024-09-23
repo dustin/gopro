@@ -15,12 +15,13 @@ import           Amazonka.Lambda                 (InvocationType (..), newInvoke
 import           Amazonka.S3                     (BucketName (..))
 import           Amazonka.SQS                    (newDeleteMessageBatch, newDeleteMessageBatchRequestEntry,
                                                   newReceiveMessage)
+import           Cleff                           hiding (send)
+import           Cleff.Fail
+import           Cleff.Reader                    (Reader, asks)
 import           Conduit
 import           Control.Applicative             (optional)
 import           Control.Lens
 import           Control.Monad                   (unless, void)
-import           Control.Monad.Logger            (MonadLogger)
-import           Control.Monad.Reader            (asks)
 import           Control.Monad.Trans.Maybe       (MaybeT (..), runMaybeT)
 import           Control.Monad.Trans.Writer.Lazy (execWriterT, tell)
 import           Control.Retry                   (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
@@ -56,10 +57,11 @@ import           UnliftIO                        (concurrently, mapConcurrently,
 import           GoPro.Commands
 import           GoPro.DB
 import qualified GoPro.File                      as GPF
+import           GoPro.Logging
 import           GoPro.Plus.Media
 import           GoPro.S3
 
-retryRetrieve :: J.FromJSON j => MediumID -> GoPro j
+retryRetrieve :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => J.FromJSON j => MediumID -> Eff es j
 retryRetrieve mid = recoverAll policy $ \r -> do
   unless (rsIterNumber r == 0) $ logInfoL ["retrying metadata ", tshow mid, " attempt ", tshow (rsIterNumber r)]
   retrieve mid
@@ -67,10 +69,9 @@ retryRetrieve mid = recoverAll policy $ \r -> do
 
 type LambdaFunc = Text
 
-copyMedia :: LambdaFunc -> Extractor -> MediumID -> GoPro ()
+copyMedia :: [Reader Env, Fail, LogFX, DatabaseEff, IOE] :>> es => LambdaFunc -> Extractor -> MediumID -> Eff es ()
 copyMedia λ extract mid = do
   todo <- extract mid <$> retryRetrieve mid
-  Database{..} <- asks database
   pooledMapConcurrentlyN_ 5 copy todo
   queuedCopyToS3 (map (\(k,_,_) -> (mid, unpack k)) todo)
 
@@ -89,7 +90,7 @@ copyMedia λ extract mid = do
                           & at "dest" ?~ dest
                           & at "mid" ?~ J.String mid)
 
-downloadLocally :: FilePath -> Extractor -> Medium -> GoPro ()
+downloadLocally :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => FilePath -> Extractor -> Medium -> Eff es ()
 downloadLocally path extract Medium{..} = do
   logInfoL ["Beginning backup of ", tshow _medium_id]
   vars <- retryRetrieve _medium_id
@@ -116,7 +117,6 @@ downloadLocally path extract Medium{..} = do
 
     tmpFilename k = tmpdir </> (unpack . fromJust . stripPrefix "derivatives/") k
 
-    store :: (MonadLogger m, MonadIO m) => FilePath -> (FilePath -> m ()) -> m ()
     store dest a = liftIO (doesFileExist dest) >>= \exists ->
       if exists then logDbgL ["Using existing file: ", tshow dest]
       else a tmpfile *> liftIO (renameFile tmpfile dest)
@@ -124,7 +124,7 @@ downloadLocally path extract Medium{..} = do
       where
         tmpfile = dest <> ".tmp"
 
-    copyLocal :: [(Text, String, String)] -> [GPF.File] -> GoPro ()
+    copyLocal :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => [(Text, String, String)] -> [GPF.File] -> Eff es ()
     copyLocal devs refs = do
       let srcdevs = sort $ mapMaybe (\(a,_,_) -> if "-var-source" `isInfixOf` a then Just a else Nothing) devs
 
@@ -167,7 +167,7 @@ downloadLocally path extract Medium{..} = do
 extractMedia :: Extractor
 extractMedia mid fi = filter desirable . nubBy (\(_,_,u1) (_,_,u2) -> u1 == u2) $
                                           fold [ ex "var" variations,
-                                                 ex "sidecar" sidecar_files,
+                                                 ex2 "sidecar" sidecar_files,
                                                  otherFiles mid fi
                                                ]
   where
@@ -176,6 +176,18 @@ extractMedia mid fi = filter desirable . nubBy (\(_,_,u1) (_,_,u2) -> u1 == u2) 
     desirable (fn,_,_) = not ("-concat.mp4" `isSuffixOf` fn)
 
     ex p l = fi ^.. fileStuff . l . folded . to conv . folded
+      where
+        conv v = maybeToList $ do
+          lbl <- v ^? media_label
+          typ <- v ^? media_type
+          let h = v ^. media_head
+              u = v ^. media_url
+              inum = maybe "" (\x -> "-" <> show x) (v ^. media_item_number)
+          pure (fromString $ mconcat ["derivatives/", unpack mid, "/", unpack mid, "-", p, "-", lbl, inum, ".", typ],
+                fromString h,
+                u)
+    --TODO:  Figure out how to deduplicate this
+    ex2 p l = fi ^.. fileStuff . l . folded . to conv . folded
       where
         conv v = maybeToList $ do
           lbl <- v ^? media_label
@@ -206,31 +218,27 @@ extractOrig mid = filter desirable . extractMedia mid
                                     || (".jpg" `isSuffixOf` fn && "-file" `isInfixOf` fn)
                                     || ("raw_photo.gpr" `isInfixOf` fn)
 
-runBackup :: Extractor -> GoPro ()
+runBackup :: [Reader Env, Fail, LogFX, DatabaseEff, IOE] :>> es => Extractor -> Eff es ()
 runBackup ex = do
   λ <- asks (configItem CfgCopyFunc)
-  Database{..} <- asks database
   todo <- take 5 <$> listToCopyToS3
   logDbgL ["todo: ", tshow todo]
   c <- asksOpt optUploadConcurrency
   pooledMapConcurrentlyN_ c (copyMedia λ ex) todo
 
-runLocalBackup :: Extractor -> NonEmpty FilePath -> GoPro ()
-runLocalBackup ex paths = do
-  db <- asks database
-  listToCopyLocally db >>= maybe (pure ()) (runDownload ex paths) . NE.nonEmpty
+runLocalBackup :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Extractor -> NonEmpty FilePath -> Eff es ()
+runLocalBackup ex paths = listToCopyLocally >>= maybe (pure ()) (runDownload ex paths) . NE.nonEmpty
 
-runDownload :: Extractor -> NonEmpty FilePath -> NonEmpty MediumID -> GoPro ()
+runDownload :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Extractor -> NonEmpty FilePath -> NonEmpty MediumID -> Eff es ()
 runDownload ex paths mids = do
   have <- fold <$> liftIO (traverse findHave paths)
-  db <- asks database
   let todo = filter (`Set.notMember` have) (NE.toList mids)
   logDbgL ["todo: ", tshow todo]
   c <- asksOpt optDownloadConcurrency
-  pooledMapConcurrentlyN_ c (one db) todo
+  pooledMapConcurrentlyN_ c one todo
 
   where
-    one db mid = loadMedium db mid >>= \case
+    one mid = loadMedium mid >>= \case
       Nothing -> logErrorL ["Cannot find record for ", mid]
       Just m  -> downloadLocally (NE.head paths) ex m
 
@@ -240,9 +248,8 @@ runDownload ex paths mids = do
         "tmp"   -> pure StopRecursing
         _       -> tell (Set.fromList (pack <$> subdirs)) $> Continue
 
-runStoreMeta :: GoPro ()
+runStoreMeta :: [Reader Env, Fail, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
 runStoreMeta = do
-  Database{..} <- asks database
   logDbg "Finding metadata blobs stored in S3 and local database"
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
   logDbgL ["local: ", (pack.show.fmap fst) local]
@@ -252,7 +259,7 @@ runStoreMeta = do
   c <- asksOpt optUploadConcurrency
   pooledMapConcurrentlyN_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
 
-runStoreMeta' :: [(MediumID, Maybe ByteString)] -> GoPro ()
+runStoreMeta' :: [Reader Env, Fail, LogFX, DatabaseEff, IOE] :>> es => [(MediumID, Maybe ByteString)] -> Eff es ()
 runStoreMeta' [] = pure ()
 runStoreMeta' local = do
   logDbg "Finding metadata blobs stored in S3 and local database"
@@ -264,30 +271,28 @@ runStoreMeta' local = do
   c <- asksOpt optUploadConcurrency
   pooledMapConcurrentlyN_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
 
-runClearMeta :: GoPro()
+runClearMeta :: [Reader Env, Fail, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
 runClearMeta = do
-  Database{..} <- asks database
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
   let backedup =  filter (`Set.member` have) (fst <$> local)
   logDbgL ["clearing ", tshow backedup]
   clearMetaBlob backedup
 
-runReceiveS3CopyQueue :: GoPro ()
+runReceiveS3CopyQueue :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
 runReceiveS3CopyQueue = do
   qrl <- asks (configItem CfgCopySQSQueue)
-  db <- asks database
-  go db qrl =<< listS3Waiting db
+  go qrl =<< listS3Waiting
 
     where
-      go _ _ [] = logInfo "Not waiting for any results"
-      go db qrl w = do
+      go _ [] = logInfo "Not waiting for any results"
+      go qrl w = do
         logInfoL ["Waiting for ", tshow (length w), " files to finish copying"]
         msgs <- toListOf (folded . #messages . folded) <$> getmsgs qrl (length w)
 
         logInfoL ["Processing ", tshow (length msgs), " responses"]
         let results = computeResults <$> msgs
         mapM_ (\(fn, ok, _) -> logDbgL ["Finished ", fn, " with status: ", tshow ok]) results
-        markS3CopyComplete db results
+        markS3CopyComplete results
 
         let mids = msgs ^.. folded . folded . #receiptHandle . _Just
             deletes = zipWith (newDeleteMessageBatchRequestEntry . tshow) [1 :: Int ..] mids
@@ -295,7 +300,7 @@ runReceiveS3CopyQueue = do
           logDbg "Deleting processed messages from SQS."
           delMessages qrl deletes
 
-        go db qrl =<< listS3Waiting db
+        go qrl =<< listS3Waiting
 
       -- Run a few parallel message getters, allowing for parallel
       -- processing that scales up to our expected result size, with a

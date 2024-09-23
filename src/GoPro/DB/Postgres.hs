@@ -1,20 +1,26 @@
+{-# LANGUAGE BlockArguments             #-}
+{-# LANGUAGE DataKinds                  #-}
 {-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GADTs                      #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE QuasiQuotes                #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE RecordWildCards            #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TypeApplications           #-}
+{-# LANGUAGE TypeOperators              #-}
 {-# LANGUAGE ViewPatterns               #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module GoPro.DB.Postgres (withPostgres) where
+module GoPro.DB.Postgres (runDatabasePostgres, runDatabasePostgresStr) where
+
+import           Cleff
 
 import           Control.Foldl              (Fold (..))
-import           Control.Monad.Catch        (bracket)
-import           Control.Monad.IO.Class     (MonadIO (..))
 import           Data.Aeson                 (ToJSON (..))
 import qualified Data.Aeson                 as J
 import           Data.ByteString            (ByteString)
@@ -58,56 +64,59 @@ import           GoPro.Plus.Media           (Medium (..), MediumID, Moment (..))
 import           GoPro.Plus.Upload          (DerivativeID, Upload (..), UploadPart (..))
 import           GoPro.Resolve              (MDSummary (..))
 
-withConn :: Connection.Settings -> (Connection -> IO a) -> IO a
-withConn s = bracket (mightFail $ Connection.acquire s) Connection.release
+runDatabasePostgresStr :: IOE :> es => String -> Eff (DatabaseEff : es) a -> Eff es a
+runDatabasePostgresStr (fromString -> s) f = liftIO (mightFail $ Connection.acquire s) >>= flip runDatabasePostgres f
 
-withPostgres :: String -> (Database -> IO a) -> IO a
-withPostgres (fromString -> c) a = withConn c (a . mkDatabase)
-  where
-    mkDatabase db = Database {
-      initTables = GoPro.DB.Postgres.initTables db,
-      loadConfig = GoPro.DB.Postgres.loadConfig db,
-      updateConfig = \m -> GoPro.DB.Postgres.updateConfig m db,
-      updateAuth = GoPro.DB.Postgres.updateAuth db,
-      loadAuth = GoPro.DB.Postgres.loadAuth db,
-      storeMedia = \m -> GoPro.DB.Postgres.storeMedia m db,
-      loadMediaIDs = GoPro.DB.Postgres.loadMediaIDs db,
-      loadMediaRows = GoPro.DB.Postgres.loadMediaRows db,
-      loadMedia = GoPro.DB.Postgres.loadMedia db,
-      loadMedium = GoPro.DB.Postgres.loadMedium db,
-      loadThumbnail = GoPro.DB.Postgres.loadThumbnail db,
-      storeMoments = \mid moms -> GoPro.DB.Postgres.storeMoments mid moms db,
-      loadMoments = GoPro.DB.Postgres.loadMoments db,
-      momentsTODO = GoPro.DB.Postgres.momentsTODO db,
-      metaBlobTODO = GoPro.DB.Postgres.metaBlobTODO db,
-      insertMetaBlob = \m mdt bs -> GoPro.DB.Postgres.insertMetaBlob m mdt bs db,
-      loadMetaBlob = GoPro.DB.Postgres.loadMetaBlob db,
-      selectMetaBlob = GoPro.DB.Postgres.selectMetaBlob db,
-      clearMetaBlob = \ms -> GoPro.DB.Postgres.clearMetaBlob ms db,
-      metaTODO = GoPro.DB.Postgres.metaTODO db,
-      insertMeta = \mid mds -> GoPro.DB.Postgres.insertMeta mid mds db,
-      selectMeta = GoPro.DB.Postgres.selectMeta db,
-      loadMeta = GoPro.DB.Postgres.loadMeta db,
-      storeUpload = \fp mid up did part size -> GoPro.DB.Postgres.storeUpload fp mid up did part size db,
-      completedUploadPart = \mid i p -> GoPro.DB.Postgres.completedUploadPart mid i p db,
-      completedUpload = \mid i -> GoPro.DB.Postgres.completedUpload mid i db,
-      listPartialUploads = GoPro.DB.Postgres.listPartialUploads db,
-      clearUploads = GoPro.DB.Postgres.clearUploads db,
-      listQueuedFiles = GoPro.DB.Postgres.listQueuedFiles db,
-      listToCopyToS3 = GoPro.DB.Postgres.listToCopyToS3 db,
-      queuedCopyToS3 = \stuff -> GoPro.DB.Postgres.queuedCopyToS3 stuff db,
-      markS3CopyComplete = \stuff -> GoPro.DB.Postgres.markS3CopyComplete stuff db,
-      listS3Waiting = GoPro.DB.Postgres.listS3Waiting db,
-      listToCopyLocally = GoPro.DB.Postgres.listToCopyLocally db,
-      selectAreas = GoPro.DB.Postgres.selectAreas db,
-      fixupQuery = GoPro.DB.Postgres.fixupQuery db,
-      foldGPSReadings = GoPro.DB.Postgres.foldGPSReadings db,
-      storeGPSReadings = GoPro.DB.Postgres.storeGPSReadings db,
-      gpsReadingsTODO = GoPro.DB.Postgres.gpsReadingsTODO db,
-      fileTODO = GoPro.DB.Postgres.fileTODO db,
-      storeFiles = GoPro.DB.Postgres.storeFiles db,
-      loadFiles = GoPro.DB.Postgres.loadFiles db
-      }
+-- Effect Interpretation via IO
+runDatabasePostgres :: IOE :> es => Connection -> Eff (DatabaseEff : es) a -> Eff es a
+runDatabasePostgres db = interpretIO \case
+  InitTables -> GoPro.DB.Postgres.initTables db
+  LoadConfig -> GoPro.DB.Postgres.loadConfig db
+  UpdateConfig config -> GoPro.DB.Postgres.updateConfig config db
+
+  UpdateAuth authInfo -> GoPro.DB.Postgres.updateAuth db authInfo
+  LoadAuth -> GoPro.DB.Postgres.loadAuth db
+
+  StoreMedia mediaRows -> GoPro.DB.Postgres.storeMedia mediaRows db
+  LoadMediaIDs -> GoPro.DB.Postgres.loadMediaIDs db
+  LoadMediaRows -> GoPro.DB.Postgres.loadMediaRows db
+  LoadMedia -> GoPro.DB.Postgres.loadMedia db
+  LoadMedium mediumID -> GoPro.DB.Postgres.loadMedium db mediumID
+  LoadThumbnail mediumID -> GoPro.DB.Postgres.loadThumbnail db mediumID
+  StoreMoments mediumID moments -> GoPro.DB.Postgres.storeMoments mediumID moments db
+  LoadMoments -> GoPro.DB.Postgres.loadMoments db
+  MomentsTODO -> GoPro.DB.Postgres.momentsTODO db
+  MetaBlobTODO -> GoPro.DB.Postgres.metaBlobTODO db
+  InsertMetaBlob mediumID metadataType bs -> GoPro.DB.Postgres.insertMetaBlob mediumID metadataType bs db
+  LoadMetaBlob mediumID -> GoPro.DB.Postgres.loadMetaBlob db mediumID
+  SelectMetaBlob -> GoPro.DB.Postgres.selectMetaBlob db
+  ClearMetaBlob mediumIDs -> GoPro.DB.Postgres.clearMetaBlob mediumIDs db
+  MetaTODO -> GoPro.DB.Postgres.metaTODO db
+  InsertMeta mediumID mdSummary -> GoPro.DB.Postgres.insertMeta mediumID mdSummary db
+  SelectMeta -> GoPro.DB.Postgres.selectMeta db
+  LoadMeta mediumID -> GoPro.DB.Postgres.loadMeta db mediumID
+  StoreUpload filePath mediumID upload derivativeID i1 i2 -> GoPro.DB.Postgres.storeUpload filePath mediumID upload derivativeID i1 i2 db
+  CompletedUploadPart mediumID i1 i2 -> GoPro.DB.Postgres.completedUploadPart mediumID i1 i2 db
+  CompletedUpload mediumID i -> GoPro.DB.Postgres.completedUpload mediumID i db
+  ListPartialUploads -> GoPro.DB.Postgres.listPartialUploads db
+  ClearUploads -> GoPro.DB.Postgres.clearUploads db
+  ListQueuedFiles -> GoPro.DB.Postgres.listQueuedFiles db
+  ListToCopyToS3 -> GoPro.DB.Postgres.listToCopyToS3 db
+  QueuedCopyToS3 pairs -> GoPro.DB.Postgres.queuedCopyToS3 pairs db
+  MarkS3CopyComplete results -> GoPro.DB.Postgres.markS3CopyComplete results db
+  ListS3Waiting -> GoPro.DB.Postgres.listS3Waiting db
+  ListToCopyLocally -> GoPro.DB.Postgres.listToCopyLocally db
+  SelectAreas -> GoPro.DB.Postgres.selectAreas db
+
+  FoldGPSReadings mediumID maxDop fold -> GoPro.DB.Postgres.foldGPSReadings db mediumID maxDop fold
+  StoreGPSReadings mediumID readings -> GoPro.DB.Postgres.storeGPSReadings db mediumID readings
+  GPSReadingsTODO -> GoPro.DB.Postgres.gpsReadingsTODO db
+
+  FileTODO -> GoPro.DB.Postgres.fileTODO db
+  StoreFiles files -> GoPro.DB.Postgres.storeFiles db files
+  LoadFiles maybeMediumID -> GoPro.DB.Postgres.loadFiles db maybeMediumID
+
+  FixupQuery query -> GoPro.DB.Postgres.fixupQuery db query
 
 initQueries :: [(Int64, ByteString)]
 initQueries = [
