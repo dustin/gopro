@@ -16,20 +16,19 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Cache Key
       id: cache_key
-      run: echo ::set-output name=key::$(stack $RESOLVER ls dependencies | md5sum | awk '{print $1}')
+      run: echo "key=$(stack $RESOLVER ls dependencies | md5sum | awk '{print $1}')" >> $GITHUB_ENV
       env:
         RESOLVER: ${{ matrix.plan.resolver }}
 
     - name: Cache Dependencies
-      id: cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ~/.stack
-        key: ${{ matrix.os }}-${{ matrix.plan.resolver }}-${{ steps.cache_key.outputs.key }}
+        key: ${{ matrix.os }}-${{ matrix.plan.resolver }}-${{ env.key }}
 
     - name: Build Snapshot
       if: steps.cache.outputs.cache-hit != 'true'
