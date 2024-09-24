@@ -8,6 +8,7 @@
 
 module GoPro.Commands where
 
+import           Amazonka.S3            (BucketName (..))
 import           Cleff
 import           Cleff.Fail
 import           Cleff.Reader
@@ -29,6 +30,7 @@ import           GoPro.Logging
 import           GoPro.Notification
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media       (FileInfo, MediumID, MediumType)
+import           GoPro.S3
 
 -- Extractor function for deciding which files to download for backing up.
 -- (medium id, head url, url)
@@ -127,12 +129,16 @@ withDB s
   | "postgres:" `isPrefixOf` s = runDatabasePostgresStr s
   | otherwise = runDatabaseSqliteStr s
 
-runWithOptions :: Options -> (forall es. [IOE, DatabaseEff, LogFX, Fail, Reader Env] :>> es => Eff es a) -> IO a
+runWithOptions :: Options -> (forall es. [IOE, DatabaseEff, S3, LogFX, Fail, Reader Env] :>> es => Eff es a) -> IO a
 runWithOptions o@Options{..} a = runIOE . runFailIO $ withDB optDBPath $ do
   initTables
   cfg <- loadConfig
   cache <- liftIO $ newCache (Just (TimeSpec 60 0))
   mut <- newEmptyMVar
   tc <- liftIO mkLogChannel
-  runReader (Env o cfg cache mut tc) . runLogFX tc optVerbose $ a
+  let env = Env o cfg cache mut tc
+  s3runner <- case configItemDef CfgBucket "" env of
+    "" -> pure unconfiguredS3
+    bn -> pure $ runS3 (BucketName bn)
+  runReader env . runLogFX tc optVerbose . s3runner $ a
 

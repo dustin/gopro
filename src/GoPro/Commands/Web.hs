@@ -29,17 +29,6 @@ import           Data.String                    (fromString)
 import qualified Data.Text                      as T
 import qualified Data.Text.Lazy                 as LT
 import qualified Data.Vector                    as V
-
-import           GoPro.Commands
-import           GoPro.Commands.Sync            (extractFiles, refreshMedia, runFullSync)
-import           GoPro.DB
-import           GoPro.DEVC                     (GPSReading (..))
-import           GoPro.File
-import           GoPro.Logging
-import           GoPro.Notification
-import           GoPro.Plus.Auth
-import           GoPro.Plus.Media
-import           GoPro.Resolve
 import           Network.HTTP.Types.Status      (noContent204)
 import qualified Network.Wai.Handler.Warp       as Warp
 import qualified Network.Wai.Handler.WebSockets as WaiWS
@@ -53,6 +42,19 @@ import           UnliftIO                       (async)
 import           Web.Scotty.Trans               (ActionT, ScottyT, captureParam, file, get, json, middleware, post, raw,
                                                  scottyAppT, setHeader, status, text)
 
+import           GoPro.Commands
+import           GoPro.Commands.Sync            (extractFiles, refreshMedia, runFullSync)
+import           GoPro.DB
+import           GoPro.DEVC                     (GPSReading (..))
+import           GoPro.File
+import           GoPro.Logging
+import           GoPro.Notification
+import           GoPro.Plus.Auth
+import           GoPro.Plus.Media
+import           GoPro.Resolve
+import           GoPro.S3
+
+
 ltshow :: Show a => a -> LT.Text
 ltshow = LT.pack . show
 
@@ -64,7 +66,7 @@ namedFiles Medium{..} mx fdf = fmap nameOne
       where
         FileData{..} = fdf a
 
-runServer :: forall es. [Reader Env, LogFX, DatabaseEff, Fail, IOE] :>> es => Eff es ()
+runServer :: forall es. [Reader Env, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 runServer = do
   let settings = Warp.setPort 8008 Warp.defaultSettings
   env <- ask

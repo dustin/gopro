@@ -69,7 +69,7 @@ retryRetrieve mid = recoverAll policy $ \r -> do
 
 type LambdaFunc = Text
 
-copyMedia :: [Reader Env, Fail, LogFX, DatabaseEff, IOE] :>> es => LambdaFunc -> Extractor -> MediumID -> Eff es ()
+copyMedia :: [Reader Env, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => LambdaFunc -> Extractor -> MediumID -> Eff es ()
 copyMedia λ extract mid = do
   todo <- extract mid <$> retryRetrieve mid
   pooledMapConcurrentlyN_ 5 copy todo
@@ -218,7 +218,7 @@ extractOrig mid = filter desirable . extractMedia mid
                                     || (".jpg" `isSuffixOf` fn && "-file" `isInfixOf` fn)
                                     || ("raw_photo.gpr" `isInfixOf` fn)
 
-runBackup :: [Reader Env, Fail, LogFX, DatabaseEff, IOE] :>> es => Extractor -> Eff es ()
+runBackup :: [Reader Env, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => Extractor -> Eff es ()
 runBackup ex = do
   λ <- asks (configItem CfgCopyFunc)
   todo <- take 5 <$> listToCopyToS3
@@ -248,7 +248,7 @@ runDownload ex paths mids = do
         "tmp"   -> pure StopRecursing
         _       -> tell (Set.fromList (pack <$> subdirs)) $> Continue
 
-runStoreMeta :: [Reader Env, Fail, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
+runStoreMeta :: [Reader Env, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => Eff es ()
 runStoreMeta = do
   logDbg "Finding metadata blobs stored in S3 and local database"
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
@@ -259,7 +259,7 @@ runStoreMeta = do
   c <- asksOpt optUploadConcurrency
   pooledMapConcurrentlyN_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
 
-runStoreMeta' :: [Reader Env, Fail, LogFX, DatabaseEff, IOE] :>> es => [(MediumID, Maybe ByteString)] -> Eff es ()
+runStoreMeta' :: [Reader Env, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => [(MediumID, Maybe ByteString)] -> Eff es ()
 runStoreMeta' [] = pure ()
 runStoreMeta' local = do
   logDbg "Finding metadata blobs stored in S3 and local database"
@@ -271,7 +271,7 @@ runStoreMeta' local = do
   c <- asksOpt optUploadConcurrency
   pooledMapConcurrentlyN_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
 
-runClearMeta :: [Reader Env, Fail, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
+runClearMeta :: [Reader Env, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => Eff es ()
 runClearMeta = do
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
   let backedup =  filter (`Set.member` have) (fst <$> local)

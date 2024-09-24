@@ -39,6 +39,7 @@ import           GoPro.DB
 import           GoPro.Logging
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
+import           GoPro.S3
 
 atLeast :: (Read n, Show n, Ord n, Num n) => n -> ReadM n
 atLeast n = auto >>= \i -> if i >= n then pure i else readerError ("must be at least " <> show n)
@@ -139,7 +140,7 @@ runAuth = do
 runReauth :: [DatabaseEff, IOE] :>> es => Eff es ()
 runReauth = updateAuth =<< refreshAuth . arInfo =<< loadAuth
 
-run :: [Reader Env, LogFX, DatabaseEff, Fail, IOE] :>> es => Command -> Eff es ()
+run :: [Reader Env, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Command -> Eff es ()
 run AuthCmd               = runAuth
 run ReauthCmd             = runReauth
 run SyncCmd               = runFullSync

@@ -119,7 +119,7 @@ metadataSources fi = fold [variation "mp4_low" "low",
 
     variation var = ls (fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url)
 
-runGetMeta :: forall es. [Reader Env, LogFX, DatabaseEff, Fail, IOE] :>> es => Eff es ()
+runGetMeta :: forall es. [Reader Env, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 runGetMeta = do
   needs <- metaBlobTODO
   logInfoL ["Fetching meta ", tshow (length needs)]
@@ -311,7 +311,7 @@ extractFiles mid fi = fold [ ex "var" variations,
                       _fd_file_size = 0 -- TBD
                     })
 
-runFullSync :: [Reader Env, LogFX, DatabaseEff, Fail, IOE] :>> es => Eff es ()
+runFullSync :: [Reader Env, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 runFullSync = do
   runFetch Incremental
   runGetMeta
