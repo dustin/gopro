@@ -46,9 +46,9 @@ dependencies:
 - geodetics
 - gopro-plus >= 0.6.6.6
 - gpmf
-- hasql
-- hasql-pool
-- hasql-th
+- hasql >=1.6.0.1 && <1.7
+- hasql-pool < 1
+- hasql-th < 0.5
 - hasql-transaction
 - hsexif
 - http-conduit
