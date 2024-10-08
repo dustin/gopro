@@ -45,6 +45,7 @@ library
       GoPro.Meta
       GoPro.Notification
       GoPro.Resolve
+      GoPro.RunDB
       GoPro.S3
   other-modules:
       Paths_gopro
@@ -93,6 +94,7 @@ library
     , gopro-plus >=0.6.6.6
     , gpmf
     , hasql
+    , hasql-pool
     , hasql-th
     , hasql-transaction
     , hsexif
@@ -187,6 +189,7 @@ executable gopro
     , gopro-plus >=0.6.6.6
     , gpmf
     , hasql
+    , hasql-pool
     , hasql-th
     , hasql-transaction
     , hsexif
@@ -285,6 +288,7 @@ test-suite gopro-test
     , gopro-plus >=0.6.6.6
     , gpmf
     , hasql
+    , hasql-pool
     , hasql-th
     , hasql-transaction
     , hsexif

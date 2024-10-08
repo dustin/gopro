@@ -1,10 +1,9 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# LANGUAGE DataKinds                  #-}
-{-# LANGUAGE FlexibleContexts           #-}
-{-# LANGUAGE FlexibleInstances          #-}
-{-# LANGUAGE GeneralisedNewtypeDeriving #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE UndecidableInstances       #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module GoPro.Commands where
 
@@ -14,7 +13,6 @@ import           Cleff.Fail
 import           Cleff.Reader
 import           Control.Concurrent.STM (TChan, atomically, writeTChan)
 import           Data.Cache             (Cache (..), fetchWithCache, newCache)
-import           Data.List              (isPrefixOf)
 import           Data.List.NonEmpty     (NonEmpty (..))
 import           Data.Map.Strict        (Map)
 import qualified Data.Map.Strict        as Map
@@ -24,12 +22,11 @@ import           UnliftIO               (bracket_)
 import           UnliftIO.MVar          (MVar, newEmptyMVar, putMVar, takeMVar)
 
 import           GoPro.DB
-import           GoPro.DB.Postgres      (runDatabasePostgresStr)
-import           GoPro.DB.Sqlite        (runDatabaseSqliteStr)
 import           GoPro.Logging
 import           GoPro.Notification
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media       (FileInfo, MediumID, MediumType)
+import           GoPro.RunDB
 import           GoPro.S3
 
 -- Extractor function for deciding which files to download for backing up.
@@ -123,11 +120,6 @@ tshow = T.pack . show
 
 sendNotification :: [IOE, Reader Env] :>> es => Notification -> Eff es ()
 sendNotification note = asks noteChan >>= \ch -> liftIO . atomically . writeTChan ch $ note
-
-withDB :: IOE :> es => String -> (Eff (DatabaseEff : es) a) -> Eff es a
-withDB s
-  | "postgres:" `isPrefixOf` s = runDatabasePostgresStr s
-  | otherwise = runDatabaseSqliteStr s
 
 runWithOptions :: Options -> (forall es. [IOE, DatabaseEff, S3, LogFX, Fail, Reader Env] :>> es => Eff es a) -> IO a
 runWithOptions o@Options{..} a = runIOE . runFailIO $ withDB optDBPath $ do

@@ -47,6 +47,7 @@ dependencies:
 - gopro-plus >= 0.6.6.6
 - gpmf
 - hasql
+- hasql-pool
 - hasql-th
 - hasql-transaction
 - hsexif

@@ -43,19 +43,22 @@ import           Prelude                    hiding (init)
 import           Text.RawString.QQ
 import           Text.Read                  (readMaybe)
 
-import           Hasql.Connection           (Connection)
-import qualified Hasql.Connection           as Connection
 import           Hasql.Decoders             (Row, Value, column, foldlRows, foldrRows, noResult, nonNullable, nullable,
                                              rowList, rowMaybe, singleRow)
 import qualified Hasql.Decoders             as Decoders
 import           Hasql.Encoders             (noParams)
 import qualified Hasql.Encoders             as Encoders
+import           Hasql.Pool                 (Pool)
+import qualified Hasql.Pool                 as Pool
+import           Hasql.Session              (Session)
 import qualified Hasql.Session              as Session
 import           Hasql.Statement            (Statement (..))
 import qualified Hasql.Transaction          as TX
 import           Hasql.Transaction.Sessions (transaction)
 import qualified Hasql.Transaction.Sessions as TX
 
+import           Control.Exception          (throwIO)
+import           Control.Monad              ((<=<))
 import           Data.Functor.Contravariant ((>$<))
 import           GoPro.DB
 import           GoPro.DEVC                 (GPSReading (..))
@@ -65,58 +68,67 @@ import           GoPro.Plus.Upload          (DerivativeID, Upload (..), UploadPa
 import           GoPro.Resolve              (MDSummary (..))
 
 runDatabasePostgresStr :: IOE :> es => String -> Eff (DatabaseEff : es) a -> Eff es a
-runDatabasePostgresStr (fromString -> s) f = liftIO (mightFail $ Connection.acquire s) >>= flip runDatabasePostgres f
+runDatabasePostgresStr (fromString -> s) f =
+  liftIO (Pool.acquire 1 (seconds 1) (seconds 3600) (seconds 900) s) >>= flip runDatabasePostgres f
+    where
+        seconds = (* 1000000)
 
 -- Effect Interpretation via IO
-runDatabasePostgres :: IOE :> es => Connection -> Eff (DatabaseEff : es) a -> Eff es a
-runDatabasePostgres db = interpretIO \case
-  InitTables -> GoPro.DB.Postgres.initTables db
-  LoadConfig -> GoPro.DB.Postgres.loadConfig db
-  UpdateConfig config -> GoPro.DB.Postgres.updateConfig config db
+runDatabasePostgres :: IOE :> es => Pool -> Eff (DatabaseEff : es) a -> Eff es a
+runDatabasePostgres pool = interpretIO \case
+  InitTables -> pooling GoPro.DB.Postgres.initTables
+  LoadConfig -> pooling GoPro.DB.Postgres.loadConfig
+  UpdateConfig config -> pooling (GoPro.DB.Postgres.updateConfig config)
 
-  UpdateAuth authInfo -> GoPro.DB.Postgres.updateAuth db authInfo
-  LoadAuth -> GoPro.DB.Postgres.loadAuth db
+  UpdateAuth authInfo -> pooling (GoPro.DB.Postgres.updateAuth authInfo)
+  LoadAuth -> pooling GoPro.DB.Postgres.loadAuth
 
-  StoreMedia mediaRows -> GoPro.DB.Postgres.storeMedia mediaRows db
-  LoadMediaIDs -> GoPro.DB.Postgres.loadMediaIDs db
-  LoadMediaRows -> GoPro.DB.Postgres.loadMediaRows db
-  LoadMedia -> GoPro.DB.Postgres.loadMedia db
-  LoadMedium mediumID -> GoPro.DB.Postgres.loadMedium db mediumID
-  LoadThumbnail mediumID -> GoPro.DB.Postgres.loadThumbnail db mediumID
-  StoreMoments mediumID moments -> GoPro.DB.Postgres.storeMoments mediumID moments db
-  LoadMoments -> GoPro.DB.Postgres.loadMoments db
-  MomentsTODO -> GoPro.DB.Postgres.momentsTODO db
-  MetaBlobTODO -> GoPro.DB.Postgres.metaBlobTODO db
-  InsertMetaBlob mediumID metadataType bs -> GoPro.DB.Postgres.insertMetaBlob mediumID metadataType bs db
-  LoadMetaBlob mediumID -> GoPro.DB.Postgres.loadMetaBlob db mediumID
-  SelectMetaBlob -> GoPro.DB.Postgres.selectMetaBlob db
-  ClearMetaBlob mediumIDs -> GoPro.DB.Postgres.clearMetaBlob mediumIDs db
-  MetaTODO -> GoPro.DB.Postgres.metaTODO db
-  InsertMeta mediumID mdSummary -> GoPro.DB.Postgres.insertMeta mediumID mdSummary db
-  SelectMeta -> GoPro.DB.Postgres.selectMeta db
-  LoadMeta mediumID -> GoPro.DB.Postgres.loadMeta db mediumID
-  StoreUpload filePath mediumID upload derivativeID i1 i2 -> GoPro.DB.Postgres.storeUpload filePath mediumID upload derivativeID i1 i2 db
-  CompletedUploadPart mediumID i1 i2 -> GoPro.DB.Postgres.completedUploadPart mediumID i1 i2 db
-  CompletedUpload mediumID i -> GoPro.DB.Postgres.completedUpload mediumID i db
-  ListPartialUploads -> GoPro.DB.Postgres.listPartialUploads db
-  ClearUploads -> GoPro.DB.Postgres.clearUploads db
-  ListQueuedFiles -> GoPro.DB.Postgres.listQueuedFiles db
-  ListToCopyToS3 -> GoPro.DB.Postgres.listToCopyToS3 db
-  QueuedCopyToS3 pairs -> GoPro.DB.Postgres.queuedCopyToS3 pairs db
-  MarkS3CopyComplete results -> GoPro.DB.Postgres.markS3CopyComplete results db
-  ListS3Waiting -> GoPro.DB.Postgres.listS3Waiting db
-  ListToCopyLocally -> GoPro.DB.Postgres.listToCopyLocally db
-  SelectAreas -> GoPro.DB.Postgres.selectAreas db
+  StoreMedia mediaRows -> pooling (GoPro.DB.Postgres.storeMedia mediaRows)
+  LoadMediaIDs -> pooling GoPro.DB.Postgres.loadMediaIDs
+  LoadMediaRows -> pooling GoPro.DB.Postgres.loadMediaRows
+  LoadMedia -> pooling GoPro.DB.Postgres.loadMedia
+  LoadMedium mediumID -> pooling (GoPro.DB.Postgres.loadMedium mediumID)
+  LoadThumbnail mediumID -> pooling (GoPro.DB.Postgres.loadThumbnail mediumID)
+  StoreMoments mediumID moments -> pooling (GoPro.DB.Postgres.storeMoments mediumID moments)
+  LoadMoments -> pooling GoPro.DB.Postgres.loadMoments
+  MomentsTODO -> pooling GoPro.DB.Postgres.momentsTODO
+  MetaBlobTODO -> pooling GoPro.DB.Postgres.metaBlobTODO
+  InsertMetaBlob mediumID metadataType bs -> pooling (GoPro.DB.Postgres.insertMetaBlob mediumID metadataType bs)
+  LoadMetaBlob mediumID -> pooling (GoPro.DB.Postgres.loadMetaBlob mediumID)
+  SelectMetaBlob -> pooling GoPro.DB.Postgres.selectMetaBlob
+  ClearMetaBlob mediumIDs -> pooling (GoPro.DB.Postgres.clearMetaBlob mediumIDs)
+  MetaTODO -> pooling GoPro.DB.Postgres.metaTODO
+  InsertMeta mediumID mdSummary -> pooling (GoPro.DB.Postgres.insertMeta mediumID mdSummary)
+  SelectMeta -> pooling GoPro.DB.Postgres.selectMeta
+  LoadMeta mediumID -> pooling (GoPro.DB.Postgres.loadMeta mediumID)
+  StoreUpload filePath mediumID upload derivativeID i1 i2 -> pooling (GoPro.DB.Postgres.storeUpload filePath mediumID upload derivativeID i1 i2)
+  CompletedUploadPart mediumID i1 i2 -> pooling (GoPro.DB.Postgres.completedUploadPart mediumID i1 i2)
+  CompletedUpload mediumID i -> pooling (GoPro.DB.Postgres.completedUpload mediumID i)
+  ListPartialUploads -> pooling GoPro.DB.Postgres.listPartialUploads
+  ClearUploads -> pooling GoPro.DB.Postgres.clearUploads
+  ListQueuedFiles -> pooling GoPro.DB.Postgres.listQueuedFiles
+  ListToCopyToS3 -> pooling GoPro.DB.Postgres.listToCopyToS3
+  QueuedCopyToS3 pairs -> pooling (GoPro.DB.Postgres.queuedCopyToS3 pairs)
+  MarkS3CopyComplete results -> pooling (GoPro.DB.Postgres.markS3CopyComplete results)
+  ListS3Waiting -> pooling GoPro.DB.Postgres.listS3Waiting
+  ListToCopyLocally -> pooling GoPro.DB.Postgres.listToCopyLocally
+  SelectAreas -> pooling GoPro.DB.Postgres.selectAreas
 
-  FoldGPSReadings mediumID maxDop fold -> GoPro.DB.Postgres.foldGPSReadings db mediumID maxDop fold
-  StoreGPSReadings mediumID readings -> GoPro.DB.Postgres.storeGPSReadings db mediumID readings
-  GPSReadingsTODO -> GoPro.DB.Postgres.gpsReadingsTODO db
+  FoldGPSReadings mediumID maxDop fold -> pooling (GoPro.DB.Postgres.foldGPSReadings mediumID maxDop fold)
+  StoreGPSReadings mediumID readings -> pooling (GoPro.DB.Postgres.storeGPSReadings mediumID readings)
+  GPSReadingsTODO -> pooling GoPro.DB.Postgres.gpsReadingsTODO
 
-  FileTODO -> GoPro.DB.Postgres.fileTODO db
-  StoreFiles files -> GoPro.DB.Postgres.storeFiles db files
-  LoadFiles maybeMediumID -> GoPro.DB.Postgres.loadFiles db maybeMediumID
+  FileTODO -> pooling GoPro.DB.Postgres.fileTODO
+  StoreFiles files -> pooling (GoPro.DB.Postgres.storeFiles files)
+  LoadFiles maybeMediumID -> pooling (GoPro.DB.Postgres.loadFiles maybeMediumID)
 
-  FixupQuery query -> GoPro.DB.Postgres.fixupQuery db query
+  FixupQuery query -> pooling (GoPro.DB.Postgres.fixupQuery query)
+
+  where
+    -- use :: Pool -> Session a -> IO (Either UsageError a)
+    pooling :: Session a -> IO a
+    pooling = must <=< liftIO . Pool.use pool
+    must = either throwIO pure
 
 initQueries :: [(Int64, ByteString)]
 initQueries = [
@@ -230,10 +242,8 @@ initQueries = [
   (11, "alter table files add column section text not null")
   ]
 
-initTables :: MonadIO m => Connection -> m ()
-initTables = mightFail . Session.run sess
-  where
-    sess = do
+initTables :: Session ()
+initTables = do
       uv <- Session.statement () $ Statement "select coalesce(current_setting('gopro.version', true)::int, 0) as version"
             noParams (Decoders.singleRow (column (Decoders.nonNullable Decoders.int8))) True
       dbname <- Session.statement () $ Statement "select current_database()" noParams (Decoders.singleRow (column (nonNullable Decoders.bytea))) True
@@ -241,11 +251,8 @@ initTables = mightFail . Session.run sess
       Session.sql $ "set gopro.version to " <> (fromString . show . maximum . fmap fst $ initQueries)
       Session.sql $ "alter database " <> dbname <> " set gopro.version from current"
 
-mightFail :: (MonadIO m, Show s) => IO (Either s a) -> m a
-mightFail a = either (liftIO . fail . show) pure =<< liftIO a
-
-loadConfig :: MonadIO m => Connection -> m (Map ConfigOption Text)
-loadConfig = mightFail . Session.run (Session.statement () st)
+loadConfig :: Session (Map ConfigOption Text)
+loadConfig = Session.statement () st
   where
     st :: Statement () (Map ConfigOption Text)
     st = [foldStatement|select key :: text, value :: text from config|] (Fold f mempty conv)
@@ -254,8 +261,8 @@ loadConfig = mightFail . Session.run (Session.statement () st)
     f m (k,v) = Map.insert k v m
     conv = Map.mapKeys (fromMaybe (error "invalid option in db") . strOption)
 
-updateConfig :: MonadIO m => Map ConfigOption Text -> Connection -> m ()
-updateConfig cfg db = mightFail $ flip Session.run db $ do
+updateConfig :: Map ConfigOption Text -> Session ()
+updateConfig cfg = do
   Session.sql "delete from config"
   traverse_ (flip Session.statement ins . f) $ Map.assocs cfg
 
@@ -280,10 +287,9 @@ upsertMediaS = [resultlessStatement|insert into media (media_id, camera_model, c
                                        raw_json = excluded.raw_json
                               |]
 
-storeMedia :: MonadIO m => [MediaRow] -> Connection -> m ()
-storeMedia rows = mightFail . Session.run sess
+storeMedia :: [MediaRow] -> Session ()
+storeMedia = traverse_ one
   where
-    sess = mapM_ one rows
     one (MediaRow Medium{..} thumbnail vars raw) = Session.statement (
       _medium_id,
       T.pack <$> _medium_camera_model,
@@ -311,20 +317,20 @@ mediaRow = MediaRow <$> mediumRow
              <*> column (Decoders.nonNullable Decoders.jsonb)
              <*> column (Decoders.nonNullable Decoders.jsonb)
 
-loadMediaRows :: MonadIO m => Connection -> m [MediaRow]
-loadMediaRows = mightFail . Session.run (Session.statement () st)
+loadMediaRows :: Session [MediaRow]
+loadMediaRows = Session.statement () st
   where
     st = Statement [r|select
                          media_id, camera_model, captured_at, created_at, file_size, moments_count, ready_to_view,
                          (extract(epoch from source_duration)*1000)::integer::text, media_type, width, height, filename, thumbnail,
                          variants, raw_json from media|] noParams (rowList mediaRow) True
 
-queryStrings :: MonadIO m => ByteString -> Connection -> m [Text]
-queryStrings q = mightFail . Session.run (Session.statement () l)
+queryStrings :: ByteString -> Session [Text]
+queryStrings q = Session.statement () l
   where
     l = Statement q noParams (rowList ((column . nonNullable) Decoders.text)) True
 
-loadMediaIDs :: MonadIO m => Connection -> m [MediumID]
+loadMediaIDs :: Session [MediumID]
 loadMediaIDs = queryStrings "select media_id from media order by captured_at desc"
 
 mediumRow :: Row Medium
@@ -349,8 +355,8 @@ mediumRow = Medium
 readr :: Read r => Value r
 readr = Decoders.enum (readMaybe . T.unpack)
 
-loadMedia :: MonadIO m => Connection -> m [Medium]
-loadMedia = mightFail . Session.run (Session.statement () st)
+loadMedia :: Session [Medium]
+loadMedia = Session.statement () st
   where
     st = Statement sql noParams (rowList mediumRow) True
     sql = [r|select media_id,
@@ -368,8 +374,8 @@ loadMedia = mightFail . Session.run (Session.statement () st)
                  from media
                  order by captured_at desc|]
 
-loadMedium :: MonadIO m => Connection -> MediumID -> m (Maybe Medium)
-loadMedium db mid = mightFail . Session.run (Session.statement mid st) $ db
+loadMedium :: MediumID -> Session (Maybe Medium)
+loadMedium mid = Session.statement mid st
   where
     st = Statement sql (Encoders.param (Encoders.nonNullable Encoders.text)) (rowMaybe mediumRow) True
     sql = [r|select media_id,
@@ -387,13 +393,13 @@ loadMedium db mid = mightFail . Session.run (Session.statement mid st) $ db
                  from media
                  where media_id = $1|]
 
-loadThumbnail :: MonadIO m => Connection -> MediumID -> m (Maybe BL.ByteString)
-loadThumbnail db imgid = (fmap.fmap) BL.fromStrict . mightFail . Session.run (Session.statement imgid st) $ db
+loadThumbnail :: MediumID -> Session (Maybe BL.ByteString)
+loadThumbnail imgid = fmap BL.fromStrict <$> Session.statement imgid st
   where
     st = [maybeStatement|select thumbnail::bytea from media where media_id = $1::text|]
 
-metaBlobTODO :: MonadIO m => Connection -> m [(MediumID, String)]
-metaBlobTODO = fmap ((fmap.fmap) T.unpack . toList) . mightFail . Session.run (Session.statement () st)
+metaBlobTODO :: Session [(MediumID, String)]
+metaBlobTODO = (fmap.fmap) T.unpack . toList <$> Session.statement () st
   where
     st = [vectorStatement|select media_id::text, media_type::text
                                  from media m
@@ -403,16 +409,15 @@ metaBlobTODO = fmap ((fmap.fmap) T.unpack . toList) . mightFail . Session.run (S
 tshow :: Show a => a -> Text
 tshow = T.pack . show
 
-insertMetaBlob :: MonadIO m => MediumID -> MetadataType -> Maybe BS.ByteString -> Connection -> m ()
-insertMetaBlob mid fmt blob =
-  mightFail . Session.run (Session.statement (mid, tshow fmt, blob, fromIntegral $ maybe 0 BS.length blob) st)
+insertMetaBlob :: MediumID -> MetadataType -> Maybe BS.ByteString -> Session ()
+insertMetaBlob mid fmt blob = Session.statement (mid, tshow fmt, blob, fromIntegral $ maybe 0 BS.length blob) st
   where
     st = [resultlessStatement|
             insert into metablob (media_id, format, meta, meta_length, backedup) values ($1::text, $2::text, $3::bytea?, $4::int8, false)
          |]
 
-metaTODO :: MonadIO m => Connection -> m [(MediumID, MetadataType, BS.ByteString)]
-metaTODO = mightFail . Session.run (Session.statement () st)
+metaTODO :: Session [(MediumID, MetadataType, BS.ByteString)]
+metaTODO = Session.statement () st
   where
     st = Statement sql noParams (rowList dec) True
     dec = (,,) <$> column (nonNullable Decoders.text) <*> column (nonNullable readr) <*> column (nonNullable Decoders.bytea)
@@ -423,29 +428,29 @@ metaTODO = mightFail . Session.run (Session.statement () st)
               limit 20
             |]
 
-selectMetaBlob :: MonadIO m => Connection -> m [(MediumID, Maybe BS.ByteString)]
-selectMetaBlob = mightFail . Session.run (Session.statement () st)
+selectMetaBlob :: Session [(MediumID, Maybe BS.ByteString)]
+selectMetaBlob = Session.statement () st
   where
     st = Statement sql noParams (rowList dec) True
     dec = (,) <$> column (nonNullable Decoders.text) <*> column (nullable Decoders.bytea)
     sql = "select media_id, meta from metablob where meta is not null"
 
-loadMetaBlob :: MonadIO m => Connection -> MediumID -> m (Maybe (MetadataType, Maybe BS.ByteString))
-loadMetaBlob db mid = fmap resolve . mightFail . Session.run (Session.statement mid st) $ db
+loadMetaBlob :: MediumID -> Session (Maybe (MetadataType, Maybe BS.ByteString))
+loadMetaBlob mid = resolve <$> Session.statement mid st
   where
     resolve :: Maybe (Text, Maybe ByteString) -> Maybe (MetadataType, Maybe ByteString)
     resolve Nothing       = Nothing
     resolve (Just (t, b)) = maybe Nothing (\x -> Just (x, b)) . readMaybe . T.unpack $ t
     st = [maybeStatement|select format::text, meta::bytea? from metablob where media_id = $1::text|]
 
-clearMetaBlob :: MonadIO m => [MediumID] -> Connection -> m ()
-clearMetaBlob ms = mightFail . Session.run (traverse_ (`Session.statement` st) ms)
+clearMetaBlob :: [MediumID] -> Session ()
+clearMetaBlob = traverse_ (`Session.statement` st)
   where
     st = Statement sql (Encoders.param (Encoders.nonNullable Encoders.text)) noResult True
     sql = "update metablob set meta = null, backedup = true where media_id = $1"
 
-insertMeta :: MonadIO m => MediumID -> MDSummary -> Connection -> m ()
-insertMeta mid MDSummary{..} = mightFail . Session.run (Session.statement args ins)
+insertMeta :: MediumID -> MDSummary -> Session ()
+insertMeta mid MDSummary{..} = Session.statement args ins
   where
     args = (mid, T.pack _cameraModel, _capturedTime, _lat, _lon,
             _maxSpeed2d, _maxSpeed3d, _maxDistance, _totDistance,
@@ -472,13 +477,13 @@ areaRow = Area <$> (fromIntegral <$> (column . nonNullable) Decoders.int8)
   where
     f = (column . nonNullable) Decoders.float8
 
-selectAreas :: MonadIO m => Connection -> m [Area]
-selectAreas = mightFail . Session.run (Session.statement () st)
+selectAreas :: Session [Area]
+selectAreas = Session.statement () st
   where
     st = Statement "select area_id, name, lat1, lon1, lat2, lon2 from areas" noParams (rowList areaRow) True
 
-storeMoments :: MonadIO m => MediumID -> [Moment] -> Connection -> m ()
-storeMoments mid ms = mightFail . Session.run (transaction TX.Serializable TX.Write tx)
+storeMoments :: MediumID -> [Moment] -> Session ()
+storeMoments mid ms = transaction TX.Serializable TX.Write tx
   where
     tx = do
       TX.statement mid del
@@ -487,13 +492,13 @@ storeMoments mid ms = mightFail . Session.run (transaction TX.Serializable TX.Wr
     del = [resultlessStatement|delete from moments where media_id = $1::text|]
     ins = [resultlessStatement|insert into moments (media_id, moment_id, timestamp) values ($1::text,$2::text,$3::int?)|]
 
-loadMoments :: MonadIO m => Connection -> m (Map MediumID [Moment])
-loadMoments = mightFail . Session.run (Session.statement () st)
+loadMoments :: Session (Map MediumID [Moment])
+loadMoments = Session.statement () st
   where
     st = [foldStatement|select media_id::text, moment_id::text, timestamp::int? from moments|] (Fold f mempty id)
     f o (m, i, fmap fromIntegral -> t) = Map.alter (\ml -> Just (Moment i t : fromMaybe [] ml)) m o
 
-momentsTODO :: MonadIO m => Connection -> m [MediumID]
+momentsTODO :: Session [MediumID]
 momentsTODO = queryStrings sql
   where
     sql = [r|
@@ -503,8 +508,8 @@ momentsTODO = queryStrings sql
                         where m.moments_count != coalesce(moco, 0)
             |]
 
-storeUpload :: MonadIO m => FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> Integer -> Connection -> m ()
-storeUpload fp mid Upload{..} did partnum chunkSize db = mightFail . flip Session.run db $ do
+storeUpload :: FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> Integer -> Session ()
+storeUpload fp mid Upload{..} did partnum chunkSize = do
   Session.statement (T.pack fp, mid, _uploadID, did, fromIntegral partnum, fromIntegral chunkSize) upSt
   for_ _uploadParts $ \UploadPart{..} -> Session.statement (mid, fromIntegral _uploadPart, fromIntegral partnum) partSt
   where
@@ -512,14 +517,14 @@ storeUpload fp mid Upload{..} did partnum chunkSize db = mightFail . flip Sessio
              insert into uploads (filename, media_id, upid, did, partnum, chunk_size) values ($1::text, $2::text, $3::text, $4::text, $5::int, $6::int)|]
     partSt = [resultlessStatement|insert into upload_parts (media_id, part, partnum) values ($1::text, $2::int, $3::int)|]
 
-completedUploadPart :: MonadIO m => MediumID -> Integer -> Integer -> Connection -> m ()
-completedUploadPart mid i p = mightFail . Session.run (Session.statement (mid, fromIntegral i, fromIntegral p) st)
+completedUploadPart :: MediumID -> Integer -> Integer -> Session ()
+completedUploadPart mid i p = Session.statement (mid, fromIntegral i, fromIntegral p) st
   where
     st :: Statement (Text, Int32, Int32) ()
     st = [resultlessStatement|delete from upload_parts where media_id = $1::text and part = $2::int and partnum = $3::int|]
 
-completedUpload :: MonadIO m => MediumID -> Integer -> Connection -> m ()
-completedUpload mid p = mightFail . Session.run (Session.statement (mid, fromIntegral p) st)
+completedUpload :: MediumID -> Integer -> Session ()
+completedUpload mid p = Session.statement (mid, fromIntegral p) st
   where
     st :: Statement (Text, Int32) ()
     st = [resultlessStatement|delete from uploads where media_id = $1::text and partnum = $2::int|]
@@ -538,8 +543,8 @@ partialUploadRow = PartialUpload
     str = T.unpack <$> Decoders.text
 
 -- Return in order of least work to do.
-listPartialUploads :: MonadIO m => Connection -> m [[PartialUpload]]
-listPartialUploads db = mightFail . flip Session.run db $ do
+listPartialUploads :: Session [[PartialUpload]]
+listPartialUploads = do
     segs <- Map.fromListWith (<>) . fmap (\(mid, p, pn) -> ((mid, pn), [p])) <$> Session.statement () ps
     sortOn (maximum . fmap (length . _pu_parts)) .
       groupOn _pu_medium_id .
@@ -555,10 +560,10 @@ listPartialUploads db = mightFail . flip Session.run db $ do
                     <*> (column . nonNullable) int
         int = fromIntegral <$> Decoders.int8
 
-listQueuedFiles :: MonadIO m => Connection -> m [FilePath]
-listQueuedFiles = (fmap . fmap) T.unpack . queryStrings "select filename from uploads"
+listQueuedFiles :: Session [FilePath]
+listQueuedFiles = fmap T.unpack <$> queryStrings "select filename from uploads"
 
-listToCopyToS3 :: MonadIO m => Connection -> m [MediumID]
+listToCopyToS3 :: Session [MediumID]
 listToCopyToS3 = queryStrings sql
   where
     sql = [r|
@@ -567,28 +572,28 @@ listToCopyToS3 = queryStrings sql
             order by created_at
             |]
 
-listS3Waiting :: MonadIO m => Connection -> m [String]
-listS3Waiting = (fmap . fmap) T.unpack . queryStrings "select filename from s3backup where status is null"
+listS3Waiting :: Session [String]
+listS3Waiting = fmap T.unpack <$> queryStrings "select filename from s3backup where status is null"
 
-queuedCopyToS3 :: MonadIO m => [(MediumID, String)] -> Connection -> m ()
-queuedCopyToS3 ms = mightFail . Session.run (traverse_ (\p -> Session.statement (T.pack <$> p) st) ms)
+queuedCopyToS3 :: [(MediumID, String)] -> Session ()
+queuedCopyToS3 = traverse_ (\p -> Session.statement (T.pack <$> p) st)
   where
     st = [resultlessStatement|insert into s3backup (media_id, filename) values ($1::text, $2::text)|]
 
-markS3CopyComplete :: (MonadIO m, ToJSON j) => [(Text, Bool, j)] -> Connection -> m ()
-markS3CopyComplete stuffs = mightFail . Session.run (traverse_ (\p -> Session.statement (tr p) st) stuffs)
+markS3CopyComplete :: ToJSON j => [(Text, Bool, j)] -> Session ()
+markS3CopyComplete = traverse_ (\p -> Session.statement (tr p) st)
   where
     tr (fn, ok, res) = (ok, BL.toStrict (J.encode res), fn)
     st = [resultlessStatement|update s3backup set status = $1::bool, response = $2::bytea where filename = $3::text|]
 
-listToCopyLocally :: MonadIO m => Connection -> m [MediumID]
+listToCopyLocally :: Session [MediumID]
 listToCopyLocally = queryStrings "select media_id from media order by created_at"
 
-clearUploads :: MonadIO m => Connection -> m ()
-clearUploads = mightFail . Session.run (do
+clearUploads :: Session ()
+clearUploads = do
   g "delete from metablob where media_id not in (select media_id from media)"
   g "delete from upload_parts"
-  g "delete from uploads")
+  g "delete from uploads"
   where
     g q = Session.statement () (Statement q noParams noResult True)
 
@@ -614,8 +619,8 @@ namedSummaryRow = do
   where
     f = (column . nullable) Decoders.float8
 
-selectMeta :: forall m. MonadIO m => Connection -> m (Map MediumID MDSummary)
-selectMeta = mightFail . Session.run (Session.statement () st)
+selectMeta :: Session (Map MediumID MDSummary)
+selectMeta = Session.statement () st
   where
     st = Statement sql noParams (foldrRows (\(NamedSummary (k,v)) -> Map.insert k v) mempty namedSummaryRow) True
     sql = [r|
@@ -626,8 +631,8 @@ selectMeta = mightFail . Session.run (Session.statement () st)
            from meta
            where camera_model is not null|]
 
-loadMeta :: forall m. MonadIO m => Connection -> MediumID -> m (Maybe MDSummary)
-loadMeta db m = mightFail . Session.run (Session.statement m st) $ db
+loadMeta :: MediumID -> Session (Maybe MDSummary)
+loadMeta m = Session.statement m st
   where
     st = Statement sql (Encoders.param (Encoders.nonNullable Encoders.text)) (rowMaybe (unName <$> namedSummaryRow)) True
     sql = [r|select media_id, camera_model, captured_at, lat, lon,
@@ -638,8 +643,8 @@ loadMeta db m = mightFail . Session.run (Session.statement m st) $ db
              where media_id = $1 |]
     unName (NamedSummary (_,b)) = b
 
-updateAuth :: MonadIO m => Connection -> AuthInfo -> m ()
-updateAuth db AuthInfo{..} = mightFail . Session.run (transaction TX.Serializable TX.Write tx) $ db
+updateAuth :: AuthInfo -> Session ()
+updateAuth AuthInfo{..} = transaction TX.Serializable TX.Write tx
   where tx = do
           TX.sql "delete from authinfo"
           TX.statement (_resource_owner_id, _access_token, _refresh_token, fromIntegral _expires_in) st
@@ -647,8 +652,8 @@ updateAuth db AuthInfo{..} = mightFail . Session.run (transaction TX.Serializabl
                                  insert into authinfo (ts, owner_id, access_token, refresh_token, expires_in)
                                  values (current_timestamp, $1::text, $2::text, $3::text, $4::int)|]
 
-loadAuth :: MonadIO m => Connection -> m AuthResult
-loadAuth = mightFail . Session.run (Session.statement () st)
+loadAuth :: Session AuthResult
+loadAuth = Session.statement () st
   where
     st = Statement "select access_token, expires_in, refresh_token, owner_id, ts - '30 minutes'::interval + ('1 second'::interval * expires_in) < current_timestamp as expired from authinfo" noParams (singleRow dec) True
     dec = AuthResult <$> decai <*> column (nonNullable Decoders.bool)
@@ -658,11 +663,11 @@ loadAuth = mightFail . Session.run (Session.statement () st)
                      <*> column (nonNullable Decoders.text)
 
 -- TODO:  This would be nice.
-fixupQuery :: MonadIO m => Connection -> Text -> m [[(Text, J.Value)]]
-fixupQuery _ _ = liftIO $ fail "fixup query isn't currently supported for postgres"
+fixupQuery :: Text -> Session [[(Text, J.Value)]]
+fixupQuery _ = liftIO $ fail "fixup query isn't currently supported for postgres"
 
-foldGPSReadings :: MonadIO m => Connection -> MediumID -> Int -> Fold GPSReading b -> m b
-foldGPSReadings db m maxdop (Fold step a ex) = mightFail . Session.run (ex <$> Session.statement (m, fromIntegral maxdop) st) $ db
+foldGPSReadings :: MediumID -> Int -> Fold GPSReading b -> Session b
+foldGPSReadings m maxdop (Fold step a ex) = ex <$> Session.statement (m, fromIntegral maxdop) st
   where
     st = Statement sql enc (foldlRows step a dec) True
     sql = [r|select lat, lon, altitude, speed2d, speed3d, timestamp, dop, fix from gps_readings where media_id = $1 :: text and dop < $2 :: int4 order by timestamp|]
@@ -677,8 +682,8 @@ foldGPSReadings db m maxdop (Fold step a ex) = mightFail . Session.run (ex <$> S
     enc = (fst >$< Encoders.param (Encoders.nonNullable Encoders.text)) <> (snd >$< Encoders.param (Encoders.nonNullable Encoders.int4))
     int = fromIntegral <$> Decoders.int8
 
-storeGPSReadings :: MonadIO m => Connection -> MediumID -> [GPSReading] -> m ()
-storeGPSReadings db mid wps = mightFail . Session.run (transaction TX.Serializable TX.Write tx) $ db
+storeGPSReadings :: MediumID -> [GPSReading] -> Session ()
+storeGPSReadings mid wps = transaction TX.Serializable TX.Write tx
   where
     tx = do
       TX.statement mid (Statement "delete from gps_readings where media_id = $1 :: text" (Encoders.param (Encoders.nonNullable Encoders.text)) noResult True)
@@ -687,14 +692,14 @@ storeGPSReadings db mid wps = mightFail . Session.run (transaction TX.Serializab
     ist = [resultlessStatement|insert into gps_readings (media_id, timestamp, lat, lon, altitude, speed2d, speed3d, dop, fix)
            values ($1 :: text, $2 :: timestamptz, $3 :: float8, $4 :: float8, $5 :: float8, $6 :: float8, $7 :: float8, $8 :: float8, $9 :: int4)|]
 
-gpsReadingsTODO :: MonadIO m => Connection -> m [MediumID]
+gpsReadingsTODO :: Session [MediumID]
 gpsReadingsTODO = queryStrings [r|select m.media_id from meta m
                                   join metablob mb on (m.media_id = mb.media_id)
                                   where lat is not null
                                   and mb.format = 'GPMF'
                                   and not exists (select 1 from gps_readings where media_id = m.media_id)|]
 
-fileTODO :: MonadIO m => Connection -> m [MediumID]
+fileTODO :: Session [MediumID]
 fileTODO = queryStrings sql
   where
     sql = [r|
@@ -704,8 +709,8 @@ fileTODO = queryStrings sql
        order by created_at desc
       |]
 
-storeFiles :: MonadIO m => Connection -> [FileData] -> m ()
-storeFiles db wps = mightFail . Session.run (transaction TX.Serializable TX.Write tx) $ db
+storeFiles :: [FileData] -> Session ()
+storeFiles wps = transaction TX.Serializable TX.Write tx
   where
     tx = do
       -- TX.statement mid (Statement "delete from files where media_id = $1 :: text" (Encoders.param (Encoders.nonNullable Encoders.text)) noResult True)
@@ -714,8 +719,8 @@ storeFiles db wps = mightFail . Session.run (transaction TX.Serializable TX.Writ
     ist = [resultlessStatement|insert into files (media_id, section, label, type, item_number, file_size)
            values ($1 :: text, $2 :: text, $3 :: text, $4 :: text, $5 :: int4, $6 :: int8)|]
 
-loadFiles :: MonadIO m => Connection -> Maybe MediumID -> m [FileData]
-loadFiles db mmid = mightFail $ Session.run (maybe runAll runOne mmid) db
+loadFiles :: Maybe MediumID -> Session [FileData]
+loadFiles = maybe runAll runOne
   where
     runAll = Session.statement () stAll
     stAll = Statement "select media_id, section, label, type, item_number, file_size from files" noParams (rowList dec) True
