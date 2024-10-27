@@ -5,6 +5,7 @@ module GoPro.Commands.Config (
   ) where
 
 import           Cleff
+import Control.Monad ((>=>))
 import           Data.Foldable       (traverse_)
 import           Data.Text           (Text)
 import qualified Data.Text.IO        as TIO
@@ -16,7 +17,7 @@ runListConfig :: ([IOE, ConfigFX] :>> es) => Eff es ()
 runListConfig = traverse_ (\k -> configItem k >>= \v -> traverse_ (liftIO . TIO.putStr) [optionStr k, " = ", v, "\n"]) [minBound..]
 
 runGetConfig :: ([IOE, ConfigFX] :>> es) => ConfigOption -> Eff es ()
-runGetConfig k = configItem k >>= liftIO . TIO.putStrLn
+runGetConfig = configItem >=> liftIO . TIO.putStrLn
 
-runSetConfig :: ([ConfigFX, DB, IOE] :>> es) => ConfigOption -> Text -> Eff es ()
-runSetConfig k v = configSet k v
+runSetConfig :: (ConfigFX :> es) => ConfigOption -> Text -> Eff es ()
+runSetConfig = configSet
