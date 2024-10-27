@@ -44,7 +44,7 @@ import           Web.Scotty.Trans               (ActionT, ScottyT, captureParam,
 import           GoPro.AuthCache
 import           GoPro.Commands
 import           GoPro.Commands.Sync            (extractFiles, refreshMedia, runFullSync)
-import           GoPro.Config
+import           GoPro.Config.Effect
 import           GoPro.DB
 import           GoPro.DEVC                     (GPSReading (..))
 import           GoPro.File

@@ -17,7 +17,7 @@ import qualified Data.Map.Strict        as Map
 import qualified Data.Text              as T
 
 import           GoPro.AuthCache
-import           GoPro.Config
+import           GoPro.Config.Effect
 import           GoPro.DB
 import           GoPro.Logging
 import           GoPro.Notification

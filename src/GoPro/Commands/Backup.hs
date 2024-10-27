@@ -56,7 +56,7 @@ import           UnliftIO                        (concurrently, mapConcurrently,
 
 import           GoPro.AuthCache
 import           GoPro.Commands
-import           GoPro.Config
+import           GoPro.Config.Effect
 import           GoPro.DB
 import qualified GoPro.File                      as GPF
 import           GoPro.Logging

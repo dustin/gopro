@@ -1,16 +1,16 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module GoPro.Config where
+module GoPro.Config.Effect where
 
 import           Cleff
 import           Cleff.State
 
-import           Data.Map           (Map)
-import qualified Data.Map.Strict    as Map
-import           Data.Text          (Text)
+import           Data.Map            (Map)
+import qualified Data.Map.Strict     as Map
+import           Data.Text           (Text)
 
-import           GoPro.ConfigOption
+import           GoPro.Config.Option
 import           GoPro.DB
 
 data ConfigFX :: Effect where

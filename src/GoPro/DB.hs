@@ -44,7 +44,7 @@ import           Data.Map.Strict        (Map)
 import           Data.Text              (Text)
 import           Generics.Deriving.Base (Generic)
 
-import           GoPro.ConfigOption
+import           GoPro.Config.Option
 import           GoPro.DEVC             (GPSReading (..))
 import           GoPro.Plus.Auth        (AuthInfo (..))
 import           GoPro.Plus.Media       (FileInfo (..), Medium (..), MediumID, Moment (..))

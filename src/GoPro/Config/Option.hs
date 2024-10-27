@@ -1,7 +1,7 @@
-module GoPro.ConfigOption where
+module GoPro.Config.Option where
 
-import           Data.List       (find)
-import           Data.Text       (Text)
+import           Data.List (find)
+import           Data.Text (Text)
 
 data ConfigOption = CfgBucket | CfgCopySQSQueue | CfgCopyFunc
   deriving (Eq, Ord, Show, Bounded, Enum)

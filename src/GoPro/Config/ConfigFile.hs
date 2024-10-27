@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module GoPro.ConfigFile (loadConfigFile) where
+module GoPro.Config.ConfigFile (loadConfigFile) where
 
 import           Control.Applicative    ((<|>))
 import           Control.Exception      (catch)

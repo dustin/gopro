@@ -35,8 +35,8 @@ import           GoPro.Commands.Fixup
 import           GoPro.Commands.Sync
 import           GoPro.Commands.Upload
 import           GoPro.Commands.Web
-import           GoPro.Config
-import           GoPro.ConfigFile
+import           GoPro.Config.ConfigFile
+import           GoPro.Config.Effect
 import           GoPro.DB
 import           GoPro.Logging
 import           GoPro.Plus.Auth

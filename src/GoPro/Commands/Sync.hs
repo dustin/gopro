@@ -47,7 +47,7 @@ import           GoPro.Alternative
 import           GoPro.AuthCache
 import           GoPro.Commands
 import           GoPro.Commands.Backup (runStoreMeta')
-import           GoPro.Config
+import           GoPro.Config.Effect
 import           GoPro.DB
 import           GoPro.Logging
 import           GoPro.Meta

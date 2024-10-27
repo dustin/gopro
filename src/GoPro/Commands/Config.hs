@@ -5,11 +5,11 @@ module GoPro.Commands.Config (
   ) where
 
 import           Cleff
-import           Data.Foldable (traverse_)
-import           Data.Text     (Text)
-import qualified Data.Text.IO  as TIO
+import           Data.Foldable       (traverse_)
+import           Data.Text           (Text)
+import qualified Data.Text.IO        as TIO
 
-import           GoPro.Config
+import           GoPro.Config.Effect
 import           GoPro.DB
 
 runListConfig :: ([IOE, ConfigFX] :>> es) => Eff es ()
