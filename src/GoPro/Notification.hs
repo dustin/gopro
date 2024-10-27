@@ -47,7 +47,3 @@ runNotify :: IOE :> es => TChan Notification -> Eff (NotifyFX : es) a -> Eff es 
 runNotify ch = interpret \case
   SendNotification note -> liftIO . atomically . writeTChan ch $ note
   Subscribe -> liftIO . atomically . dupTChan $ ch
-
--- sendNotification :: [IOE, NotifyFX] :>> es => Notification -> Eff es ()
--- sendNotification note = notify -- asks noteChan >>= \ch -> liftIO . atomically . writeTChan ch $ note
-

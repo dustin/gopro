@@ -63,7 +63,7 @@ import           GoPro.Logging
 import           GoPro.Plus.Media
 import           GoPro.S3
 
-retryRetrieve :: [Reader Options, AuthCache, LogFX, DatabaseEff, IOE] :>> es => J.FromJSON j => MediumID -> Eff es j
+retryRetrieve :: [LogFX, AuthCache, IOE] :>> es => J.FromJSON j => MediumID -> Eff es j
 retryRetrieve mid = recoverAll policy $ \r -> do
   unless (rsIterNumber r == 0) $ logInfoL ["retrying metadata ", tshow mid, " attempt ", tshow (rsIterNumber r)]
   retrieve mid
@@ -92,7 +92,7 @@ copyMedia λ extract mid = do
                           & at "dest" ?~ dest
                           & at "mid" ?~ J.String mid)
 
-downloadLocally :: [Reader Options, AuthCache, LogFX, DatabaseEff, IOE] :>> es => FilePath -> Extractor -> Medium -> Eff es ()
+downloadLocally :: [Reader Options, AuthCache, LogFX, IOE] :>> es => FilePath -> Extractor -> Medium -> Eff es ()
 downloadLocally path extract Medium{..} = do
   logInfoL ["Beginning backup of ", tshow _medium_id]
   vars <- retryRetrieve _medium_id
@@ -126,7 +126,7 @@ downloadLocally path extract Medium{..} = do
       where
         tmpfile = dest <> ".tmp"
 
-    copyLocal :: [Reader Options, LogFX, DatabaseEff, IOE] :>> es => [(Text, String, String)] -> [GPF.File] -> Eff es ()
+    copyLocal :: [Reader Options, LogFX, IOE] :>> es => [(Text, String, String)] -> [GPF.File] -> Eff es ()
     copyLocal devs refs = do
       let srcdevs = sort $ mapMaybe (\(a,_,_) -> if "-var-source" `isInfixOf` a then Just a else Nothing) devs
 

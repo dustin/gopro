@@ -97,7 +97,7 @@ runGetMoments = do
   mapM_ (uncurry storeMoments) =<< pooledMapConcurrentlyN c pickup need
     where pickup mid = (mid,) <$> moments mid
 
-runGrokTel :: [Reader Options, LogFX, DatabaseEff, IOE] :>> es => Eff es [(MediumID, Maybe BS.ByteString)]
+runGrokTel :: [LogFX, DatabaseEff, IOE] :>> es => Eff es [(MediumID, Maybe BS.ByteString)]
 runGrokTel = fmap catMaybes . traverse ud =<< metaTODO
     where
       ud (mid, typ, bs) = do
@@ -194,7 +194,7 @@ runGetMeta = do
           Nothing -> logErrorL ["Can't find GPMD stream for ", tshow mid] *> fail "no gpmd"
           Just s  -> liftIO $ extractGPMDStream [f] s
 
-runWait :: [Reader Options, AuthCache, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
+runWait :: [AuthCache, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
 runWait = whileM_ inProgress (sleep 15)
   where
     inProgress = do
@@ -233,7 +233,7 @@ refreshMedia = mapM_ refreshSome . chunksOf 100 . NE.toList
       logDbgL ["Storing ", tshow (length n)]
       storeMedia n
 
-findGPSReadings :: [LogFX, DatabaseEff, Fail, IOE] :>> es => Eff es ()
+findGPSReadings :: [LogFX, DatabaseEff, Fail] :>> es => Eff es ()
 findGPSReadings = do
   todo <- gPSReadingsTODO
   unless (null todo) $ logInfoL ["Found ", tshow (length todo), " gps readings to process"]
