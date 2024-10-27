@@ -39,6 +39,7 @@ import           GoPro.Config.ConfigFile
 import           GoPro.Config.Effect
 import           GoPro.DB
 import           GoPro.Logging
+import           GoPro.Notification
 import           GoPro.Plus.Auth
 import           GoPro.Plus.Media
 import           GoPro.S3
@@ -142,7 +143,7 @@ runAuth = do
 runReauth :: [DatabaseEff, IOE] :>> es => Eff es ()
 runReauth = updateAuth =<< refreshAuth . arInfo =<< loadAuth
 
-run :: [Reader Env, AuthCache, ConfigFX, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Command -> Eff es ()
+run :: [Reader Env, AuthCache, ConfigFX, NotifyFX, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Command -> Eff es ()
 run AuthCmd               = runAuth
 run ReauthCmd             = runReauth
 run SyncCmd               = runFullSync

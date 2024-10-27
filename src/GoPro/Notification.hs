@@ -1,6 +1,9 @@
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveGeneric   #-}
+{-# LANGUAGE TemplateHaskell #-}
 module GoPro.Notification where
 
+import           Cleff
+import           Control.Concurrent.STM (TChan, atomically, dupTChan, writeTChan)
 import           Data.Aeson             (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
                                          genericToEncoding)
 import qualified Data.Aeson             as J
@@ -33,3 +36,18 @@ data Notification = Notification
 
 instance ToJSON Notification where
   toEncoding = genericToEncoding defaultOptions { fieldLabelModifier = drop 6}
+
+data NotifyFX :: Effect where
+    SendNotification :: Notification -> NotifyFX m ()
+    Subscribe :: NotifyFX m (TChan Notification)
+
+makeEffect ''NotifyFX
+
+runNotify :: IOE :> es => TChan Notification -> Eff (NotifyFX : es) a -> Eff es a
+runNotify ch = interpret \case
+  SendNotification note -> liftIO . atomically . writeTChan ch $ note
+  Subscribe -> liftIO . atomically . dupTChan $ ch
+
+-- sendNotification :: [IOE, NotifyFX] :>> es => Notification -> Eff es ()
+-- sendNotification note = notify -- asks noteChan >>= \ch -> liftIO . atomically . writeTChan ch $ note
+

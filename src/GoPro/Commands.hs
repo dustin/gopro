@@ -7,21 +7,20 @@
 
 module GoPro.Commands where
 
-import           Amazonka.S3            (BucketName (..))
+import           Amazonka.S3         (BucketName (..))
 import           Cleff
 import           Cleff.Fail
 import           Cleff.Reader
-import           Control.Concurrent.STM (TChan, atomically, writeTChan)
-import           Data.List.NonEmpty     (NonEmpty (..))
-import qualified Data.Map.Strict        as Map
-import qualified Data.Text              as T
+import           Data.List.NonEmpty  (NonEmpty (..))
+import qualified Data.Map.Strict     as Map
+import qualified Data.Text           as T
 
 import           GoPro.AuthCache
 import           GoPro.Config.Effect
 import           GoPro.DB
 import           GoPro.Logging
 import           GoPro.Notification
-import           GoPro.Plus.Media       (FileInfo, MediumID, MediumType)
+import           GoPro.Plus.Media    (FileInfo, MediumID, MediumType)
 import           GoPro.RunDB
 import           GoPro.S3
 
@@ -78,7 +77,6 @@ defaultOptions = Options
 
 data Env = Env
     { gpOptions :: Options
-    , noteChan  :: TChan Notification
     }
 
 asksOpt :: Reader Env :> es => (Options -> b) -> Eff es b
@@ -87,18 +85,15 @@ asksOpt f = asks (f . gpOptions)
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
-sendNotification :: [IOE, Reader Env] :>> es => Notification -> Eff es ()
-sendNotification note = asks noteChan >>= \ch -> liftIO . atomically . writeTChan ch $ note
-
-runWithOptions :: Options -> (forall es. [IOE, AuthCache, ConfigFX, DatabaseEff, S3, LogFX, Fail, Reader Env] :>> es => Eff es a) -> IO a
+runWithOptions :: Options -> (forall es. [IOE, AuthCache, ConfigFX, NotifyFX, DatabaseEff, S3, LogFX, Fail, Reader Env] :>> es => Eff es a) -> IO a
 runWithOptions o@Options{..} a = runIOE . runFailIO $ withDB optDBPath $ do
   initTables
   cfg <- loadConfig
   cacheData <- newAuthCacheData
   tc <- liftIO mkLogChannel
-  let env = Env o tc
+  let env = Env o
   s3runner <- case Map.findWithDefault "" CfgBucket cfg of
     "" -> pure unconfiguredS3
     bn -> pure $ runS3 (BucketName bn)
-  runReader env . runLogFX tc optVerbose . runConfig cfg . runAuthCache cacheData . s3runner $ a
+  runReader env . runLogFX tc optVerbose . runNotify tc . runConfig cfg . runAuthCache cacheData . s3runner $ a
 

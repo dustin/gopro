@@ -10,7 +10,7 @@ import           Cleff
 import           Cleff.Fail
 import           Cleff.Reader
 import           Control.Applicative            (asum, (<|>))
-import           Control.Concurrent.STM         (atomically, dupTChan, readTChan)
+import           Control.Concurrent.STM         (TChan, atomically, readTChan)
 import qualified Control.Foldl                  as Foldl
 import           Control.Lens
 import           Control.Monad                  (forever)
@@ -66,19 +66,20 @@ namedFiles Medium{..} mx fdf = fmap nameOne
       where
         FileData{..} = fdf a
 
-runServer :: forall es. [Reader Env, ConfigFX, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
+runServer :: forall es. [Reader Env, NotifyFX, ConfigFX, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 runServer = do
   let settings = Warp.setPort 8008 Warp.defaultSettings
   env <- ask
   withRunInIO \runIO -> do
     app <- scottyAppT runIO (application env)
     runIO $ logInfo "Starting web server at http://localhost:8008/"
-    liftIO $ Warp.runSettings settings $ WaiWS.websocketsOr WS.defaultConnectionOptions (wsapp env) app
+    liftIO $ Warp.runSettings settings $ WaiWS.websocketsOr WS.defaultConnectionOptions (wsapp (runIO subscribe)) app
 
   where
-    wsapp :: Env -> WS.ServerApp
-    wsapp Env{noteChan} pending = do
-      ch <- atomically $ dupTChan noteChan
+    wsapp :: IO (TChan Notification) -> WS.ServerApp
+    wsapp nfx pending = do
+      ch <- liftIO nfx
+      -- ch <- atomically $ dupTChan noteChan
       conn <- WS.acceptRequest pending
       WS.withPingThread conn 30 (pure ()) $
         forever (WS.sendTextData conn . J.encode =<< (atomically . readTChan) ch)
