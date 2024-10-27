@@ -27,6 +27,7 @@ import           System.Directory                     (getHomeDirectory)
 import           System.FilePath.Posix                ((</>))
 import           System.IO                            (hFlush, hGetEcho, hSetEcho, stdin, stdout)
 
+import           GoPro.AuthCache
 import           GoPro.Commands
 import           GoPro.Commands.Backup
 import           GoPro.Commands.Config
@@ -113,7 +114,7 @@ options Options{..} = Options
 some1 :: Parser a -> Parser (NonEmpty a)
 some1 p = NE.fromList <$> some p
 
-runCleanup :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
+runCleanup :: [Reader Env, AuthCache, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
 runCleanup = clearUploads *> (mapM_ rm . filter wanted =<< notReady)
   where
     wanted Medium{..} = _medium_ready_to_view `elem` [ViewRegistered, ViewUploading, ViewFailure]
@@ -140,7 +141,7 @@ runAuth = do
 runReauth :: [DatabaseEff, IOE] :>> es => Eff es ()
 runReauth = updateAuth =<< refreshAuth . arInfo =<< loadAuth
 
-run :: [Reader Env, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Command -> Eff es ()
+run :: [Reader Env, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Command -> Eff es ()
 run AuthCmd               = runAuth
 run ReauthCmd             = runReauth
 run SyncCmd               = runFullSync

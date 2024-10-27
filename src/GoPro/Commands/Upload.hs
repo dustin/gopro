@@ -26,6 +26,7 @@ import           System.Posix.Files        (fileSize, getFileStatus, isDirectory
 
 import           Exif
 import           FFMPeg
+import           GoPro.AuthCache
 import           GoPro.Commands
 import           GoPro.DB
 import           GoPro.File
@@ -41,7 +42,7 @@ uc fp mid partnum up@UploadPart{..} = do
   lift $ completedUploadPart mid _uploadPart partnum
   lift $ logDbgL ["Finished part ", tshow _uploadPart, " of ", T.pack fp]
 
-runCreateUploads :: ([Reader Env, LogFX, DatabaseEff, IOE] :>> es) => NonEmpty FilePath -> Eff es ()
+runCreateUploads :: ([Reader Env, AuthCache, LogFX, DatabaseEff, IOE] :>> es) => NonEmpty FilePath -> Eff es ()
 runCreateUploads inFilePaths = do
   filePaths <- Set.toList . fold <$> traverse expand (NE.toList inFilePaths)
   -- Exclude any commandline params for files that are already being
@@ -100,7 +101,7 @@ runCreateUploads inFilePaths = do
           Photo -> EXIF
           _     -> GPMF
 
-runCreateMultipart :: ([Reader Env, LogFX, DatabaseEff, IOE] :>> es) => MediumType -> NonEmpty FilePath -> Eff es ()
+runCreateMultipart :: ([Reader Env, AuthCache, LogFX, DatabaseEff, IOE] :>> es) => MediumType -> NonEmpty FilePath -> Eff es ()
 runCreateMultipart typ fps = do
   runUpload fps $ do
     setMediumType typ
@@ -118,7 +119,7 @@ runCreateMultipart typ fps = do
           ) $ zip (NE.toList fps) [1..]
     lift $ logInfo "Multipart upload created.  Use the 'upload' command to complete the upload."
 
-runResumeUpload :: ([Reader Env, LogFX, DatabaseEff, IOE] :>> es) => Eff es ()
+runResumeUpload :: ([Reader Env, AuthCache, LogFX, DatabaseEff, IOE] :>> es) => Eff es ()
 runResumeUpload = do
   ups <- listPartialUploads
   logInfoL ["Have ", tshow (length ups), " media items to upload in ",
@@ -158,5 +159,5 @@ runResumeUpload = do
         completeUpload _uploadID _pu_did part (fromIntegral fsize)
       completedUpload _pu_medium_id _pu_partnum
 
-runReprocessCmd :: ([Reader Env, LogFX, DatabaseEff, IOE] :>> es) => NonEmpty MediumID -> Eff es ()
+runReprocessCmd :: ([Reader Env, AuthCache, LogFX, DatabaseEff, IOE] :>> es) => NonEmpty MediumID -> Eff es ()
 runReprocessCmd = mapM_ reprocess

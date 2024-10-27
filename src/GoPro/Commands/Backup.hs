@@ -54,6 +54,7 @@ import           System.Posix.Files              (createLink, setFileTimes)
 import           UnliftIO                        (concurrently, mapConcurrently, mapConcurrently_,
                                                   pooledMapConcurrentlyN_)
 
+import           GoPro.AuthCache
 import           GoPro.Commands
 import           GoPro.DB
 import qualified GoPro.File                      as GPF
@@ -61,7 +62,7 @@ import           GoPro.Logging
 import           GoPro.Plus.Media
 import           GoPro.S3
 
-retryRetrieve :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => J.FromJSON j => MediumID -> Eff es j
+retryRetrieve :: [Reader Env, AuthCache, LogFX, DatabaseEff, IOE] :>> es => J.FromJSON j => MediumID -> Eff es j
 retryRetrieve mid = recoverAll policy $ \r -> do
   unless (rsIterNumber r == 0) $ logInfoL ["retrying metadata ", tshow mid, " attempt ", tshow (rsIterNumber r)]
   retrieve mid
@@ -69,7 +70,7 @@ retryRetrieve mid = recoverAll policy $ \r -> do
 
 type LambdaFunc = Text
 
-copyMedia :: [Reader Env, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => LambdaFunc -> Extractor -> MediumID -> Eff es ()
+copyMedia :: [Reader Env, AuthCache, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => LambdaFunc -> Extractor -> MediumID -> Eff es ()
 copyMedia λ extract mid = do
   todo <- extract mid <$> retryRetrieve mid
   pooledMapConcurrentlyN_ 5 copy todo
@@ -90,7 +91,7 @@ copyMedia λ extract mid = do
                           & at "dest" ?~ dest
                           & at "mid" ?~ J.String mid)
 
-downloadLocally :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => FilePath -> Extractor -> Medium -> Eff es ()
+downloadLocally :: [Reader Env, AuthCache, LogFX, DatabaseEff, IOE] :>> es => FilePath -> Extractor -> Medium -> Eff es ()
 downloadLocally path extract Medium{..} = do
   logInfoL ["Beginning backup of ", tshow _medium_id]
   vars <- retryRetrieve _medium_id
@@ -218,7 +219,7 @@ extractOrig mid = filter desirable . extractMedia mid
                                     || (".jpg" `isSuffixOf` fn && "-file" `isInfixOf` fn)
                                     || ("raw_photo.gpr" `isInfixOf` fn)
 
-runBackup :: [Reader Env, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => Extractor -> Eff es ()
+runBackup :: [Reader Env, AuthCache, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => Extractor -> Eff es ()
 runBackup ex = do
   λ <- asks (configItem CfgCopyFunc)
   todo <- take 5 <$> listToCopyToS3
@@ -226,10 +227,10 @@ runBackup ex = do
   c <- asksOpt optUploadConcurrency
   pooledMapConcurrentlyN_ c (copyMedia λ ex) todo
 
-runLocalBackup :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Extractor -> NonEmpty FilePath -> Eff es ()
+runLocalBackup :: [Reader Env, AuthCache, LogFX, DatabaseEff, IOE] :>> es => Extractor -> NonEmpty FilePath -> Eff es ()
 runLocalBackup ex paths = listToCopyLocally >>= maybe (pure ()) (runDownload ex paths) . NE.nonEmpty
 
-runDownload :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Extractor -> NonEmpty FilePath -> NonEmpty MediumID -> Eff es ()
+runDownload :: [Reader Env, AuthCache, LogFX, DatabaseEff, IOE] :>> es => Extractor -> NonEmpty FilePath -> NonEmpty MediumID -> Eff es ()
 runDownload ex paths mids = do
   have <- fold <$> liftIO (traverse findHave paths)
   let todo = filter (`Set.notMember` have) (NE.toList mids)
@@ -248,7 +249,7 @@ runDownload ex paths mids = do
         "tmp"   -> pure StopRecursing
         _       -> tell (Set.fromList (pack <$> subdirs)) $> Continue
 
-runStoreMeta :: [Reader Env, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => Eff es ()
+runStoreMeta :: [Reader Env, AuthCache, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => Eff es ()
 runStoreMeta = do
   logDbg "Finding metadata blobs stored in S3 and local database"
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
@@ -259,7 +260,7 @@ runStoreMeta = do
   c <- asksOpt optUploadConcurrency
   pooledMapConcurrentlyN_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
 
-runStoreMeta' :: [Reader Env, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => [(MediumID, Maybe ByteString)] -> Eff es ()
+runStoreMeta' :: [Reader Env, AuthCache, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => [(MediumID, Maybe ByteString)] -> Eff es ()
 runStoreMeta' [] = pure ()
 runStoreMeta' local = do
   logDbg "Finding metadata blobs stored in S3 and local database"

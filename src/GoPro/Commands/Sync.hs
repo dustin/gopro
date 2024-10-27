@@ -41,6 +41,7 @@ import           System.FilePath.Posix (takeExtension, (</>))
 
 import           Data.Functor          (($>))
 import           GoPro.Alternative
+import           GoPro.AuthCache
 import           GoPro.Commands
 import           GoPro.Commands.Backup (runStoreMeta')
 import           GoPro.DB
@@ -55,7 +56,7 @@ import           UnliftIO.Exception    (SomeException, try)
 data SyncType = Full
     | Incremental
 
-runFetch :: [Reader Env, LogFX, DatabaseEff, Fail, IOE] :>> es => SyncType -> Eff es ()
+runFetch :: [Reader Env, AuthCache, LogFX, DatabaseEff, Fail, IOE] :>> es => SyncType -> Eff es ()
 runFetch stype = do
   seen <- Set.fromList <$> loadMediaIDs
   ms <- todo seen
@@ -86,7 +87,7 @@ runFetch stype = do
             storeMedia =<< fetch c l
           fetch c = pooledMapConcurrentlyN c resolve
 
-runGetMoments :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
+runGetMoments :: [Reader Env, AuthCache, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
 runGetMoments = do
   need <- momentsTODO
   unless (null need) $ logInfoL ["Need to fetch ", (tshow . length) need, " moments"]
@@ -119,7 +120,7 @@ metadataSources fi = fold [variation "mp4_low" "low",
 
     variation var = ls (fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url)
 
-runGetMeta :: forall es. [Reader Env, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
+runGetMeta :: forall es. [Reader Env, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 runGetMeta = do
   needs <- metaBlobTODO
   logInfoL ["Fetching meta ", tshow (length needs)]
@@ -191,7 +192,7 @@ runGetMeta = do
           Nothing -> logErrorL ["Can't find GPMD stream for ", tshow mid] *> fail "no gpmd"
           Just s  -> liftIO $ extractGPMDStream [f] s
 
-runWait :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
+runWait :: [Reader Env, AuthCache, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
 runWait = whileM_ inProgress (sleep 15)
   where
     inProgress = do
@@ -213,7 +214,7 @@ runWait = whileM_ inProgress (sleep 15)
       putStrLn $ fold [drop 4 t, ":"]
       traverse_ (\(i, fn) -> putStrLn $ fold ["  ", T.unpack i, " - ", show fn]) things
 
-refreshMedia :: [Reader Env, LogFX, DatabaseEff, Fail, IOE] :>> es => NonEmpty MediumID -> Eff es ()
+refreshMedia :: [Reader Env, AuthCache, LogFX, DatabaseEff, Fail, IOE] :>> es => NonEmpty MediumID -> Eff es ()
 refreshMedia = mapM_ refreshSome . chunksOf 100 . NE.toList
   where
     one mid = do
@@ -240,7 +241,7 @@ findGPSReadings = do
       Just (GPMF, Just bs) -> storeGPSReadings mid =<< either fail pure (extractReadings bs)
       _                    -> pure ()
 
-syncFiles :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
+syncFiles :: [Reader Env, AuthCache, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
 syncFiles = do
   todo <- fileTODO
   unless (null todo) $ do
@@ -311,7 +312,7 @@ extractFiles mid fi = fold [ ex "var" variations,
                       _fd_file_size = 0 -- TBD
                     })
 
-runFullSync :: [Reader Env, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
+runFullSync :: [Reader Env, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 runFullSync = do
   runFetch Incremental
   runGetMeta

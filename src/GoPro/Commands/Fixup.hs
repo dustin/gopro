@@ -13,12 +13,13 @@ import           Data.List          (partition)
 import           Data.Text          (Text)
 import           Prelude            hiding (fail)
 
+import           GoPro.AuthCache
 import           GoPro.Commands
 import           GoPro.DB
 import           GoPro.Logging
 import           GoPro.Plus.Media
 
-runFixup :: ([Reader Env, LogFX, DatabaseEff, Fail, IOE] :>> es) => Text -> Eff es ()
+runFixup :: ([Reader Env, AuthCache, LogFX, DatabaseEff, Fail, IOE] :>> es) => Text -> Eff es ()
 runFixup query = traverse_ store =<< fixupQuery query
   where
     store stuff = case partition ((== "media_id") . fst) stuff of

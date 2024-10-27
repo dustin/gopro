@@ -19,7 +19,6 @@ import qualified Data.Aeson                     as J
 import qualified Data.Aeson.KeyMap              as KM
 import           Data.Aeson.Lens                (_Object)
 import qualified Data.Aeson.Types               as J
-import           Data.Cache                     (insert)
 import           Data.Foldable                  (fold)
 import           Data.List                      (intercalate)
 import           Data.List.NonEmpty             (NonEmpty (..))
@@ -42,6 +41,7 @@ import           UnliftIO                       (async)
 import           Web.Scotty.Trans               (ActionT, ScottyT, captureParam, file, get, json, middleware, post, raw,
                                                  scottyAppT, setHeader, status, text)
 
+import           GoPro.AuthCache
 import           GoPro.Commands
 import           GoPro.Commands.Sync            (extractFiles, refreshMedia, runFullSync)
 import           GoPro.DB
@@ -54,7 +54,6 @@ import           GoPro.Plus.Media
 import           GoPro.Resolve
 import           GoPro.S3
 
-
 ltshow :: Show a => a -> LT.Text
 ltshow = LT.pack . show
 
@@ -66,7 +65,7 @@ namedFiles Medium{..} mx fdf = fmap nameOne
       where
         FileData{..} = fdf a
 
-runServer :: forall es. [Reader Env, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
+runServer :: forall es. [Reader Env, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 runServer = do
   let settings = Warp.setPort 8008 Warp.defaultSettings
   env <- ask
@@ -135,9 +134,8 @@ runServer = do
           res <- refreshAuth . arInfo =<< loadAuth
           -- Replace the DB value
           updateAuth res
-          -- Replace the cache value
-          cache <- asks authCache
-          liftIO (insert cache () res)
+          -- ...and cache value
+          setAuthInfo res
           logInfo "Refreshed auth"
         status noContent204
 

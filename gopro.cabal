@@ -28,6 +28,7 @@ library
       Exif
       FFMPeg
       GoPro.Alternative
+      GoPro.AuthCache
       GoPro.Commands
       GoPro.Commands.Backup
       GoPro.Commands.Config
