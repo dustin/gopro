@@ -116,7 +116,7 @@ options Options{..} = Options
 some1 :: Parser a -> Parser (NonEmpty a)
 some1 p = NE.fromList <$> some p
 
-runCleanup :: [Reader Env, AuthCache, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
+runCleanup :: [Reader Options, AuthCache, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
 runCleanup = clearUploads *> (mapM_ rm . filter wanted =<< notReady)
   where
     wanted Medium{..} = _medium_ready_to_view `elem` [ViewRegistered, ViewUploading, ViewFailure]
@@ -143,7 +143,7 @@ runAuth = do
 runReauth :: [DatabaseEff, IOE] :>> es => Eff es ()
 runReauth = updateAuth =<< refreshAuth . arInfo =<< loadAuth
 
-run :: [Reader Env, AuthCache, ConfigFX, NotifyFX, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Command -> Eff es ()
+run :: [Reader Options, AuthCache, ConfigFX, NotifyFX, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Command -> Eff es ()
 run AuthCmd               = runAuth
 run ReauthCmd             = runReauth
 run SyncCmd               = runFullSync

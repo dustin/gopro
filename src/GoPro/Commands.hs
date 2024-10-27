@@ -75,25 +75,20 @@ defaultOptions = Options
     , optCommand  = AuthCmd -- this should not be used
     }
 
-data Env = Env
-    { gpOptions :: Options
-    }
-
-asksOpt :: Reader Env :> es => (Options -> b) -> Eff es b
-asksOpt f = asks (f . gpOptions)
+asksOpt :: Reader Options :> es => (Options -> b) -> Eff es b
+asksOpt = asks
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
-runWithOptions :: Options -> (forall es. [IOE, AuthCache, ConfigFX, NotifyFX, DatabaseEff, S3, LogFX, Fail, Reader Env] :>> es => Eff es a) -> IO a
+runWithOptions :: Options -> (forall es. [IOE, AuthCache, ConfigFX, NotifyFX, DatabaseEff, S3, LogFX, Fail, Reader Options] :>> es => Eff es a) -> IO a
 runWithOptions o@Options{..} a = runIOE . runFailIO $ withDB optDBPath $ do
   initTables
   cfg <- loadConfig
   cacheData <- newAuthCacheData
   tc <- liftIO mkLogChannel
-  let env = Env o
   s3runner <- case Map.findWithDefault "" CfgBucket cfg of
     "" -> pure unconfiguredS3
     bn -> pure $ runS3 (BucketName bn)
-  runReader env . runLogFX tc optVerbose . runNotify tc . runConfig cfg . runAuthCache cacheData . s3runner $ a
+  runReader o . runLogFX tc optVerbose . runNotify tc . runConfig cfg . runAuthCache cacheData . s3runner $ a
 

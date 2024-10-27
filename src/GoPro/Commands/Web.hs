@@ -66,12 +66,12 @@ namedFiles Medium{..} mx fdf = fmap nameOne
       where
         FileData{..} = fdf a
 
-runServer :: forall es. [Reader Env, NotifyFX, ConfigFX, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
+runServer :: forall es. [Reader Options, NotifyFX, ConfigFX, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 runServer = do
   let settings = Warp.setPort 8008 Warp.defaultSettings
-  env <- ask
+  opts <- ask
   withRunInIO \runIO -> do
-    app <- scottyAppT runIO (application env)
+    app <- scottyAppT runIO (application opts)
     runIO $ logInfo "Starting web server at http://localhost:8008/"
     liftIO $ Warp.runSettings settings $ WaiWS.websocketsOr WS.defaultConnectionOptions (wsapp (runIO subscribe)) app
 
@@ -84,9 +84,9 @@ runServer = do
       WS.withPingThread conn 30 (pure ()) $
         forever (WS.sendTextData conn . J.encode =<< (atomically . readTChan) ch)
 
-    application :: Env -> ScottyT (Eff es) ()
-    application env = do
-      let staticPath = optStaticPath . gpOptions $ env
+    application :: Options -> ScottyT (Eff es) ()
+    application opts = do
+      let staticPath = optStaticPath opts
       middleware $ GZ.gzip GZ.def {GZ.gzipFiles = GZ.GzipCompress}
       middleware $ staticPolicy (noDots >-> addBase staticPath)
 
