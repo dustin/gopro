@@ -36,7 +36,9 @@ library
       GoPro.Commands.Sync
       GoPro.Commands.Upload
       GoPro.Commands.Web
+      GoPro.Config
       GoPro.ConfigFile
+      GoPro.ConfigOption
       GoPro.DB
       GoPro.DB.Postgres
       GoPro.DB.Sqlite

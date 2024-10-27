@@ -17,7 +17,7 @@ import           Amazonka.SQS                    (newDeleteMessageBatch, newDele
                                                   newReceiveMessage)
 import           Cleff                           hiding (send)
 import           Cleff.Fail
-import           Cleff.Reader                    (Reader, asks)
+import           Cleff.Reader                    (Reader)
 import           Conduit
 import           Control.Applicative             (optional)
 import           Control.Lens
@@ -56,6 +56,7 @@ import           UnliftIO                        (concurrently, mapConcurrently,
 
 import           GoPro.AuthCache
 import           GoPro.Commands
+import           GoPro.Config
 import           GoPro.DB
 import qualified GoPro.File                      as GPF
 import           GoPro.Logging
@@ -219,9 +220,9 @@ extractOrig mid = filter desirable . extractMedia mid
                                     || (".jpg" `isSuffixOf` fn && "-file" `isInfixOf` fn)
                                     || ("raw_photo.gpr" `isInfixOf` fn)
 
-runBackup :: [Reader Env, AuthCache, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => Extractor -> Eff es ()
+runBackup :: [Reader Env, ConfigFX, AuthCache, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => Extractor -> Eff es ()
 runBackup ex = do
-  λ <- asks (configItem CfgCopyFunc)
+  λ <- configItem CfgCopyFunc
   todo <- take 5 <$> listToCopyToS3
   logDbgL ["todo: ", tshow todo]
   c <- asksOpt optUploadConcurrency
@@ -279,9 +280,9 @@ runClearMeta = do
   logDbgL ["clearing ", tshow backedup]
   clearMetaBlob backedup
 
-runReceiveS3CopyQueue :: [Reader Env, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
+runReceiveS3CopyQueue :: [Reader Env, ConfigFX, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
 runReceiveS3CopyQueue = do
-  qrl <- asks (configItem CfgCopySQSQueue)
+  qrl <- configItem CfgCopySQSQueue
   go qrl =<< listS3Waiting
 
     where

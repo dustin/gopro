@@ -40,27 +40,16 @@ import           Data.Aeson             (FromJSON (..), ToJSON (..), defaultOpti
 import qualified Data.Aeson             as J
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Lazy   as BL
-import           Data.List              (find)
 import           Data.Map.Strict        (Map)
 import           Data.Text              (Text)
 import           Generics.Deriving.Base (Generic)
 
+import           GoPro.ConfigOption
 import           GoPro.DEVC             (GPSReading (..))
 import           GoPro.Plus.Auth        (AuthInfo (..))
 import           GoPro.Plus.Media       (FileInfo (..), Medium (..), MediumID, Moment (..))
 import           GoPro.Plus.Upload      (DerivativeID, Upload (..), UploadID)
 import           GoPro.Resolve          (MDSummary (..))
-
-data ConfigOption = CfgBucket | CfgCopySQSQueue | CfgCopyFunc
-  deriving (Eq, Ord, Show, Bounded, Enum)
-
-optionStr :: ConfigOption -> Text
-optionStr CfgBucket       = "bucket"
-optionStr CfgCopySQSQueue = "s3copySQSQueue"
-optionStr CfgCopyFunc     = "s3copyfunc"
-
-strOption :: Text -> Maybe ConfigOption
-strOption s = find ((== s) . optionStr) [minBound..]
 
 instance J.FromJSON MediaRow where
   parseJSON o = do

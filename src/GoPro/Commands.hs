@@ -13,11 +13,11 @@ import           Cleff.Fail
 import           Cleff.Reader
 import           Control.Concurrent.STM (TChan, atomically, writeTChan)
 import           Data.List.NonEmpty     (NonEmpty (..))
-import           Data.Map.Strict        (Map)
 import qualified Data.Map.Strict        as Map
 import qualified Data.Text              as T
 
 import           GoPro.AuthCache
+import           GoPro.Config
 import           GoPro.DB
 import           GoPro.Logging
 import           GoPro.Notification
@@ -78,18 +78,11 @@ defaultOptions = Options
 
 data Env = Env
     { gpOptions :: Options
-    , gpConfig  :: Map ConfigOption T.Text
     , noteChan  :: TChan Notification
     }
 
 asksOpt :: Reader Env :> es => (Options -> b) -> Eff es b
 asksOpt f = asks (f . gpOptions)
-
-configItem :: ConfigOption -> Env -> T.Text
-configItem k = configItemDef k ""
-
-configItemDef :: ConfigOption -> T.Text -> Env -> T.Text
-configItemDef k def Env{gpConfig} = Map.findWithDefault def k gpConfig
 
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
@@ -97,15 +90,15 @@ tshow = T.pack . show
 sendNotification :: [IOE, Reader Env] :>> es => Notification -> Eff es ()
 sendNotification note = asks noteChan >>= \ch -> liftIO . atomically . writeTChan ch $ note
 
-runWithOptions :: Options -> (forall es. [IOE, AuthCache, DatabaseEff, S3, LogFX, Fail, Reader Env] :>> es => Eff es a) -> IO a
+runWithOptions :: Options -> (forall es. [IOE, AuthCache, ConfigFX, DatabaseEff, S3, LogFX, Fail, Reader Env] :>> es => Eff es a) -> IO a
 runWithOptions o@Options{..} a = runIOE . runFailIO $ withDB optDBPath $ do
   initTables
   cfg <- loadConfig
   cacheData <- newAuthCacheData
   tc <- liftIO mkLogChannel
-  let env = Env o cfg tc
-  s3runner <- case configItemDef CfgBucket "" env of
+  let env = Env o tc
+  s3runner <- case Map.findWithDefault "" CfgBucket cfg of
     "" -> pure unconfiguredS3
     bn -> pure $ runS3 (BucketName bn)
-  runReader env . runLogFX tc optVerbose . runAuthCache cacheData . s3runner $ a
+  runReader env . runLogFX tc optVerbose . runConfig cfg . runAuthCache cacheData . s3runner $ a
 

@@ -5,19 +5,18 @@ module GoPro.Commands.Config (
   ) where
 
 import           Cleff
-import           Cleff.Reader
-import qualified Data.Map.Strict as Map
-import           Data.Text       (Text)
-import qualified Data.Text.IO    as TIO
+import           Data.Foldable (traverse_)
+import           Data.Text     (Text)
+import qualified Data.Text.IO  as TIO
 
-import           GoPro.Commands
+import           GoPro.Config
 import           GoPro.DB
 
-runListConfig :: ([Reader Env, DatabaseEff, IOE] :>> es) => Eff es ()
-runListConfig = mapM_ (\(k,v) -> mapM_ (liftIO . TIO.putStr) [optionStr k, " = ", v, "\n"]) . Map.assocs =<< asks gpConfig
+runListConfig :: ([IOE, ConfigFX] :>> es) => Eff es ()
+runListConfig = traverse_ (\k -> configItem k >>= \v -> traverse_ (liftIO . TIO.putStr) [optionStr k, " = ", v, "\n"]) [minBound..]
 
-runGetConfig :: ([Reader Env, DatabaseEff, IOE] :>> es) => ConfigOption -> Eff es ()
-runGetConfig k = asks (configItem k) >>= liftIO . TIO.putStrLn
+runGetConfig :: ([IOE, ConfigFX] :>> es) => ConfigOption -> Eff es ()
+runGetConfig k = configItem k >>= liftIO . TIO.putStrLn
 
-runSetConfig :: ([Reader Env, DatabaseEff, IOE] :>> es) => ConfigOption -> Text -> Eff es ()
-runSetConfig k v = ask >>= \Env{..} -> updateConfig $ Map.insert k v gpConfig
+runSetConfig :: ([ConfigFX, DatabaseEff, IOE] :>> es) => ConfigOption -> Text -> Eff es ()
+runSetConfig k v = configSet k v

@@ -44,6 +44,7 @@ import           Web.Scotty.Trans               (ActionT, ScottyT, captureParam,
 import           GoPro.AuthCache
 import           GoPro.Commands
 import           GoPro.Commands.Sync            (extractFiles, refreshMedia, runFullSync)
+import           GoPro.Config
 import           GoPro.DB
 import           GoPro.DEVC                     (GPSReading (..))
 import           GoPro.File
@@ -65,7 +66,7 @@ namedFiles Medium{..} mx fdf = fmap nameOne
       where
         FileData{..} = fdf a
 
-runServer :: forall es. [Reader Env, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
+runServer :: forall es. [Reader Env, ConfigFX, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 runServer = do
   let settings = Warp.setPort 8008 Warp.defaultSettings
   env <- ask

@@ -40,18 +40,20 @@ import           System.Directory      (createDirectoryIfMissing, doesFileExist,
 import           System.FilePath.Posix (takeExtension, (</>))
 
 import           Data.Functor          (($>))
+import           UnliftIO.Async        (pooledMapConcurrentlyN, pooledMapConcurrentlyN_)
+import           UnliftIO.Exception    (SomeException, try)
+
 import           GoPro.Alternative
 import           GoPro.AuthCache
 import           GoPro.Commands
 import           GoPro.Commands.Backup (runStoreMeta')
+import           GoPro.Config
 import           GoPro.DB
 import           GoPro.Logging
 import           GoPro.Meta
 import           GoPro.Plus.Media
 import           GoPro.Resolve
 import           GoPro.S3
-import           UnliftIO.Async        (pooledMapConcurrentlyN, pooledMapConcurrentlyN_)
-import           UnliftIO.Exception    (SomeException, try)
 
 data SyncType = Full
     | Incremental
@@ -312,7 +314,7 @@ extractFiles mid fi = fold [ ex "var" variations,
                       _fd_file_size = 0 -- TBD
                     })
 
-runFullSync :: [Reader Env, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
+runFullSync :: [Reader Env, ConfigFX, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
 runFullSync = do
   runFetch Incremental
   runGetMeta
@@ -320,7 +322,7 @@ runFullSync = do
     metas <- runGrokTel
     unless (null metas) $ logDbgL ["Did a batch of ", tshow (length metas)]
     -- If an S3 bucket is configured, make sure all metadata is in the cache.
-    bn <- asks (configItem CfgBucket)
+    bn <- configItem CfgBucket
     unless (bn == "") $ runStoreMeta' metas
     pure metas
   runGetMoments

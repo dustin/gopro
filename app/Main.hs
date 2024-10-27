@@ -35,6 +35,7 @@ import           GoPro.Commands.Fixup
 import           GoPro.Commands.Sync
 import           GoPro.Commands.Upload
 import           GoPro.Commands.Web
+import           GoPro.Config
 import           GoPro.ConfigFile
 import           GoPro.DB
 import           GoPro.Logging
@@ -141,7 +142,7 @@ runAuth = do
 runReauth :: [DatabaseEff, IOE] :>> es => Eff es ()
 runReauth = updateAuth =<< refreshAuth . arInfo =<< loadAuth
 
-run :: [Reader Env, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Command -> Eff es ()
+run :: [Reader Env, AuthCache, ConfigFX, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Command -> Eff es ()
 run AuthCmd               = runAuth
 run ReauthCmd             = runReauth
 run SyncCmd               = runFullSync
