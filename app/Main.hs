@@ -116,7 +116,7 @@ options Options{..} = Options
 some1 :: Parser a -> Parser (NonEmpty a)
 some1 p = NE.fromList <$> some p
 
-runCleanup :: [Reader Options, AuthCache, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
+runCleanup :: [Reader Options, AuthCache, LogFX, DB, IOE] :>> es => Eff es ()
 runCleanup = clearUploads *> (mapM_ rm . filter wanted =<< notReady)
   where
     wanted Medium{..} = _medium_ready_to_view `elem` [ViewRegistered, ViewUploading, ViewFailure]
@@ -125,7 +125,7 @@ runCleanup = clearUploads *> (mapM_ rm . filter wanted =<< notReady)
       errs <- delete _medium_id
       unless (null errs) . liftIO . putStrLn $ " error: " <> show errs
 
-runAuth :: [DatabaseEff, IOE] :>> es => Eff es ()
+runAuth :: [DB, IOE] :>> es => Eff es ()
 runAuth = do
   u <- liftIO (prompt "Enter email: " >> getLine)
   p <- getPass
@@ -140,10 +140,10 @@ runAuth = do
 
     getPass = liftIO $ withEcho False getLine
 
-runReauth :: [DatabaseEff, IOE] :>> es => Eff es ()
+runReauth :: [DB, IOE] :>> es => Eff es ()
 runReauth = updateAuth =<< refreshAuth . arInfo =<< loadAuth
 
-run :: [Reader Options, AuthCache, ConfigFX, NotifyFX, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Command -> Eff es ()
+run :: [Reader Options, AuthCache, ConfigFX, NotifyFX, LogFX, S3, DB, Fail, IOE] :>> es => Command -> Eff es ()
 run AuthCmd               = runAuth
 run ReauthCmd             = runReauth
 run SyncCmd               = runFullSync

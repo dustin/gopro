@@ -51,10 +51,10 @@ import           GoPro.Plus.Media                 (Medium (..), MediumID, Medium
 import           GoPro.Plus.Upload                (DerivativeID, Upload (..), UploadPart (..))
 import           GoPro.Resolve                    (MDSummary (..))
 
-runDatabaseSqliteStr :: IOE :> es => String -> Eff (DatabaseEff : es) a -> Eff es a
+runDatabaseSqliteStr :: IOE :> es => String -> Eff (DB : es) a -> Eff es a
 runDatabaseSqliteStr str f = liftIO (open str) >>= flip runDatabaseSqlite f
 
-runDatabaseSqlite :: IOE :> es => Connection -> Eff (DatabaseEff : es) a -> Eff es a
+runDatabaseSqlite :: IOE :> es => Connection -> Eff (DB : es) a -> Eff es a
 runDatabaseSqlite db = interpretIO \case
   InitTables -> GoPro.DB.Sqlite.initTables db
   LoadConfig -> GoPro.DB.Sqlite.loadConfig db

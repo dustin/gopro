@@ -81,7 +81,7 @@ asksOpt = asks
 tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
-runWithOptions :: Options -> (forall es. [IOE, AuthCache, ConfigFX, NotifyFX, DatabaseEff, S3, LogFX, Fail, Reader Options] :>> es => Eff es a) -> IO a
+runWithOptions :: Options -> (forall es. [IOE, AuthCache, ConfigFX, NotifyFX, DB, S3, LogFX, Fail, Reader Options] :>> es => Eff es a) -> IO a
 runWithOptions o@Options{..} a = runIOE . runFailIO $ withDB optDBPath $ do
   initTables
   cfg <- loadConfig

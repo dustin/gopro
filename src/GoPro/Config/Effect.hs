@@ -19,7 +19,7 @@ data ConfigFX :: Effect where
 
 makeEffect ''ConfigFX
 
-runConfig :: DatabaseEff :> es => Map ConfigOption Text -> Eff (ConfigFX : es) a -> Eff es a
+runConfig :: DB :> es => Map ConfigOption Text -> Eff (ConfigFX : es) a -> Eff es a
 runConfig cfg = fmap fst . runState cfg . reinterpret \case
   ConfigGet k def -> Map.findWithDefault def k <$> get
   ConfigSet k v -> do

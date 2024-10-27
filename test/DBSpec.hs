@@ -43,7 +43,7 @@ prop_authStorage (NonEmpty ais) = ioProperty . runDB $ do
   AuthResult loaded _ <- loadAuth
   pure (loaded === last ais)
 
-runDB :: Eff [DatabaseEff, Fail, IOE] a -> IO a
+runDB :: Eff [DB, Fail, IOE] a -> IO a
 runDB a = runIOE . runFailIO . runDatabaseSqliteStr ":memory:" $ do
   initTables
   a

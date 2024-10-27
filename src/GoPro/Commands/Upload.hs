@@ -35,14 +35,14 @@ import           GoPro.Plus.Media          (MediumID, MediumType (..), reprocess
 import           GoPro.Plus.Upload
 import           UnliftIO.Async            (pooledMapConcurrentlyN, pooledMapConcurrentlyN_)
 
-uc :: ([LogFX, DatabaseEff, IOE] :>> es) => FilePath -> MediumID -> Integer -> UploadPart -> Uploader (Eff es) ()
+uc :: ([LogFX, DB, IOE] :>> es) => FilePath -> MediumID -> Integer -> UploadPart -> Uploader (Eff es) ()
 uc fp mid partnum up@UploadPart{..} = do
   lift $ logDbgL ["Uploading part ", tshow _uploadPart, " of ", T.pack fp]
   uploadChunk fp up
   lift $ completedUploadPart mid _uploadPart partnum
   lift $ logDbgL ["Finished part ", tshow _uploadPart, " of ", T.pack fp]
 
-runCreateUploads :: ([Reader Options, AuthCache, LogFX, DatabaseEff, IOE] :>> es) => NonEmpty FilePath -> Eff es ()
+runCreateUploads :: ([Reader Options, AuthCache, LogFX, DB, IOE] :>> es) => NonEmpty FilePath -> Eff es ()
 runCreateUploads inFilePaths = do
   filePaths <- Set.toList . fold <$> traverse expand (NE.toList inFilePaths)
   -- Exclude any commandline params for files that are already being
@@ -101,7 +101,7 @@ runCreateUploads inFilePaths = do
           Photo -> EXIF
           _     -> GPMF
 
-runCreateMultipart :: ([Reader Options, AuthCache, LogFX, DatabaseEff, IOE] :>> es) => MediumType -> NonEmpty FilePath -> Eff es ()
+runCreateMultipart :: ([Reader Options, AuthCache, LogFX, DB, IOE] :>> es) => MediumType -> NonEmpty FilePath -> Eff es ()
 runCreateMultipart typ fps = do
   runUpload fps $ do
     setMediumType typ
@@ -119,7 +119,7 @@ runCreateMultipart typ fps = do
           ) $ zip (NE.toList fps) [1..]
     lift $ logInfo "Multipart upload created.  Use the 'upload' command to complete the upload."
 
-runResumeUpload :: ([Reader Options, AuthCache, LogFX, DatabaseEff, IOE] :>> es) => Eff es ()
+runResumeUpload :: ([Reader Options, AuthCache, LogFX, DB, IOE] :>> es) => Eff es ()
 runResumeUpload = do
   ups <- listPartialUploads
   logInfoL ["Have ", tshow (length ups), " media items to upload in ",
@@ -159,5 +159,5 @@ runResumeUpload = do
         completeUpload _uploadID _pu_did part (fromIntegral fsize)
       completedUpload _pu_medium_id _pu_partnum
 
-runReprocessCmd :: ([Reader Options, AuthCache, LogFX, DatabaseEff, IOE] :>> es) => NonEmpty MediumID -> Eff es ()
+runReprocessCmd :: ([Reader Options, AuthCache, LogFX, DB, IOE] :>> es) => NonEmpty MediumID -> Eff es ()
 runReprocessCmd = mapM_ reprocess

@@ -19,7 +19,7 @@ import           GoPro.DB
 import           GoPro.Logging
 import           GoPro.Plus.Media
 
-runFixup :: ([Reader Options, AuthCache, LogFX, DatabaseEff, Fail, IOE] :>> es) => Text -> Eff es ()
+runFixup :: ([Reader Options, AuthCache, LogFX, DB, Fail, IOE] :>> es) => Text -> Eff es ()
 runFixup query = traverse_ store =<< fixupQuery query
   where
     store stuff = case partition ((== "media_id") . fst) stuff of

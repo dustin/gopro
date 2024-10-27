@@ -18,5 +18,5 @@ runListConfig = traverse_ (\k -> configItem k >>= \v -> traverse_ (liftIO . TIO.
 runGetConfig :: ([IOE, ConfigFX] :>> es) => ConfigOption -> Eff es ()
 runGetConfig k = configItem k >>= liftIO . TIO.putStrLn
 
-runSetConfig :: ([ConfigFX, DatabaseEff, IOE] :>> es) => ConfigOption -> Text -> Eff es ()
+runSetConfig :: ([ConfigFX, DB, IOE] :>> es) => ConfigOption -> Text -> Eff es ()
 runSetConfig k v = configSet k v

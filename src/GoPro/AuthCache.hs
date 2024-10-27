@@ -28,7 +28,7 @@ makeEffect ''AuthCache
 newAuthCacheData :: IOE :> es => Eff es AuthCacheData
 newAuthCacheData = liftIO $ AuthCacheData <$> newCache (Just (TimeSpec 60 0)) <*> newEmptyMVar
 
-runAuthCache :: [DatabaseEff, LogFX, IOE] :>> es => AuthCacheData -> Eff (AuthCache : es) a -> Eff es a
+runAuthCache :: [DB, LogFX, IOE] :>> es => AuthCacheData -> Eff (AuthCache : es) a -> Eff es a
 runAuthCache acd@AuthCacheData{..} = interpret $ \case
   GetAuthInfo -> authMutexed acd $ fetchWithCache authCache () (const fetchOrRefresh)
   SetAuthInfo ai -> liftIO $ insert authCache () ai
@@ -36,7 +36,7 @@ runAuthCache acd@AuthCacheData{..} = interpret $ \case
 authMutexed :: (IOE :> es) => AuthCacheData -> Eff es a -> Eff es a
 authMutexed AuthCacheData{..} a = bracket_ (putMVar authMutex ()) (takeMVar authMutex) a
 
-fetchOrRefresh :: ([DatabaseEff, LogFX, IOE] :>> es) => Eff es AuthInfo
+fetchOrRefresh :: ([DB, LogFX, IOE] :>> es) => Eff es AuthInfo
 fetchOrRefresh = do
   logDbg "Reading auth token from DB"
   AuthResult ai expired <- loadAuth

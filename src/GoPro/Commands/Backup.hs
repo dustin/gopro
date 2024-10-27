@@ -71,7 +71,7 @@ retryRetrieve mid = recoverAll policy $ \r -> do
 
 type LambdaFunc = Text
 
-copyMedia :: [Reader Options, AuthCache, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => LambdaFunc -> Extractor -> MediumID -> Eff es ()
+copyMedia :: [Reader Options, AuthCache, Fail, LogFX, S3, DB, IOE] :>> es => LambdaFunc -> Extractor -> MediumID -> Eff es ()
 copyMedia λ extract mid = do
   todo <- extract mid <$> retryRetrieve mid
   pooledMapConcurrentlyN_ 5 copy todo
@@ -220,7 +220,7 @@ extractOrig mid = filter desirable . extractMedia mid
                                     || (".jpg" `isSuffixOf` fn && "-file" `isInfixOf` fn)
                                     || ("raw_photo.gpr" `isInfixOf` fn)
 
-runBackup :: [Reader Options, ConfigFX, AuthCache, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => Extractor -> Eff es ()
+runBackup :: [Reader Options, ConfigFX, AuthCache, Fail, LogFX, S3, DB, IOE] :>> es => Extractor -> Eff es ()
 runBackup ex = do
   λ <- configItem CfgCopyFunc
   todo <- take 5 <$> listToCopyToS3
@@ -228,10 +228,10 @@ runBackup ex = do
   c <- asksOpt optUploadConcurrency
   pooledMapConcurrentlyN_ c (copyMedia λ ex) todo
 
-runLocalBackup :: [Reader Options, AuthCache, LogFX, DatabaseEff, IOE] :>> es => Extractor -> NonEmpty FilePath -> Eff es ()
+runLocalBackup :: [Reader Options, AuthCache, LogFX, DB, IOE] :>> es => Extractor -> NonEmpty FilePath -> Eff es ()
 runLocalBackup ex paths = listToCopyLocally >>= maybe (pure ()) (runDownload ex paths) . NE.nonEmpty
 
-runDownload :: [Reader Options, AuthCache, LogFX, DatabaseEff, IOE] :>> es => Extractor -> NonEmpty FilePath -> NonEmpty MediumID -> Eff es ()
+runDownload :: [Reader Options, AuthCache, LogFX, DB, IOE] :>> es => Extractor -> NonEmpty FilePath -> NonEmpty MediumID -> Eff es ()
 runDownload ex paths mids = do
   have <- fold <$> liftIO (traverse findHave paths)
   let todo = filter (`Set.notMember` have) (NE.toList mids)
@@ -250,7 +250,7 @@ runDownload ex paths mids = do
         "tmp"   -> pure StopRecursing
         _       -> tell (Set.fromList (pack <$> subdirs)) $> Continue
 
-runStoreMeta :: [Reader Options, AuthCache, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => Eff es ()
+runStoreMeta :: [Reader Options, AuthCache, Fail, LogFX, S3, DB, IOE] :>> es => Eff es ()
 runStoreMeta = do
   logDbg "Finding metadata blobs stored in S3 and local database"
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
@@ -261,7 +261,7 @@ runStoreMeta = do
   c <- asksOpt optUploadConcurrency
   pooledMapConcurrentlyN_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
 
-runStoreMeta' :: [Reader Options, AuthCache, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => [(MediumID, Maybe ByteString)] -> Eff es ()
+runStoreMeta' :: [Reader Options, AuthCache, Fail, LogFX, S3, DB, IOE] :>> es => [(MediumID, Maybe ByteString)] -> Eff es ()
 runStoreMeta' [] = pure ()
 runStoreMeta' local = do
   logDbg "Finding metadata blobs stored in S3 and local database"
@@ -273,14 +273,14 @@ runStoreMeta' local = do
   c <- asksOpt optUploadConcurrency
   pooledMapConcurrentlyN_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
 
-runClearMeta :: [Reader Options, Fail, LogFX, S3, DatabaseEff, IOE] :>> es => Eff es ()
+runClearMeta :: [Reader Options, Fail, LogFX, S3, DB, IOE] :>> es => Eff es ()
 runClearMeta = do
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
   let backedup =  filter (`Set.member` have) (fst <$> local)
   logDbgL ["clearing ", tshow backedup]
   clearMetaBlob backedup
 
-runReceiveS3CopyQueue :: [Reader Options, ConfigFX, LogFX, DatabaseEff, IOE] :>> es => Eff es ()
+runReceiveS3CopyQueue :: [Reader Options, ConfigFX, LogFX, DB, IOE] :>> es => Eff es ()
 runReceiveS3CopyQueue = do
   qrl <- configItem CfgCopySQSQueue
   go qrl =<< listS3Waiting

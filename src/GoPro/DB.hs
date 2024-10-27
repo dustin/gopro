@@ -20,7 +20,7 @@ module GoPro.DB (MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_varia
                  ConfigOption(..), strOption, optionStr,
                  AuthResult(..),
                  FileData(..), fd_medium, fd_section, fd_label, fd_type, fd_item_num, fd_file_size,
-                 DatabaseEff(..),
+                 DB(..),
                  initTables, loadConfig, updateConfig, updateAuth, loadAuth,
                  storeMedia, loadMediaIDs, loadMediaRows, loadMedia, loadMedium, loadThumbnail,
                  storeMoments, loadMoments, momentsTODO, metaBlobTODO, insertMetaBlob, loadMetaBlob,
@@ -121,53 +121,53 @@ instance ToJSON FileData where
   toEncoding = genericToEncoding defaultOptions { fieldLabelModifier = drop 4}
   toJSON = J.genericToJSON defaultOptions { fieldLabelModifier = drop 4}
 
-data DatabaseEff :: Effect where
-  InitTables :: DatabaseEff m ()
-  LoadConfig :: DatabaseEff m (Map ConfigOption Text)
-  UpdateConfig :: Map ConfigOption Text -> DatabaseEff m ()
+data DB :: Effect where
+  InitTables :: DB m ()
+  LoadConfig :: DB m (Map ConfigOption Text)
+  UpdateConfig :: Map ConfigOption Text -> DB m ()
 
-  UpdateAuth :: AuthInfo -> DatabaseEff m ()
-  LoadAuth :: DatabaseEff m AuthResult
+  UpdateAuth :: AuthInfo -> DB m ()
+  LoadAuth :: DB m AuthResult
 
-  StoreMedia :: [MediaRow] -> DatabaseEff m ()
-  LoadMediaIDs :: DatabaseEff m [MediumID]
-  LoadMediaRows :: DatabaseEff m [MediaRow]
-  LoadMedia :: DatabaseEff m [Medium]
-  LoadMedium :: MediumID -> DatabaseEff m (Maybe Medium)
-  LoadThumbnail :: MediumID -> DatabaseEff m (Maybe BL.ByteString)
-  StoreMoments :: MediumID -> [Moment] -> DatabaseEff m ()
-  LoadMoments :: DatabaseEff m (Map MediumID [Moment])
-  MomentsTODO :: DatabaseEff m [MediumID]
-  MetaBlobTODO :: DatabaseEff m [(MediumID, String)]
-  InsertMetaBlob :: MediumID -> MetadataType -> Maybe BS.ByteString -> DatabaseEff m ()
-  LoadMetaBlob :: MediumID -> DatabaseEff m (Maybe (MetadataType, Maybe BS.ByteString))
-  SelectMetaBlob :: DatabaseEff m [(MediumID, Maybe BS.ByteString)]
-  ClearMetaBlob :: [MediumID] -> DatabaseEff m ()
-  MetaTODO :: DatabaseEff m [(MediumID, MetadataType, BS.ByteString)]
-  InsertMeta :: MediumID -> MDSummary -> DatabaseEff m ()
-  SelectMeta :: DatabaseEff m (Map MediumID MDSummary)
-  LoadMeta :: MediumID -> DatabaseEff m (Maybe MDSummary)
-  StoreUpload :: FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> Integer -> DatabaseEff m ()
-  CompletedUploadPart :: MediumID -> Integer -> Integer -> DatabaseEff m ()
-  CompletedUpload :: MediumID -> Integer -> DatabaseEff m ()
-  ListPartialUploads :: DatabaseEff m [[PartialUpload]]
-  ClearUploads :: DatabaseEff m ()
-  ListQueuedFiles :: DatabaseEff m [FilePath]
-  ListToCopyToS3 :: DatabaseEff m [MediumID]
-  QueuedCopyToS3 :: [(MediumID, String)] -> DatabaseEff m ()
-  MarkS3CopyComplete :: (ToJSON j) => [(Text, Bool, j)] -> DatabaseEff m ()
-  ListS3Waiting :: DatabaseEff m [String]
-  ListToCopyLocally :: DatabaseEff m [MediumID]
-  SelectAreas :: DatabaseEff m [Area]
+  StoreMedia :: [MediaRow] -> DB m ()
+  LoadMediaIDs :: DB m [MediumID]
+  LoadMediaRows :: DB m [MediaRow]
+  LoadMedia :: DB m [Medium]
+  LoadMedium :: MediumID -> DB m (Maybe Medium)
+  LoadThumbnail :: MediumID -> DB m (Maybe BL.ByteString)
+  StoreMoments :: MediumID -> [Moment] -> DB m ()
+  LoadMoments :: DB m (Map MediumID [Moment])
+  MomentsTODO :: DB m [MediumID]
+  MetaBlobTODO :: DB m [(MediumID, String)]
+  InsertMetaBlob :: MediumID -> MetadataType -> Maybe BS.ByteString -> DB m ()
+  LoadMetaBlob :: MediumID -> DB m (Maybe (MetadataType, Maybe BS.ByteString))
+  SelectMetaBlob :: DB m [(MediumID, Maybe BS.ByteString)]
+  ClearMetaBlob :: [MediumID] -> DB m ()
+  MetaTODO :: DB m [(MediumID, MetadataType, BS.ByteString)]
+  InsertMeta :: MediumID -> MDSummary -> DB m ()
+  SelectMeta :: DB m (Map MediumID MDSummary)
+  LoadMeta :: MediumID -> DB m (Maybe MDSummary)
+  StoreUpload :: FilePath -> MediumID -> Upload -> DerivativeID -> Integer -> Integer -> DB m ()
+  CompletedUploadPart :: MediumID -> Integer -> Integer -> DB m ()
+  CompletedUpload :: MediumID -> Integer -> DB m ()
+  ListPartialUploads :: DB m [[PartialUpload]]
+  ClearUploads :: DB m ()
+  ListQueuedFiles :: DB m [FilePath]
+  ListToCopyToS3 :: DB m [MediumID]
+  QueuedCopyToS3 :: [(MediumID, String)] -> DB m ()
+  MarkS3CopyComplete :: (ToJSON j) => [(Text, Bool, j)] -> DB m ()
+  ListS3Waiting :: DB m [String]
+  ListToCopyLocally :: DB m [MediumID]
+  SelectAreas :: DB m [Area]
 
-  FoldGPSReadings :: MediumID -> Int -> Fold GPSReading b -> DatabaseEff m b
-  StoreGPSReadings :: MediumID -> [GPSReading] -> DatabaseEff m ()
-  GPSReadingsTODO :: DatabaseEff m [MediumID]
+  FoldGPSReadings :: MediumID -> Int -> Fold GPSReading b -> DB m b
+  StoreGPSReadings :: MediumID -> [GPSReading] -> DB m ()
+  GPSReadingsTODO :: DB m [MediumID]
 
-  FileTODO :: DatabaseEff m [MediumID]
-  StoreFiles :: [FileData] -> DatabaseEff m ()
-  LoadFiles :: Maybe MediumID -> DatabaseEff m [FileData]
+  FileTODO :: DB m [MediumID]
+  StoreFiles :: [FileData] -> DB m ()
+  LoadFiles :: Maybe MediumID -> DB m [FileData]
 
-  FixupQuery :: Text -> DatabaseEff m [[(Text, J.Value)]]
+  FixupQuery :: Text -> DB m [[(Text, J.Value)]]
 
-makeEffect ''DatabaseEff
+makeEffect ''DB

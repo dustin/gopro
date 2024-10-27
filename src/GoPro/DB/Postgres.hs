@@ -67,14 +67,14 @@ import           GoPro.Plus.Media           (Medium (..), MediumID, Moment (..))
 import           GoPro.Plus.Upload          (DerivativeID, Upload (..), UploadPart (..))
 import           GoPro.Resolve              (MDSummary (..))
 
-runDatabasePostgresStr :: IOE :> es => String -> Eff (DatabaseEff : es) a -> Eff es a
+runDatabasePostgresStr :: IOE :> es => String -> Eff (DB : es) a -> Eff es a
 runDatabasePostgresStr (fromString -> s) f =
   liftIO (Pool.acquire 1 (seconds 1) (seconds 3600) (seconds 900) s) >>= flip runDatabasePostgres f
     where
         seconds = (* 1000000)
 
 -- Effect Interpretation via IO
-runDatabasePostgres :: IOE :> es => Pool -> Eff (DatabaseEff : es) a -> Eff es a
+runDatabasePostgres :: IOE :> es => Pool -> Eff (DB : es) a -> Eff es a
 runDatabasePostgres pool = interpretIO \case
   InitTables -> pooling GoPro.DB.Postgres.initTables
   LoadConfig -> pooling GoPro.DB.Postgres.loadConfig

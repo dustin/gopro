@@ -66,7 +66,7 @@ namedFiles Medium{..} mx fdf = fmap nameOne
       where
         FileData{..} = fdf a
 
-runServer :: forall es. [Reader Options, NotifyFX, ConfigFX, AuthCache, LogFX, S3, DatabaseEff, Fail, IOE] :>> es => Eff es ()
+runServer :: forall es. [Reader Options, NotifyFX, ConfigFX, AuthCache, LogFX, S3, DB, Fail, IOE] :>> es => Eff es ()
 runServer = do
   let settings = Warp.setPort 8008 Warp.defaultSettings
   opts <- ask
