@@ -194,7 +194,7 @@ runGetMeta = do
           Nothing -> logErrorL ["Can't find GPMD stream for ", tshow mid] *> fail "no gpmd"
           Just s  -> liftIO $ extractGPMDStream [f] s
 
-runWait :: [AuthCache, LogFX, DB, IOE] :>> es => Eff es ()
+runWait :: [AuthCache, LogFX, IOE] :>> es => Eff es ()
 runWait = whileM_ inProgress (sleep 15)
   where
     inProgress = do
