@@ -35,13 +35,6 @@ import           GoPro.Plus.Media          (MediumID, MediumType (..), reprocess
 import           GoPro.Plus.Upload
 import           UnliftIO.Async            (pooledMapConcurrentlyN, pooledMapConcurrentlyN_)
 
-uc :: ([LogFX, DB, IOE] :>> es) => FilePath -> MediumID -> Integer -> UploadPart -> Uploader (Eff es) ()
-uc fp mid partnum up@UploadPart{..} = do
-  lift $ logDbgL ["Uploading part ", tshow _uploadPart, " of ", T.pack fp]
-  uploadChunk fp up
-  lift $ completedUploadPart mid _uploadPart partnum
-  lift $ logDbgL ["Finished part ", tshow _uploadPart, " of ", T.pack fp]
-
 runCreateUploads :: ([Reader Options, AuthCache, LogFX, DB, IOE] :>> es) => NonEmpty FilePath -> Eff es ()
 runCreateUploads inFilePaths = do
   filePaths <- Set.toList . fold <$> traverse expand (NE.toList inFilePaths)
@@ -158,6 +151,12 @@ runResumeUpload = do
         _ <- pooledMapConcurrentlyN c (uc _pu_filename _pu_medium_id _pu_partnum) chunks
         completeUpload _uploadID _pu_did part (fromIntegral fsize)
       completedUpload _pu_medium_id _pu_partnum
+
+    uc fp mid partnum part@UploadPart{..} = do
+      lift $ logDbgL ["Uploading part ", tshow _uploadPart, " of ", T.pack fp]
+      uploadChunk fp part
+      lift $ completedUploadPart mid _uploadPart partnum
+      lift $ logDbgL ["Finished part ", tshow _uploadPart, " of ", T.pack fp]
 
 runReprocessCmd :: ([Reader Options, AuthCache, LogFX, DB, IOE] :>> es) => NonEmpty MediumID -> Eff es ()
 runReprocessCmd = mapM_ reprocess
