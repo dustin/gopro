@@ -20,6 +20,7 @@ module GoPro.DB.Sqlite (runDatabaseSqlite, runDatabaseSqliteStr) where
 
 import           Cleff
 import           Control.Foldl                    (Fold (..))
+import           Control.Monad.Catch              (bracket)
 import           Data.Aeson                       (FromJSON (..), ToJSON (..))
 import qualified Data.Aeson                       as J
 import qualified Data.ByteString                  as BS
@@ -41,7 +42,6 @@ import           Database.SQLite.Simple.Ok
 import           Database.SQLite.Simple.QQ        (sql)
 import           Database.SQLite.Simple.ToField
 
-
 import           Database.SQLite.Simple.FromRow   (fieldWith)
 import           GoPro.DB
 import           GoPro.DEVC                       (GPSReading (..))
@@ -52,7 +52,7 @@ import           GoPro.Plus.Upload                (DerivativeID, Upload (..), Up
 import           GoPro.Resolve                    (MDSummary (..))
 
 runDatabaseSqliteStr :: IOE :> es => String -> Eff (DB : es) a -> Eff es a
-runDatabaseSqliteStr str f = liftIO (open str) >>= flip runDatabaseSqlite f
+runDatabaseSqliteStr str f = bracket (liftIO (open str)) (liftIO . close) (`runDatabaseSqlite` f)
 
 runDatabaseSqlite :: IOE :> es => Connection -> Eff (DB : es) a -> Eff es a
 runDatabaseSqlite db = interpretIO \case
