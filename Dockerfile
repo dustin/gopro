@@ -1,13 +1,15 @@
-FROM haskell:9.0.2-buster
+FROM haskell:9.6-bullseye
 
 RUN apt-get update
 RUN apt-get install -y ffmpeg libpq5 libpq-dev zlib1g zlib1g-dev
 
 WORKDIR /usr/lib/gopro
-COPY stack.yaml package.yaml ./
-RUN stack install --system-ghc --dependencies-only
+
+COPY gopro.cabal ./
+RUN cabal update
+RUN cabal build --only-dependencies
 
 COPY . ./
-RUN stack install --system-ghc
+RUN cabal install
 
-CMD ["/root/.local/bin/gopro"]
+CMD ["/root/.cabal/bin/gopro"]
