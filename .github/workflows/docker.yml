@@ -29,3 +29,5 @@ jobs:
         context: .
         push: true
         tags: ${{ secrets.DOCKER_USERNAME }}/gopro:latest
+        cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/gopro:cache
+        cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/gopro:cache,mode=max
