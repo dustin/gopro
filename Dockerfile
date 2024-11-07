@@ -12,4 +12,4 @@ RUN cabal build --only-dependencies
 COPY . ./
 RUN cabal install
 
-CMD ["/root/.cabal/bin/gopro"]
+CMD ["/root/.local/bin/gopro"]
