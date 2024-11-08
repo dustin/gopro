@@ -6,8 +6,7 @@ RUN apt-get update && apt-get install -y ffmpeg libpq5 libpq-dev zlib1g zlib1g-d
 WORKDIR /usr/src/app
 
 COPY gopro.cabal ./
-RUN cabal update
-RUN cabal build --only-dependencies
+RUN cabal update && cabal build --only-dependencies
 
 COPY . ./
 RUN cabal install
