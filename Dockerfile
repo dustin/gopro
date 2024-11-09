@@ -21,7 +21,10 @@ WORKDIR /usr/local/bin
 # Copy the built executable from the builder stage
 COPY --from=builder /root/.local/bin/gopro .
 
+VOLUME /data
+
 # Copy the static directory
-COPY --from=builder /usr/src/app/static /usr/local/bin/static
+WORKDIR /data
+COPY --from=builder /usr/src/app/static /data/static
 
 ENTRYPOINT ["/usr/local/bin/gopro"]
