@@ -89,6 +89,20 @@ runFetch stype = do
             storeMedia =<< fetch c l
           fetch c = pooledMapConcurrentlyN c resolve
 
+removeDeleted :: [Reader Options, AuthCache, LogFX, DB, Fail, IOE] :>> es => Eff es ()
+removeDeleted = do
+  loc <- loadMediaIDs
+  logDbgL ["Found ", tshow (length loc), " local items"]
+  remote <- loadRemoteIDs
+  logDbgL ["Found ", tshow (length remote), " remote items"]
+  let missing = Set.difference (Set.fromList loc) (Set.fromList remote)
+  unless (null missing) do
+     logInfoL ["Deleting missing items: ", tshow missing]
+     deleteMedia (Set.toList missing)
+
+  where
+    loadRemoteIDs = toListOf (folded . medium_id) <$> listAll
+
 runGetMoments :: [Reader Options, AuthCache, LogFX, DB, IOE] :>> es => Eff es ()
 runGetMoments = do
   need <- momentsTODO

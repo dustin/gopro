@@ -36,6 +36,7 @@ data Command = AuthCmd
              | UploadCmd [FilePath]
              | CreateMultiCmd MediumType (NonEmpty FilePath)
              | FetchAllCmd
+             | RemoveDeleted
              | CleanupCmd
              | FixupCmd T.Text
              | ServeCmd

@@ -197,6 +197,15 @@ when it sees something it's seen before.  It will take longer than
 `sync` but should generally do the same thing unless you've rampage
 deleted some data from `gopro.db`.
 
+### removedeleted
+
+The `removedeleted` command removes media from the local database
+that is no longer present in the GoPro cloud.  This is useful if
+you've deleted some stuff from one of their other apps and want
+your local database to be consistent.
+
+Note that it may take a minute or two if you have a lot of media.
+
 ### cleanup
 
 The `cleanup` command cleans unprocessed data both on the GoPro side

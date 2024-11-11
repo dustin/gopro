@@ -28,7 +28,7 @@ module GoPro.DB (MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_varia
                  storeUpload, completedUploadPart, completedUpload, listPartialUploads, clearUploads,
                  listQueuedFiles, listToCopyToS3, queuedCopyToS3, markS3CopyComplete, listS3Waiting,
                  listToCopyLocally, selectAreas, foldGPSReadings, storeGPSReadings, gPSReadingsTODO,
-                 fileTODO, storeFiles, loadFiles, fixupQuery
+                 fileTODO, storeFiles, loadFiles, fixupQuery, deleteMedia
                  ) where
 
 import           Cleff
@@ -159,6 +159,7 @@ data DB :: Effect where
   ListS3Waiting :: DB m [String]
   ListToCopyLocally :: DB m [MediumID]
   SelectAreas :: DB m [Area]
+  DeleteMedia :: [MediumID] -> DB m ()
 
   FoldGPSReadings :: MediumID -> Int -> Fold GPSReading b -> DB m b
   StoreGPSReadings :: MediumID -> [GPSReading] -> DB m ()

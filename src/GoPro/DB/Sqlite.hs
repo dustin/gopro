@@ -15,6 +15,7 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 {-# HLINT ignore "Avoid lambda using `infix`" #-}
+{-# LANGUAGE InstanceSigs               #-}
 
 module GoPro.DB.Sqlite (runDatabaseSqlite, runDatabaseSqliteStr) where
 
@@ -93,6 +94,7 @@ runDatabaseSqlite db = interpretIO \case
   ListS3Waiting -> GoPro.DB.Sqlite.listS3Waiting db
   ListToCopyLocally -> GoPro.DB.Sqlite.listToCopyLocally db
   SelectAreas -> GoPro.DB.Sqlite.selectAreas db
+  DeleteMedia mids -> GoPro.DB.Sqlite.deleteMedia db mids
 
   FoldGPSReadings mediumID maxDop f -> GoPro.DB.Sqlite.foldGPSReadings db mediumID maxDop f
   StoreGPSReadings mediumID readings -> GoPro.DB.Sqlite.storeGPSReadings db mediumID readings
@@ -422,6 +424,14 @@ instance FromRow Area where
 
 selectAreas :: MonadIO m => Connection -> m [Area]
 selectAreas = q_ "select area_id, name, lat1, lon1, lat2, lon2 from areas"
+
+deleteMedia :: MonadIO m => Connection -> [MediumID] -> m ()
+deleteMedia db mids = liftIO . withTransaction db $ do
+  let omids = Only <$> mids
+  em "delete from meta where media_id = ?" omids db
+  em "delete from moments where media_id = ?" omids db
+  em "delete from s3backup where media_id = ?" omids db
+  em "delete from media where media_id = ?" omids db
 
 storeMoments :: MonadIO m => MediumID -> [Moment] -> Connection -> m ()
 storeMoments mid ms db = do

@@ -67,6 +67,7 @@ options Options{..} = Options
                   <> command "download" (info downloadCmd (progDesc "Download media to local path"))
                   <> command "createmulti" (info createMultiCmd (progDesc "Create a multipart upload"))
                   <> command "fetchall" (info (pure FetchAllCmd) (progDesc "Fully sync all metadata"))
+                  <> command "removedeleted" (info (pure RemoveDeleted) (progDesc "Delete local media missing from remote"))
                   <> command "cleanup" (info (pure CleanupCmd) (progDesc "Clean up any outstanding ops"))
                   <> command "serve" (info (pure ServeCmd) (progDesc "Run the UI web server"))
                   <> command "wait" (info (pure WaitCmd) (progDesc "Wait for outstanding uploads to complete"))
@@ -152,6 +153,7 @@ run (CreateUploadCmd fs)  = runCreateUploads fs
 run (CreateMultiCmd t fs) = runCreateMultipart t fs
 run (UploadCmd fs)        = ifne fs runCreateUploads >> runResumeUpload
 run FetchAllCmd           = runFetch Full
+run RemoveDeleted         = removeDeleted
 run CleanupCmd            = runCleanup
 run (FixupCmd q)          = runFixup q
 run ServeCmd              = runServer

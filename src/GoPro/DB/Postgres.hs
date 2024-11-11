@@ -113,6 +113,7 @@ runDatabasePostgres pool = interpretIO \case
   ListS3Waiting -> pooling GoPro.DB.Postgres.listS3Waiting
   ListToCopyLocally -> pooling GoPro.DB.Postgres.listToCopyLocally
   SelectAreas -> pooling GoPro.DB.Postgres.selectAreas
+  DeleteMedia mediaIDs -> pooling (GoPro.DB.Postgres.deleteMedia mediaIDs)
 
   FoldGPSReadings mediumID maxDop fold -> pooling (GoPro.DB.Postgres.foldGPSReadings mediumID maxDop fold)
   StoreGPSReadings mediumID readings -> pooling (GoPro.DB.Postgres.storeGPSReadings mediumID readings)
@@ -481,6 +482,22 @@ selectAreas :: Session [Area]
 selectAreas = Session.statement () st
   where
     st = Statement "select area_id, name, lat1, lon1, lat2, lon2 from areas" noParams (rowList areaRow) True
+
+deleteMedia :: [MediumID] -> Session ()
+deleteMedia ms = transaction TX.Serializable TX.Write tx
+  where
+    tx = traverse_ one ms
+
+    one i = do
+      TX.statement i rmmeta
+      TX.statement i rmmoments
+      TX.statement i rms3
+      TX.statement i rmmedia
+
+    rmmeta = [resultlessStatement|delete from meta where media_id = $1::text|]
+    rmmoments = [resultlessStatement|delete from moments where media_id = $1::text|]
+    rms3 = [resultlessStatement|delete from s3backup where media_id = $1::text|]
+    rmmedia = [resultlessStatement|delete from media where media_id = $1::text|]
 
 storeMoments :: MediumID -> [Moment] -> Session ()
 storeMoments mid ms = transaction TX.Serializable TX.Write tx
