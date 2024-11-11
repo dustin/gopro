@@ -5,7 +5,7 @@ module GoPro.Commands.Config (
   ) where
 
 import           Cleff
-import Control.Monad ((>=>))
+import           Control.Monad       ((>=>))
 import           Data.Foldable       (traverse_)
 import           Data.Text           (Text)
 import qualified Data.Text.IO        as TIO

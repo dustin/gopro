@@ -1,18 +1,18 @@
-{-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module GoPro.AuthCache where
 
-import Cleff
+import           Cleff
 
-import           Data.Cache             (Cache (..), insert, fetchWithCache, newCache)
-import           UnliftIO.MVar          (MVar, newEmptyMVar, putMVar, takeMVar)
+import           Data.Cache      (Cache (..), fetchWithCache, insert, newCache)
 import           GoPro.Plus.Auth
-import           UnliftIO               (bracket_)
-import           System.Clock           (TimeSpec (..))
+import           System.Clock    (TimeSpec (..))
+import           UnliftIO        (bracket_)
+import           UnliftIO.MVar   (MVar, newEmptyMVar, putMVar, takeMVar)
 
-import GoPro.Logging
-import GoPro.DB
+import           GoPro.DB
+import           GoPro.Logging
 
 data AuthCacheData = AuthCacheData
     { authCache :: Cache () AuthInfo
