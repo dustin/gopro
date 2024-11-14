@@ -54,12 +54,12 @@ import           GoPro.Resolve          (MDSummary (..))
 instance J.FromJSON MediaRow where
   parseJSON o = do
     m <- J.parseJSON o
-    pure $ MediaRow m Nothing "" o
+    pure $ MediaRow m Nothing Nothing o
 
 data MediaRow = MediaRow
     { _row_media     :: Medium
     , _row_thumbnail :: Maybe BL.ByteString
-    , _row_variants  :: J.Value
+    , _row_variants  :: Maybe J.Value
     , _row_raw_json  :: J.Value
     } deriving (Show, Eq)
 makeLenses ''MediaRow
@@ -68,7 +68,7 @@ instance ToJSON MediaRow where
   toJSON (MediaRow m _ v r) = J.object [ "medium" .= m , "variants" .= v , "raw" .= r ]
 
 row_fileInfo :: Lens' MediaRow (Maybe FileInfo)
-row_fileInfo = lens (\(MediaRow _ _ v _) -> unj v) (\(MediaRow m t _ r) x -> MediaRow m t (J.toJSON x) r)
+row_fileInfo = lens (\(MediaRow _ _ v _) -> unj =<< v) (\(MediaRow m t _ r) x -> MediaRow m t (J.toJSON <$> x) r)
   where
     unj :: J.Value -> Maybe FileInfo
     unj x = case J.fromJSON x of

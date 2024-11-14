@@ -31,9 +31,10 @@ import           GoPro.DB.Sqlite                      as SDB
 import           GoPro.Resolve
 
 instance Arbitrary MediaRow where
-  arbitrary = MediaRow <$> (unTruncated <$>  arbitrary) <*> arbitrary <*> arbitraryJSON <*> arbitraryJSON
+  arbitrary = MediaRow <$> (unTruncated <$>  arbitrary) <*> arbitrary <*> arbitrarymJSON <*> arbitraryJSON
     where
       arbitraryJSON = pure "{}"
+      arbitrarymJSON = pure (Just "{}")
 
 deriving instance Eq AuthInfo
 
@@ -133,7 +134,7 @@ instance Arbitrary Location where
 
 prop_metaBlob :: TruncatedMedium -> MetadataType -> ByteString -> Property
 prop_metaBlob (TruncatedMedium m@(Medium{_medium_id})) mt bs = ioProperty . runDB $ do
-  storeMedia [MediaRow m Nothing "" (J.toJSON m)]
+  storeMedia [MediaRow m Nothing Nothing (J.toJSON m)]
   todo <- fmap fst <$> metaBlobTODO
   liftIO $ assertEqual "todo" [_medium_id] todo
 
@@ -163,7 +164,7 @@ prop_metaBlob (TruncatedMedium m@(Medium{_medium_id})) mt bs = ioProperty . runD
 
 prop_meta :: TruncatedMedium -> MetadataType -> ByteString -> MDSummary -> Property
 prop_meta (TruncatedMedium m@(Medium{_medium_id})) mt bs md = ioProperty . runDB $ do
-    storeMedia [MediaRow m Nothing "" (J.toJSON m)]
+    storeMedia [MediaRow m Nothing Nothing (J.toJSON m)]
     insertMetaBlob _medium_id mt (Just bs)
     insertMeta _medium_id md
     nmd <- selectMeta

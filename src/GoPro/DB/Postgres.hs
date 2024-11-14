@@ -273,13 +273,13 @@ updateConfig cfg = do
 
 upsertMediaS :: Statement (Text, Maybe Text, UTCTime, UTCTime,
                            Maybe Int64, Int64, Maybe DiffTime, Text,
-                           Maybe Int64, Maybe Int64, Text, Maybe Text, Maybe ByteString, J.Value, J.Value) ()
+                           Maybe Int64, Maybe Int64, Text, Maybe Text, Maybe ByteString, Maybe J.Value, J.Value) ()
 upsertMediaS = [resultlessStatement|insert into media (media_id, camera_model, captured_at, created_at,
                                      file_size, moments_count, source_duration, media_type,
                                      width, height, ready_to_view, filename, thumbnail, variants, raw_json)
                                      values($1 :: text, $2 :: text?, $3 :: timestamptz, $4 :: timestamptz,
                                             $5 :: int8?, $6 :: int8, $7 :: interval?, $8 :: text,
-                                            $9 :: int8?, $10 :: int8?, $11 :: text, $12 :: text?, $13 :: bytea?, $14 :: jsonb, $15 :: jsonb)
+                                            $9 :: int8?, $10 :: int8?, $11 :: text, $12 :: text?, $13 :: bytea?, $14 :: jsonb?, $15 :: jsonb)
                               on conflict (media_id)
                                  do update
                                    set moments_count = excluded.moments_count,
@@ -315,7 +315,7 @@ storeMedia = traverse_ one
 mediaRow :: Row MediaRow
 mediaRow = MediaRow <$> mediumRow
              <*> column (Decoders.nullable (BL.fromStrict <$> Decoders.bytea))
-             <*> column (Decoders.nonNullable Decoders.jsonb)
+             <*> column (Decoders.nullable Decoders.jsonb)
              <*> column (Decoders.nonNullable Decoders.jsonb)
 
 loadMediaRows :: Session [MediaRow]

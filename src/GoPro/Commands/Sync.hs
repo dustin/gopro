@@ -23,7 +23,7 @@ import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy  as BL
 import           Data.Char             (toLower)
 import           Data.Foldable         (fold, for_, traverse_)
-import Data.List (partition)
+import           Data.List             (partition)
 import           Data.List.Extra       (chunksOf)
 import           Data.List.NonEmpty    (NonEmpty (..))
 import qualified Data.List.NonEmpty    as NE
@@ -72,7 +72,7 @@ runFetch stype = do
             unless (rsIterNumber rt == 0) $ logInfoL ["Retrying fetch of ", _medium_id m,
                                                       " attempt ", tshow (rsIterNumber rt)]
             MediaRow m' _ _ r <- medium (_medium_id m)
-            Just variants <- fetchVariantsSansURLs (_medium_id m) -- TODO:  Maybe make this total
+            variants <- fetchVariantsSansURLs (_medium_id m)
             thumbs <- runTryAlternative . optional $ TryAlternative (fetchThumbnail m)
             pure $ MediaRow m' thumbs variants r
 
@@ -245,7 +245,7 @@ refreshMedia = mapM_ refreshSome . chunksOf 100 . NE.toList
       logDbgL ["Refreshing ", mid]
       MediaRow m _ _ r <- medium mid
       tn <- either (\(_ :: SomeException) -> Nothing) Just <$> try (fetchThumbnail m)
-      Just variants <- fetchVariantsSansURLs (_medium_id m) -- TODO:  Maybe make this total
+      variants <- fetchVariantsSansURLs (_medium_id m)
       pure $ MediaRow m tn variants r
 
     refreshSome mids = do
