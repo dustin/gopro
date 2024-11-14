@@ -34,7 +34,7 @@ runAuthCache acd@AuthCacheData{..} = interpret $ \case
   SetAuthInfo ai -> liftIO $ insert authCache () ai
 
 authMutexed :: (IOE :> es) => AuthCacheData -> Eff es a -> Eff es a
-authMutexed AuthCacheData{..} a = bracket_ (putMVar authMutex ()) (takeMVar authMutex) a
+authMutexed AuthCacheData{..} = bracket_ (putMVar authMutex ()) (takeMVar authMutex)
 
 fetchOrRefresh :: ([DB, LogFX, IOE] :>> es) => Eff es AuthInfo
 fetchOrRefresh = do
