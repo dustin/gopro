@@ -56,9 +56,14 @@ jobs:
     - name: Set up Haskell
       uses: haskell-actions/setup@v2
       with:
-        ghc-version: '9.6.4'
-        cabal-version: '3.10.2.1'
+        ghc-version: '9.6'
+        cabal-version: 'latest'
 
+    - name: Print Cabal and GHC Versions
+      run: |
+        cabal --version
+        cabal exec ghc -- --version
+ 
     - name: Cache Key
       id: cache_key
       run: echo "key=$(md5sum gopro.cabal | awk '{print $1}')" >> $GITHUB_ENV
@@ -86,11 +91,6 @@ jobs:
       run: |
         cabal build
         cabal test
-
-    - name: Print Cabal and GHC Versions
-      run: |
-        cabal --version
-        cabal exec ghc -- --version
 
   ui:
     runs-on: ubuntu-latest
