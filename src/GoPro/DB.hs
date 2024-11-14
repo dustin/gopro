@@ -13,7 +13,7 @@
 {-# LANGUAGE TypeOperators       #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module GoPro.DB (MediaRow(..), row_fileInfo, row_media, row_thumbnail, row_variants, row_raw_json,
+module GoPro.DB (MediaRow(..), row_media, row_thumbnail, row_variants, row_raw_json,
                  Area(..), area_id, area_name, area_nw, area_se,
                  PartialUpload(..),
                  MetadataType(..),
@@ -47,7 +47,7 @@ import           Generics.Deriving.Base (Generic)
 import           GoPro.Config.Option
 import           GoPro.DEVC             (GPSReading (..))
 import           GoPro.Plus.Auth        (AuthInfo (..))
-import           GoPro.Plus.Media       (FileInfo (..), Medium (..), MediumID, Moment (..))
+import           GoPro.Plus.Media       (Medium (..), MediumID, Moment (..))
 import           GoPro.Plus.Upload      (DerivativeID, Upload (..), UploadID)
 import           GoPro.Resolve          (MDSummary (..))
 
@@ -66,14 +66,6 @@ makeLenses ''MediaRow
 
 instance ToJSON MediaRow where
   toJSON (MediaRow m _ v r) = J.object [ "medium" .= m , "variants" .= v , "raw" .= r ]
-
-row_fileInfo :: Lens' MediaRow (Maybe FileInfo)
-row_fileInfo = lens (\(MediaRow _ _ v _) -> unj =<< v) (\(MediaRow m t _ r) x -> MediaRow m t (J.toJSON <$> x) r)
-  where
-    unj :: J.Value -> Maybe FileInfo
-    unj x = case J.fromJSON x of
-                 J.Success fi -> Just fi
-                 J.Error _    -> Nothing
 
 data MetadataType = GPMF | EXIF | NoMetadata deriving (Show, Read, Enum, Bounded, Eq)
 
