@@ -2,12 +2,12 @@ name: Haskell CI
 
 on:
   push:
-    branches: [ master, amazonka2 ]
+    branches: [ master ]
   pull_request:
     branches: [ master ]
 
 jobs:
-  backend:
+  stack:
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -44,6 +44,53 @@ jobs:
       with:
         name: gopro-${{ matrix.os }}
         path: dist
+
+  cabal:
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Haskell
+      uses: haskell-actions/setup@v2
+      with:
+        ghc-version: '9.6.4'
+        cabal-version: '3.10.2.1'
+
+    - name: Cache Key
+      id: cache_key
+      run: echo "key=$(md5sum gopro.cabal | awk '{print $1}')" >> $GITHUB_ENV
+
+    - name: Update Cabal Package List
+      run: cabal update
+
+    - name: Cache Dependencies
+      id: cache
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cabal/store
+          dist-newstyle
+        key: ${{ runner.os }}-cabal-${{ hashFiles('**/*.cabal', 'cabal.project*') }}
+
+    - name: Build Dependencies
+      if: steps.cache.outputs.cache-hit != 'true'
+      run: cabal build --only-dependencies
+  
+    - name: Install tasty-discover
+      run: cabal install tasty-discover
+
+    - name: Build & Test
+      run: |
+        cabal build
+        cabal test
+
+    - name: Print Cabal and GHC Versions
+      run: |
+        cabal --version
+        cabal exec ghc -- --version
 
   ui:
     runs-on: ubuntu-latest
