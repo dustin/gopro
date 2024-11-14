@@ -23,6 +23,7 @@ import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy  as BL
 import           Data.Char             (toLower)
 import           Data.Foldable         (fold, for_, traverse_)
+import Data.List (partition)
 import           Data.List.Extra       (chunksOf)
 import           Data.List.NonEmpty    (NonEmpty (..))
 import qualified Data.List.NonEmpty    as NE
@@ -61,7 +62,8 @@ data SyncType = Full
 runFetch :: [Reader Options, AuthCache, LogFX, DB, Fail, IOE] :>> es => SyncType -> Eff es ()
 runFetch stype = do
   seen <- Set.fromList <$> loadMediaIDs
-  ms <- todo seen
+  (ms, unwanted) <- todo seen
+  traverse_ logUnwanted unwanted
   logInfoL [tshow (length ms), " new items"]
   unless (null ms) $ logDbgL ["new items: ", tshow (ms ^.. folded . medium_id)]
   mapM_ storeSome $ chunksOf 100 ms
@@ -76,7 +78,7 @@ runFetch stype = do
 
           policy = exponentialBackoff 2000000 <> limitRetries 3
 
-          todo seen = filter (\m -> notSeen m && wanted m) <$> listWhile (listPred stype)
+          todo seen = partition wanted . filter notSeen <$> listWhile (listPred stype)
             where
               notSeen = (`Set.notMember` seen) . _medium_id
               listPred Incremental = all notSeen
@@ -88,6 +90,12 @@ runFetch stype = do
             c <- asksOpt optDownloadConcurrency
             storeMedia =<< fetch c l
           fetch c = pooledMapConcurrentlyN c resolve
+
+          logUnwanted Medium{..} = logDbgL ["Skipping ", _medium_id,
+                                            " fn=", maybe "[none]" T.pack _medium_filename,
+                                            ", view state: ", tshow _medium_ready_to_view,
+                                            ", size: ", tshow _medium_file_size,
+                                            ", see: https://gopro.com/media-library/", _medium_id , "/"]
 
 removeDeleted :: [Reader Options, AuthCache, LogFX, DB, Fail, IOE] :>> es => Eff es ()
 removeDeleted = do
