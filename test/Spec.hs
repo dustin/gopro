@@ -2,11 +2,13 @@
 
 module Spec where
 
+import GoPro.Alternative
 import           Control.Lens
 import qualified Data.Aeson            as J
 import qualified Data.ByteString.Lazy  as BL
 import qualified Data.List.NonEmpty    as NE
 import           Data.These
+import Control.Monad.Catch (throwM)
 
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck as QC
@@ -265,3 +267,8 @@ instance Arbitrary FileNum where
 
 prop_nextFileAt :: File -> FileNum -> Property
 prop_nextFileAt f (FileNum n) = maybe (-1) (view fileNum) (parseGPFileName (_gpFilePath (fileAt f n))) === n
+
+unit_alternative :: Assertion
+unit_alternative = do
+  val <- tsum [undefined, pure 'X']
+  assertEqual "throwing" 'X' val

@@ -10,7 +10,7 @@ import           Data.Foldable       (asum)
 import           UnliftIO.Exception  (SomeException)
 
 
--- Define a newtype that wraps any monad
+-- TryAlternative is a newtype wrapper around a monad that provides an Alternative instance via exception handling.
 newtype TryAlternative m a = TryAlternative { runTryAlternative :: m a }
   deriving (Functor, Applicative, Monad)
 
