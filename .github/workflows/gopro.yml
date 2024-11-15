@@ -43,48 +43,50 @@ jobs:
         path: dist
 
   cabal:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v3
 
     - name: Set up Haskell
       uses: haskell-actions/setup@v2
+      id: setup
       with:
-        ghc-version: '9.6'
-        cabal-version: 'latest'
+        ghc-version: '9.6.4'
+        cabal-version: '3.10.2.1'
 
-    - name: Print Cabal and GHC Versions
-      run: |
-        cabal --version
-        cabal exec ghc -- --version
- 
-    - name: Cache Key
+    - name: Generate Cache Keys
       id: cache_key
-      run: echo "key=$(md5sum gopro.cabal | awk '{print $1}')" >> $GITHUB_ENV
-
-    - name: Update Cabal Package List
-      run: cabal update
+      run: |
+        echo "ghc_ver=${{ steps.setup.outputs.ghc-version }}" >> $GITHUB_ENV
+        cabal freeze
+        echo "dep_hash=$(md5sum cabal.project.freeze | awk '{print $1}')" >> $GITHUB_ENV
 
     - name: Cache Dependencies
-      id: cache
-      uses: actions/cache@v4
+      uses: actions/cache@v3
       with:
         path: |
-          ~/.cabal/store
+          ~/.cabal
           dist-newstyle
-        key: ${{ runner.os }}-cabal-${{ hashFiles('**/*.cabal', 'cabal.project*') }}
+        key: ${{ matrix.os }}-ghc-${{ env.ghc_ver }}-cabal-${{ env.dep_hash }}
+        restore-keys: |
+          ${{ matrix.os }}-ghc-${{ env.ghc_ver }}-cabal-
+          ${{ matrix.os }}-ghc-${{ env.ghc_ver }}-
+          ${{ matrix.os }}-
 
-    - name: Build Dependencies
-      if: steps.cache.outputs.cache-hit != 'true'
-      run: cabal build --only-dependencies
-  
     - name: Install tasty-discover
       run: cabal install tasty-discover
 
     - name: Build & Test
       run: |
+        cabal update
         cabal build
         cabal test
+
+    - name: Print GHC Version
+      run: cabal exec ghc -- --version
 
   ui:
     runs-on: ubuntu-latest
@@ -112,4 +114,3 @@ jobs:
   
       - name: Test
         run: cd goprofs && go test -v ./...
-      
