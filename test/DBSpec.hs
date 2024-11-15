@@ -29,12 +29,13 @@ import           GoPro.Plus.Media
 import           GoPro.DB
 import           GoPro.DB.Sqlite                      as SDB
 import           GoPro.Resolve
+import Data.Maybe (isNothing)
 
 instance Arbitrary MediaRow where
   arbitrary = MediaRow <$> (unTruncated <$>  arbitrary) <*> arbitrary <*> arbitrarymJSON <*> arbitraryJSON
     where
       arbitraryJSON = pure "{}"
-      arbitrarymJSON = pure (Just "{}")
+      arbitrarymJSON = oneof [pure (Just "{}"), pure Nothing]
 
 deriving instance Eq AuthInfo
 
@@ -152,15 +153,15 @@ prop_metaBlob (TruncatedMedium m@(Medium{_medium_id})) mt bs = ioProperty . runD
   liftIO $ do
     assertEqual "sel id" _medium_id i
     assertEqual "sel blob" bs b
-  -- nullBlobs >>= \n -> liftIO $ assertEqual "null blobs" 0 n
+  nullBlobs >>= \n -> liftIO $ assertEqual "null blobs" 0 n
   clearMetaBlob [_medium_id]
-  -- nullBlobs >>= \n -> liftIO $ assertEqual "null blobs" 1 n
+  nullBlobs >>= \n -> liftIO $ assertEqual "null blobs" 1 n
 
-{-
   where
-    nullBlobs :: (HasGoProDB m, MonadIO m) => m Int
-    nullBlobs = goproDB >>= \db -> fromOnly . head <$> liftIO (query_ db "select count(*) from metablob where meta is null")
--}
+    nullBlobs :: DB :> es => Eff es Int
+    nullBlobs = length . filter isNothing <$> allBlobs
+    allBlobs :: DB :> es => Eff es [Maybe ByteString]
+    allBlobs = traverse (fmap (maybe Nothing snd) . loadMetaBlob) =<< loadMediaIDs
 
 prop_meta :: TruncatedMedium -> MetadataType -> ByteString -> MDSummary -> Property
 prop_meta (TruncatedMedium m@(Medium{_medium_id})) mt bs md = ioProperty . runDB $ do
