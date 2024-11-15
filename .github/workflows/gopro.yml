@@ -10,7 +10,7 @@ jobs:
   stack:
     runs-on: 'ubuntu-latest'
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Cache Key
       id: cache_key
@@ -18,7 +18,7 @@ jobs:
 
     - name: Cache Dependencies
       id: cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.stack
         key: ${{ matrix.os }}-${{ env.key }}
@@ -37,7 +37,7 @@ jobs:
         cp -r static dist
 
     - name: Store Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: gopro-${{ matrix.os }}
         path: dist
@@ -45,7 +45,7 @@ jobs:
   cabal:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Haskell
       uses: haskell-actions/setup@v2
@@ -67,7 +67,7 @@ jobs:
 
     - name: Cache Dependencies
       id: cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: |
           ~/.cabal/store
@@ -90,9 +90,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
-    - uses: jorelali/setup-elm@v3
+    - uses: jorelali/setup-elm@v6
       with:
         elm-version: 0.19.1
     - run: cd ui && elm make src/Main.elm
@@ -100,10 +100,10 @@ jobs:
   goprofs:
       runs-on: macos-latest
       steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
   
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: 1.21
   
