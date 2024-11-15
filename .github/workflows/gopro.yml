@@ -21,7 +21,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.stack
-        key: ${{ matrix.os }}-${{ env.key }}
+        key: ubuntu-latest-${{ env.key }}
 
     - name: Build Snapshot
       if: steps.cache.outputs.cache-hit != 'true'
@@ -39,14 +39,11 @@ jobs:
     - name: Store Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: gopro-${{ matrix.os }}
+        name: gopro-ubuntu-latest
         path: dist
 
   cabal:
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: 'ubuntu-latest'
     steps:
     - uses: actions/checkout@v3
 
@@ -65,28 +62,26 @@ jobs:
         echo "dep_hash=$(md5sum cabal.project.freeze | awk '{print $1}')" >> $GITHUB_ENV
 
     - name: Cache Dependencies
+      id: cache
       uses: actions/cache@v3
       with:
         path: |
           ~/.cabal
           dist-newstyle
-        key: ${{ matrix.os }}-ghc-${{ env.ghc_ver }}-cabal-${{ env.dep_hash }}
+        key: ubuntu-latest-ghc-${{ env.ghc_ver }}-cabal-${{ env.dep_hash }}
         restore-keys: |
-          ${{ matrix.os }}-ghc-${{ env.ghc_ver }}-cabal-
-          ${{ matrix.os }}-ghc-${{ env.ghc_ver }}-
-          ${{ matrix.os }}-
+          ubuntu-latest-ghc-${{ env.ghc_ver }}-cabal-
+          ubuntu-latest-ghc-${{ env.ghc_ver }}-
+          ubuntu-latest-
 
     - name: Install tasty-discover
+      if: steps.cache.outputs.cache-hit != 'true'
       run: cabal install tasty-discover
 
     - name: Build & Test
       run: |
-        cabal update
         cabal build
-        cabal test
-
-    - name: Print GHC Version
-      run: cabal exec ghc -- --version
+        cabal test --test-show-details=streaming
 
   ui:
     runs-on: ubuntu-latest
