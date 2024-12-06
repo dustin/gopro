@@ -261,7 +261,7 @@ runStoreMeta = do
   c <- asksOpt optUploadConcurrency
   pooledMapConcurrentlyN_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
 
-runStoreMeta' :: [Reader Options, AuthCache, Fail, LogFX, S3, DB, IOE] :>> es => [(MediumID, Maybe ByteString)] -> Eff es ()
+runStoreMeta' :: [Reader Options, AuthCache, LogFX, S3, DB, IOE] :>> es => [(MediumID, Maybe ByteString)] -> Eff es ()
 runStoreMeta' [] = pure ()
 runStoreMeta' local = do
   logDbg "Finding metadata blobs stored in S3 and local database"
@@ -273,10 +273,10 @@ runStoreMeta' local = do
   c <- asksOpt optUploadConcurrency
   pooledMapConcurrentlyN_ c (\(mid,blob) -> storeMetaBlob mid (BL.fromStrict <$> blob)) todo
 
-runClearMeta :: [Reader Options, Fail, LogFX, S3, DB, IOE] :>> es => Eff es ()
+runClearMeta :: [LogFX, S3, DB, IOE] :>> es => Eff es ()
 runClearMeta = do
   (have, local) <- concurrently (Set.fromList <$> listMetaBlobs) selectMetaBlob
-  let backedup =  filter (`Set.member` have) (fst <$> local)
+  let backedup = filter (`Set.member` have) (fst <$> local)
   logDbgL ["clearing ", tshow backedup]
   clearMetaBlob backedup
 
