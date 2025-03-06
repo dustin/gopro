@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.36.0.
+-- This file has been generated from package.yaml by hpack version 0.37.0.
 --
 -- see: https://github.com/sol/hpack
 
@@ -93,7 +93,7 @@ library
     , foldl
     , generic-deriving
     , generic-lens
-    , geodetics
+    , geodetics <1.0
     , gopro-plus >=0.6.6.6
     , gpmf
     , hasql >=1.6.0.1 && <1.7
@@ -187,7 +187,7 @@ executable gopro
     , foldl
     , generic-deriving
     , generic-lens
-    , geodetics
+    , geodetics <1.0
     , gopro
     , gopro-plus >=0.6.6.6
     , gpmf
@@ -286,7 +286,7 @@ test-suite gopro-test
     , foldl
     , generic-deriving
     , generic-lens
-    , geodetics
+    , geodetics <1.0
     , gopro
     , gopro-plus >=0.6.6.6
     , gpmf

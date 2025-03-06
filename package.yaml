@@ -43,7 +43,7 @@ dependencies:
 - foldl
 - generic-deriving
 - generic-lens
-- geodetics
+- geodetics < 1.0
 - gopro-plus >= 0.6.6.6
 - gpmf
 - hasql >=1.6.0.1 && <1.7
