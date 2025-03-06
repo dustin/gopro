@@ -87,7 +87,7 @@ runServer = do
     application :: Options -> ScottyT (Eff es) ()
     application opts = do
       let staticPath = optStaticPath opts
-      middleware $ GZ.gzip GZ.def {GZ.gzipFiles = GZ.GzipCompress}
+      middleware $ GZ.gzip GZ.defaultGzipSettings {GZ.gzipFiles = GZ.GzipCompress}
       middleware $ staticPolicy (noDots >-> addBase staticPath)
 
       get "/" do
