@@ -41,7 +41,7 @@ jobs:
         RESOLVER: ${{ matrix.plan.resolver }}
 
     - name: Cache Dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.stack
         key: ${{ matrix.os }}-${{ matrix.plan.resolver }}-${{ env.key }}
