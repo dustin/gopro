@@ -44,7 +44,7 @@ dependencies:
 - generic-deriving
 - generic-lens
 - geodetics < 1.0
-- gopro-plus >= 0.6.6.6
+- gopro-plus >= 0.6.6.7
 - gpmf
 - hasql >=1.6.0.1 && <1.7
 - hasql-pool < 1
