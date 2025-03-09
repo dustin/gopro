@@ -69,10 +69,6 @@ jobs:
           ~/.cabal
           dist-newstyle
         key: ubuntu-latest-ghc-${{ env.ghc_ver }}-cabal-${{ env.dep_hash }}
-        restore-keys: |
-          ubuntu-latest-ghc-${{ env.ghc_ver }}-cabal-
-          ubuntu-latest-ghc-${{ env.ghc_ver }}-
-          ubuntu-latest-
 
     - name: Install tasty-discover
       if: steps.cache.outputs.cache-hit != 'true'
