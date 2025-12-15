@@ -18,7 +18,7 @@ jobs:
 
     - name: Cache Dependencies
       id: cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: ~/.stack
         key: ubuntu-latest-${{ env.key }}
@@ -63,7 +63,7 @@ jobs:
 
     - name: Cache Dependencies
       id: cache
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           ~/.cabal
