@@ -37,7 +37,7 @@ jobs:
         cp -r static dist
 
     - name: Store Artifact
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v6
       with:
         name: gopro-ubuntu-latest
         path: dist
