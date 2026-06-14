@@ -135,7 +135,7 @@ library
     , wai-extra
     , wai-middleware-static
     , wai-websockets
-    , warp
+    , warp <3.4
     , websockets
     , wreq
     , xml
@@ -230,7 +230,7 @@ executable gopro
     , wai-extra
     , wai-middleware-static
     , wai-websockets
-    , warp
+    , warp <3.4
     , websockets
     , wreq
     , xml
@@ -334,7 +334,7 @@ test-suite gopro-test
     , wai-extra
     , wai-middleware-static
     , wai-websockets
-    , warp
+    , warp <3.4
     , websockets
     , wreq
     , xml

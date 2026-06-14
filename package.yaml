@@ -1,14 +1,14 @@
-name:                gopro
-version:             0.1.0.0
-github:              "dustin/gopro"
-license:             BSD3
-author:              "Dustin Sallings"
-maintainer:          "dustin@spy.net"
-copyright:           "MIT"
+name: gopro
+version: 0.1.0.0
+github: 'dustin/gopro'
+license: BSD3
+author: 'Dustin Sallings'
+maintainer: 'dustin@spy.net'
+copyright: 'MIT'
 
 extra-source-files:
-- README.md
-- ChangeLog.md
+  - README.md
+  - ChangeLog.md
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -17,79 +17,79 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/dustin/gopro#readme>
+description: Please see the README on GitHub at <https://github.com/dustin/gopro#readme>
 
 dependencies:
-- aeson
-- amazonka >= 2.0
-- amazonka-core >= 2.0
-- amazonka-lambda >= 2.0
-- amazonka-s3 >= 2.0
-- amazonka-sqs >= 2.0
-- async
-- base >= 4.7 && < 5
-- bytestring
-- cache
-- cleff
-- clock
-- conduit
-- conduit-extra
-- containers
-- dimensional
-- directory
-- exceptions
-- extra
-- filepath
-- foldl
-- generic-deriving
-- generic-lens
-- geodetics < 1.0
-- gopro-plus >= 0.6.6.7
-- gpmf
-- hasql >=1.6.0.1 && <1.7
-- hasql-pool < 1
-- hasql-th < 0.5
-- hasql-transaction
-- hsexif
-- http-conduit
-- http-types
-- lens
-- lens-aeson
-- monad-logger
-- monad-loops
-- mtl
-- optparse-applicative
-- pathwalk
-- process
-- raw-strings-qq
-- resourcet
-- retry
-- safe
-- scientific
-- scotty >= 0.20 && < 0.22
-- semigroupoids
-- shelly
-- split
-- sqlite-simple
-- stm
-- text
-- these
-- time
-- tomland
-- transformers
-- unix
-- unliftio
-- unordered-containers
-- vector
-- wai
-- wai-extra
-- wai-middleware-static
-- wai-websockets
-- warp
-- websockets
-- xml
-- zlib
-- wreq
+  - aeson
+  - amazonka >= 2.0
+  - amazonka-core >= 2.0
+  - amazonka-lambda >= 2.0
+  - amazonka-s3 >= 2.0
+  - amazonka-sqs >= 2.0
+  - async
+  - base >= 4.7 && < 5
+  - bytestring
+  - cache
+  - cleff
+  - clock
+  - conduit
+  - conduit-extra
+  - containers
+  - dimensional
+  - directory
+  - exceptions
+  - extra
+  - filepath
+  - foldl
+  - generic-deriving
+  - generic-lens
+  - geodetics < 1.0
+  - gopro-plus >= 0.6.6.7
+  - gpmf
+  - hasql >=1.6.0.1 && <1.7
+  - hasql-pool < 1
+  - hasql-th < 0.5
+  - hasql-transaction
+  - hsexif
+  - http-conduit
+  - http-types
+  - lens
+  - lens-aeson
+  - monad-logger
+  - monad-loops
+  - mtl
+  - optparse-applicative
+  - pathwalk
+  - process
+  - raw-strings-qq
+  - resourcet
+  - retry
+  - safe
+  - scientific
+  - scotty >= 0.20 && < 0.22
+  - semigroupoids
+  - shelly
+  - split
+  - sqlite-simple
+  - stm
+  - text
+  - these
+  - time
+  - tomland
+  - transformers
+  - unix
+  - unliftio
+  - unordered-containers
+  - vector
+  - wai
+  - wai-extra
+  - wai-middleware-static
+  - wai-websockets
+  - warp < 3.4
+  - websockets
+  - xml
+  - zlib
+  - wreq
 
 library:
   source-dirs: src
@@ -113,29 +113,29 @@ default-extensions:
 
 executables:
   gopro:
-    main:                Main.hs
-    source-dirs:         app
+    main: Main.hs
+    source-dirs: app
     ghc-options:
       - -threaded
       - -rtsopts
       - -with-rtsopts=-N
       - -Wall
     dependencies:
-    - gopro
+      - gopro
 
 tests:
   gopro-test:
-    main:                Main.hs
-    source-dirs:         test
+    main: Main.hs
+    source-dirs: test
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
     dependencies:
-    - gopro
-    - HUnit
-    - tasty
-    - tasty-discover
-    - tasty-hunit
-    - tasty-quickcheck
-    - quickcheck-instances
+      - gopro
+      - HUnit
+      - tasty
+      - tasty-discover
+      - tasty-hunit
+      - tasty-quickcheck
+      - quickcheck-instances
