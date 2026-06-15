@@ -3,11 +3,15 @@
 module GoPro.Logging where
 
 import           Cleff
-import           Control.Concurrent.STM (TChan, atomically, newBroadcastTChanIO, writeTChan)
+import           Control.Concurrent.STM (TChan, atomically, newBroadcastTChanIO,
+                                         writeTChan)
 import           Control.Monad          (when)
-import           Control.Monad.Logger   (Loc (..), LogLevel (..), LogSource, LogStr, MonadLogger (..), defaultLoc,
+import           Control.Monad.Logger   (Loc (..), LogLevel (..), LogSource,
+                                         LogStr, MonadLogger (..), defaultLoc,
                                          fromLogStr, toLogStr)
+import           Data.Aeson             (ToJSON, encode)
 import qualified Data.ByteString.Char8  as C8
+import qualified Data.ByteString.Lazy   as BL
 import           Data.Foldable          (fold)
 import           Data.String            (fromString)
 import qualified Data.Text              as T
@@ -40,6 +44,9 @@ logError = genericLog LevelError
 logInfo = genericLog LevelInfo
 
 logDbg = genericLog LevelDebug
+
+jshow :: ToJSON j => j -> T.Text
+jshow = TE.decodeUtf8 . BL.toStrict . encode
 
 baseLogger :: LogLevel -> Loc -> LogSource -> LogLevel -> LogStr -> IO ()
 baseLogger minLvl _ _ lvl s = when (lvl >= minLvl) $ C8.hPutStrLn stderr (fromLogStr ls)
