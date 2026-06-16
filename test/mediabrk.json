@@ -1,0 +1,62 @@
+{
+  "_embedded": {
+    "files": [
+      {
+        "available": true,
+        "camera_position": "default",
+        "head": "hhttp://a/",
+        "heads": [],
+        "height": 1440,
+        "item_number": 1,
+        "orientation": 1,
+        "url": "http://a/",
+        "urls": [],
+        "width": 1920
+      }
+    ],
+    "sidecar_files": [],
+    "sprites": [
+      {
+        "fps": 59.94,
+        "frame": {
+          "count": 10,
+          "height": 56,
+          "width": 100
+        },
+        "heads": ["hhttp://c/"],
+        "height": 56,
+        "total_count": 1,
+        "type": "jpg",
+        "urls": ["http://c/"],
+        "width": 1000
+      }
+    ],
+    "variations": [
+      {
+        "available": true,
+        "head": "hhttp://e/",
+        "heads": [],
+        "height": 1440,
+        "label": "high_res_proxy_mp4",
+        "quality": "1440p",
+        "type": "mp4",
+        "url": "http://e/",
+        "urls": [],
+        "width": 1920
+      },
+      {
+        "available": true,
+        "head": "hhttp://f/",
+        "heads": [],
+        "height": 240,
+        "label": "mp4_low",
+        "quality": "240p",
+        "type": "mp4",
+        "url": "http://f/",
+        "urls": [],
+        "width": 320
+      }
+    ]
+  },
+  "filename": ""
+}

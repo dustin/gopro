@@ -11,9 +11,11 @@ module GoPro.Commands.Backup (runBackup, runStoreMeta, runStoreMeta', runReceive
 
 
 import           Amazonka                        (send)
-import           Amazonka.Lambda                 (InvocationType (..), newInvoke)
+import           Amazonka.Lambda                 (InvocationType (..),
+                                                  newInvoke)
 import           Amazonka.S3                     (BucketName (..))
-import           Amazonka.SQS                    (newDeleteMessageBatch, newDeleteMessageBatchRequestEntry,
+import           Amazonka.SQS                    (newDeleteMessageBatch,
+                                                  newDeleteMessageBatchRequestEntry,
                                                   newReceiveMessage)
 import           Cleff                           hiding (send)
 import           Cleff.Fail
@@ -24,7 +26,9 @@ import           Control.Lens
 import           Control.Monad                   (unless, void)
 import           Control.Monad.Trans.Maybe       (MaybeT (..), runMaybeT)
 import           Control.Monad.Trans.Writer.Lazy (execWriterT, tell)
-import           Control.Retry                   (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
+import           Control.Retry                   (RetryStatus (..),
+                                                  exponentialBackoff,
+                                                  limitRetries, recoverAll)
 import qualified Data.Aeson                      as J
 import           Data.Aeson.Lens
 import           Data.ByteString                 (ByteString)
@@ -37,21 +41,30 @@ import           Data.List.Extra                 (chunksOf)
 import           Data.List.NonEmpty              (NonEmpty)
 import qualified Data.List.NonEmpty              as NE
 import qualified Data.Map.Strict                 as Map
-import           Data.Maybe                      (fromJust, fromMaybe, mapMaybe, maybeToList)
+import           Data.Maybe                      (fromJust, fromMaybe, mapMaybe,
+                                                  maybeToList)
 import qualified Data.Set                        as Set
 import           Data.String                     (fromString)
-import           Data.Text                       (Text, isInfixOf, isSuffixOf, pack, stripPrefix, toLower, unpack)
+import           Data.Text                       (Text, isInfixOf, isSuffixOf,
+                                                  pack, stripPrefix, toLower,
+                                                  unpack)
 import qualified Data.Text.Encoding              as TE
 import           Data.Time.Clock.POSIX           (utcTimeToPOSIXSeconds)
 import           Data.Time.Format
-import           Network.HTTP.Simple             (getResponseBody, httpSource, parseRequest)
+import           Network.HTTP.Simple             (getResponseBody, httpSource,
+                                                  parseRequest)
 import           Safe.Exact                      (zipWithExactMay)
 import qualified Shelly                          as Sh
-import           System.Directory                (createDirectoryIfMissing, doesFileExist, renameDirectory, renameFile)
-import           System.Directory.PathWalk       (WalkStatus (..), pathWalkInterruptible)
-import           System.FilePath.Posix           (takeDirectory, takeExtension, takeFileName, (</>))
+import           System.Directory                (createDirectoryIfMissing,
+                                                  doesFileExist,
+                                                  renameDirectory, renameFile)
+import           System.Directory.PathWalk       (WalkStatus (..),
+                                                  pathWalkInterruptible)
+import           System.FilePath.Posix           (takeDirectory, takeExtension,
+                                                  takeFileName, (</>))
 import           System.Posix.Files              (createLink, setFileTimes)
-import           UnliftIO                        (concurrently, mapConcurrently, mapConcurrently_,
+import           UnliftIO                        (concurrently, mapConcurrently,
+                                                  mapConcurrently_,
                                                   pooledMapConcurrentlyN_)
 
 import           GoPro.AuthCache
@@ -107,7 +120,7 @@ downloadLocally path extract Medium{..} = do
   linkNames (filter ("-var-source" `isInfixOf`) . fmap (\(a,_,_) -> a) $ todo)
 
   -- This is mildly confusing since the path inherently has the mid in the path.
-  liftIO $ do
+  unless (null todo && null locals) . liftIO $ do
     createDirectoryIfMissing True (takeDirectory midPath)
     renameDirectory (tmpdir </> unpack _medium_id) midPath
     setFileTimes midPath (toEpochTime _medium_captured_at) (toEpochTime _medium_captured_at)
@@ -167,11 +180,10 @@ downloadLocally path extract Medium{..} = do
 
 
 extractMedia :: Extractor
-extractMedia mid fi = filter desirable . nubBy (\(_,_,u1) (_,_,u2) -> u1 == u2) $
-                                          fold [ ex "var" variations,
-                                                 ex2 "sidecar" sidecar_files,
-                                                 otherFiles mid fi
-                                               ]
+extractMedia mid fi = filter desirable $ fold [ ex "var" variations,
+                                                ex2 "sidecar" sidecar_files,
+                                                otherFiles mid fi
+                                              ]
   where
 
     -- Explicitly ignoring concats because they're derived and huge.
@@ -204,7 +216,9 @@ extractMedia mid fi = filter desirable . nubBy (\(_,_,u1) (_,_,u2) -> u1 == u2) 
 otherFiles :: Extractor
 otherFiles mid fi = fi ^.. fileStuff . files . folded . to conv
   where
-    typ = fi ^. filename . to (drop 1 . takeExtension)
+    typ = case (fi ^. filename . to (drop 1 . takeExtension)) of
+        "" -> "mp4"
+        x  -> x
     conv v = let i = v ^. file_item_number
                  lbl = show i <> "." <> typ
                  h = v ^. media_head
@@ -218,6 +232,7 @@ extractOrig mid = filter desirable . extractMedia mid
   where
     desirable (toLower -> fn,_,_) = ("-source" `isInfixOf` fn) || ("-baked_source" `isInfixOf` fn)
                                     || (".jpg" `isSuffixOf` fn && "-file" `isInfixOf` fn)
+                                    || (".mp4" `isSuffixOf` fn && "-file" `isInfixOf` fn)
                                     || ("raw_photo.gpr" `isInfixOf` fn)
 
 runBackup :: [Reader Options, ConfigFX, AuthCache, Fail, LogFX, S3, DB, IOE] :>> es => Extractor -> Eff es ()

@@ -17,7 +17,8 @@ import           Control.Concurrent    (threadDelay)
 import           Control.Lens
 import           Control.Monad         (unless, void)
 import           Control.Monad.Loops   (iterateWhile, whileM_)
-import           Control.Retry         (RetryStatus (..), exponentialBackoff, limitRetries, recoverAll)
+import           Control.Retry         (RetryStatus (..), exponentialBackoff,
+                                        limitRetries, recoverAll)
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Char8 as BC
 import qualified Data.ByteString.Lazy  as BL
@@ -28,7 +29,8 @@ import           Data.List.Extra       (chunksOf)
 import           Data.List.NonEmpty    (NonEmpty (..))
 import qualified Data.List.NonEmpty    as NE
 import qualified Data.Map.Strict       as Map
-import           Data.Maybe            (catMaybes, fromMaybe, isJust, maybeToList)
+import           Data.Maybe            (catMaybes, fromMaybe, isJust,
+                                        maybeToList)
 import qualified Data.Set              as Set
 import qualified Data.Text             as T
 import           Exif
@@ -37,11 +39,13 @@ import           Graphics.HsExif       (parseExif)
 import           Network.HTTP.Conduit
 import           Network.HTTP.Simple   (getResponseBody, httpSource)
 import           Network.Wreq          (head_, responseHeader)
-import           System.Directory      (createDirectoryIfMissing, doesFileExist, removeFile, renameFile)
+import           System.Directory      (createDirectoryIfMissing, doesFileExist,
+                                        removeFile, renameFile)
 import           System.FilePath.Posix (takeExtension, (</>))
 
 import           Data.Functor          (($>))
-import           UnliftIO.Async        (pooledMapConcurrentlyN, pooledMapConcurrentlyN_)
+import           UnliftIO.Async        (pooledMapConcurrentlyN,
+                                        pooledMapConcurrentlyN_)
 import           UnliftIO.Exception    (SomeException, try)
 
 import           GoPro.Alternative
@@ -134,7 +138,8 @@ runGrokTel = fmap catMaybes . traverse ud =<< metaTODO
 
 -- | extract a list of metadata source candidates.
 metadataSources :: FileInfo -> [(String, String)]
-metadataSources fi = fold [variation "mp4_low" "low",
+metadataSources fi = fold [fileUrl,
+                           variation "mp4_low" "low",
                            variation "high_res_proxy_mp4" "high",
                            variation "concat" "concat",
                            variation "source" "src",
@@ -143,6 +148,12 @@ metadataSources fi = fold [variation "mp4_low" "low",
     ls l t = (,t) <$> toListOf l fi
 
     variation var = ls (fileStuff . variations . folded . filtered (has (var_label . only var)) . var_url)
+
+    fileUrl :: [(String, String)]
+    fileUrl = [ (u, p) | f <- fi ^. fileStuff . files,
+                         let p = f ^. file_camera_position,
+                         let u = f ^. file_url,
+                         not (null u) ]
 
 runGetMeta :: forall es. [Reader Options, AuthCache, LogFX, S3, DB, Fail, IOE] :>> es => Eff es ()
 runGetMeta = do

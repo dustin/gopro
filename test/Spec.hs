@@ -2,13 +2,13 @@
 
 module Spec where
 
-import GoPro.Alternative
 import           Control.Lens
+import           Control.Monad.Catch   (throwM)
 import qualified Data.Aeson            as J
 import qualified Data.ByteString.Lazy  as BL
 import qualified Data.List.NonEmpty    as NE
 import           Data.These
-import Control.Monad.Catch (throwM)
+import           GoPro.Alternative
 
 import           Test.Tasty.HUnit
 import           Test.Tasty.QuickCheck as QC
@@ -39,8 +39,7 @@ unit_extractOrig = do
     extractOrig "xxx" fi
 
   Just fiv <- J.decode <$> BL.readFile "test/mediavid.json" :: IO (Maybe FileInfo)
-  assertEqual (show fi) [("derivatives/xxx/xxx-var-source.mp4", "hhttp://k/", "http://k/")
-                         ] $
+  assertEqual (show fi) [("derivatives/xxx/xxx-var-source.mp4","hhttp://k/","http://k/"),("derivatives/xxx/xxx-files-1.MP4","hhttp://a/","http://a/")] $
     extractOrig "xxx" fiv
 
 unit_extractMediaConcat :: Assertion
@@ -68,41 +67,49 @@ unit_extractOrigConcat = do
   eciv <- J.eitherDecode <$> BL.readFile "test/concat.json" :: IO (Either String FileInfo)
   assertEqual (show eciv) (Right [("derivatives/xxx/xxx-var-source-1.mp4","hhttp://AAL","http://AAL"),
                                   ("derivatives/xxx/xxx-var-source-2.mp4","hhttp://AAM","http://AAM"),
-                                  ("derivatives/xxx/xxx-var-source-3.mp4","hhttp://AAN","http://AAN")]) $
+                                  ("derivatives/xxx/xxx-var-source-3.mp4","hhttp://AAN","http://AAN"),
+                                  ("derivatives/xxx/xxx-files-1.MP4","hhttp://AAA","http://AAA")]) $
     extractOrig "xxx" <$> eciv
 
 unit_extractMediaDedup :: Assertion
 unit_extractMediaDedup = do
   e <- J.eitherDecode <$> BL.readFile "test/trailing.json" :: IO (Either String FileInfo)
-  assertEqual (show e) (Right [("derivatives/xxx/xxx-var-source.jpg", "hhttp://a","http://a")]
+  assertEqual (show e) (Right [("derivatives/xxx/xxx-var-source.jpg","hhttp://a","http://a"), ("derivatives/xxx/xxx-files-1.mp4","hhttp://a","http://a")]
                        ) $ extractMedia "xxx" <$> e
 
 unit_extractOrigBaked :: Assertion
 unit_extractOrigBaked = do
   e <- J.eitherDecode <$> BL.readFile "test/multiclip.json" :: IO (Either String FileInfo)
-  assertEqual (show e) (Right [("derivatives/xxx/xxx-var-baked_source.mp4", "hhttp://var","http://var")]
+  assertEqual (show e) (Right [("derivatives/xxx/xxx-var-baked_source.mp4","hhttp://var","http://var"), ("derivatives/xxx/xxx-files-1.mp4","hhttp://def","http://def")]
                        ) $ extractOrig "xxx" <$> e
 
 unit_metadataSources :: Assertion
 unit_metadataSources = do
   e <- J.eitherDecode <$> BL.readFile "test/mediaex.json" :: IO (Either String FileInfo)
-  assertEqual (show e) (Right [("http://f/","low"),("http://e/","high")]) $ metadataSources <$> e
+  assertEqual (show e) (Right [("http://a/","default"),("http://aprime/","default"),("http://f/","low"),("http://e/","high")]) $ metadataSources <$> e
 
 
 unit_metadataSourcesMulti :: Assertion
 unit_metadataSourcesMulti = do
   e <- J.eitherDecode <$> BL.readFile "test/multiclip.json" :: IO (Either String FileInfo)
-  assertEqual (show e) (Right [("http://var","baked_src")]) $ metadataSources <$> e
+  assertEqual (show e) (Right [("http://def","default"),("http://var","baked_src")]) $ metadataSources <$> e
+
+unit_metadataBroken :: Assertion
+unit_metadataBroken = do
+    e <- J.eitherDecode <$> BL.readFile "test/mediabrk.json" :: IO (Either String FileInfo)
+    assertEqual (show e) (Right [("http://a/", "default"), ("http://f/","low"),("http://e/","high")]) $ metadataSources <$> e
 
 unit_gpmfGuesses :: Assertion
 unit_gpmfGuesses = do
   e <- J.eitherDecode <$> BL.readFile "test/gpmf.json" :: IO (Either String FileInfo)
-  assertEqual (show e) (Right [("https://P","low"),
-                               ("https://O","high"),
-                               ("https://K","concat"),
-                               ("https://L","src"),
-                               ("https://M","src"),
-                               ("https://N","src")]) $ metadataSources <$> e
+  assertEqual (show e) (Right [
+      ("https://A","default"),
+      ("https://P","low"),
+      ("https://O","high"),
+      ("https://K","concat"),
+      ("https://L","src"),
+      ("https://M","src"),
+      ("https://N","src")]) $ metadataSources <$> e
 
 unit_fileParseGroup :: Assertion
 unit_fileParseGroup = do
