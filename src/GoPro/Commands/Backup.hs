@@ -112,7 +112,7 @@ downloadLocally path extract Medium{..} = do
   refdir <- asksOpt optReferenceDir
   locals <- fromMaybe mempty <$> traverse GPF.fromDirectoryFull refdir
   let todo = extract _medium_id vars
-      srcs = maybe [] NE.toList $ Map.lookup (vars ^. filename) locals
+      srcs = filter eligibleLocal $ maybe [] NE.toList $ Map.lookup (vars ^. filename) locals
   copyLocal todo srcs
 
   pooledMapConcurrentlyN_ 5 downloadNew todo
@@ -127,6 +127,8 @@ downloadLocally path extract Medium{..} = do
   logInfoL ["Completed backup of ", tshow _medium_id]
 
   where
+    eligibleLocal ref = takeFileName (takeDirectory (GPF._gpFilePath ref)) == unpack _medium_id
+
     midPath = path </> formatTime defaultTimeLocale "%0Y/%m" _medium_captured_at </> unpack _medium_id
     tmpdir = path </> "tmp"
 
