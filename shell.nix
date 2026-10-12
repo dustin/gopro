@@ -11,7 +11,7 @@ mkShell {
     haskell-language-server
     haskellPackages.tasty-discover
     cabal-install
-    haskell.compiler.ghc96
+    haskell.compiler.ghc9124
     hpack
     zlib
     postgresql

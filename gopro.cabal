@@ -97,12 +97,12 @@ library
     , foldl
     , generic-deriving
     , generic-lens
-    , geodetics <1.0
+    , geodetics
     , gopro-plus >=0.6.6.7
     , gpmf
-    , hasql >=1.6.0.1 && <1.7
-    , hasql-pool <1
-    , hasql-th <0.5
+    , hasql >=1.6.0.1
+    , hasql-pool
+    , hasql-th
     , hasql-transaction
     , hsexif
     , http-conduit
@@ -120,7 +120,7 @@ library
     , retry
     , safe
     , scientific
-    , scotty >=0.20 && <0.22
+    , scotty >=0.20
     , semigroupoids
     , shelly
     , split
@@ -139,7 +139,7 @@ library
     , wai-extra
     , wai-middleware-static
     , wai-websockets
-    , warp <3.4
+    , warp
     , websockets
     , wreq
     , xml
