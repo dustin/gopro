@@ -35,23 +35,25 @@ import           Effectful
 import           Effectful.Dispatch.Dynamic
 import           Effectful.TH
 
-import           Control.Foldl          (Fold (..))
-import           Control.Lens           hiding (Fold, (.=))
-import           Data.Aeson             (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
-                                         genericToEncoding, (.=))
-import qualified Data.Aeson             as J
-import qualified Data.ByteString        as BS
-import qualified Data.ByteString.Lazy   as BL
-import           Data.Map.Strict        (Map)
-import           Data.Text              (Text)
-import           Generics.Deriving.Base (Generic)
+import           Control.Foldl              (Fold (..))
+import           Control.Lens               hiding (Fold, (.=))
+import           Data.Aeson                 (FromJSON (..), ToJSON (..),
+                                             defaultOptions, fieldLabelModifier,
+                                             genericToEncoding, (.=))
+import qualified Data.Aeson                 as J
+import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Lazy       as BL
+import           Data.Map.Strict            (Map)
+import           Data.Text                  (Text)
+import           Generics.Deriving.Base     (Generic)
 
 import           GoPro.Config.Option
-import           GoPro.DEVC             (GPSReading (..))
-import           GoPro.Plus.Auth        (AuthInfo (..))
-import           GoPro.Plus.Media       (Medium (..), MediumID, Moment (..))
-import           GoPro.Plus.Upload      (DerivativeID, Upload (..), UploadID)
-import           GoPro.Resolve          (MDSummary (..))
+import           GoPro.DEVC                 (GPSReading (..))
+import           GoPro.Plus.Auth            (AuthInfo (..))
+import           GoPro.Plus.Media           (Medium (..), MediumID, Moment (..))
+import           GoPro.Plus.Upload          (DerivativeID, Upload (..),
+                                             UploadID)
+import           GoPro.Resolve              (MDSummary (..))
 
 instance J.FromJSON MediaRow where
   parseJSON o = do

@@ -7,11 +7,13 @@ import           Effectful
 import           Effectful.Dispatch.Dynamic
 import           Effectful.TH
 
-import           Data.Cache      (Cache (..), fetchWithCache, insert, newCache)
+import           Data.Cache                 (Cache (..), fetchWithCache, insert,
+                                             newCache)
 import           GoPro.Plus.Auth
-import           System.Clock    (TimeSpec (..))
-import           UnliftIO        (bracket_)
-import           UnliftIO.MVar   (MVar, newEmptyMVar, putMVar, takeMVar)
+import           System.Clock               (TimeSpec (..))
+import           UnliftIO                   (bracket_)
+import           UnliftIO.MVar              (MVar, newEmptyMVar, putMVar,
+                                             takeMVar)
 
 import           GoPro.DB
 import           GoPro.Logging

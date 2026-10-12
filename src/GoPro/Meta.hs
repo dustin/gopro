@@ -7,9 +7,12 @@ import           Control.Lens                      (folded, toListOf)
 import           Data.Aeson
 import qualified Data.ByteString                   as BS
 import           Data.Maybe                        (mapMaybe)
-import           Data.Monoid                       (First (..), Last (..), Sum (..))
+import           Data.Monoid                       (First (..), Last (..),
+                                                    Sum (..))
 import           Data.Semigroup                    (Max (..))
-import           Geodetics.Geodetic                (Geodetic (..), WGS84 (..), groundDistance, readGroundPosition)
+import           Geodetics.Geodetic                (Geodetic (..), WGS84 (..),
+                                                    groundDistance,
+                                                    readGroundPosition)
 import           GoPro.DEVC                        (GPSReading (..))
 import qualified GoPro.DEVC                        as GPMF
 import qualified GoPro.GPMF                        as GPMF

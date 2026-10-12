@@ -8,50 +8,51 @@
 
 module GoPro.Commands.Sync where
 
+import           Conduit
+import           Control.Applicative      (optional)
+import           Control.Concurrent       (threadDelay)
+import           Control.Lens
+import           Control.Monad            (unless, void)
+import           Control.Monad.Loops      (iterateWhile, whileM_)
+import           Control.Retry            (RetryStatus (..), exponentialBackoff,
+                                           limitRetries, recoverAll)
+import qualified Data.ByteString          as BS
+import qualified Data.ByteString.Char8    as BC
+import qualified Data.ByteString.Lazy     as BL
+import           Data.Char                (toLower)
+import           Data.Foldable            (fold, for_, traverse_)
+import           Data.List                (partition)
+import           Data.List.Extra          (chunksOf)
+import           Data.List.NonEmpty       (NonEmpty (..))
+import qualified Data.List.NonEmpty       as NE
+import qualified Data.Map.Strict          as Map
+import           Data.Maybe               (catMaybes, fromMaybe, isJust,
+                                           maybeToList)
+import qualified Data.Set                 as Set
+import qualified Data.Text                as T
 import           Effectful
 import           Effectful.Fail
 import           Effectful.Reader.Dynamic
-import           Conduit
-import           Control.Applicative   (optional)
-import           Control.Concurrent    (threadDelay)
-import           Control.Lens
-import           Control.Monad         (unless, void)
-import           Control.Monad.Loops   (iterateWhile, whileM_)
-import           Control.Retry         (RetryStatus (..), exponentialBackoff,
-                                        limitRetries, recoverAll)
-import qualified Data.ByteString       as BS
-import qualified Data.ByteString.Char8 as BC
-import qualified Data.ByteString.Lazy  as BL
-import           Data.Char             (toLower)
-import           Data.Foldable         (fold, for_, traverse_)
-import           Data.List             (partition)
-import           Data.List.Extra       (chunksOf)
-import           Data.List.NonEmpty    (NonEmpty (..))
-import qualified Data.List.NonEmpty    as NE
-import qualified Data.Map.Strict       as Map
-import           Data.Maybe            (catMaybes, fromMaybe, isJust,
-                                        maybeToList)
-import qualified Data.Set              as Set
-import qualified Data.Text             as T
 import           Exif
 import           FFMPeg
-import           Graphics.HsExif       (parseExif)
+import           Graphics.HsExif          (parseExif)
 import           Network.HTTP.Conduit
-import           Network.HTTP.Simple   (getResponseBody, httpSource)
-import           Network.Wreq          (head_, responseHeader)
-import           System.Directory      (createDirectoryIfMissing, doesFileExist,
-                                        removeFile, renameFile)
-import           System.FilePath.Posix (takeExtension, (</>))
+import           Network.HTTP.Simple      (getResponseBody, httpSource)
+import           Network.Wreq             (head_, responseHeader)
+import           System.Directory         (createDirectoryIfMissing,
+                                           doesFileExist, removeFile,
+                                           renameFile)
+import           System.FilePath.Posix    (takeExtension, (</>))
 
-import           Data.Functor          (($>))
-import           UnliftIO.Async        (pooledMapConcurrentlyN,
-                                        pooledMapConcurrentlyN_)
-import           UnliftIO.Exception    (SomeException, try)
+import           Data.Functor             (($>))
+import           UnliftIO.Async           (pooledMapConcurrentlyN,
+                                           pooledMapConcurrentlyN_)
+import           UnliftIO.Exception       (SomeException, try)
 
 import           GoPro.Alternative
 import           GoPro.AuthCache
 import           GoPro.Commands
-import           GoPro.Commands.Backup (runStoreMeta')
+import           GoPro.Commands.Backup    (runStoreMeta')
 import           GoPro.Config.Effect
 import           GoPro.DB
 import           GoPro.Logging

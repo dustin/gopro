@@ -44,8 +44,10 @@ import           Prelude                    hiding (init)
 import           Text.RawString.QQ
 import           Text.Read                  (readMaybe)
 
-import           Hasql.Decoders             (Row, Value, column, foldlRows, foldrRows, noResult, nonNullable, nullable,
-                                             rowList, rowMaybe, singleRow)
+import           Hasql.Decoders             (Row, Value, column, foldlRows,
+                                             foldrRows, noResult, nonNullable,
+                                             nullable, rowList, rowMaybe,
+                                             singleRow)
 import qualified Hasql.Decoders             as Decoders
 import           Hasql.Encoders             (noParams)
 import qualified Hasql.Encoders             as Encoders
@@ -65,7 +67,8 @@ import           GoPro.DB
 import           GoPro.DEVC                 (GPSReading (..))
 import           GoPro.Plus.Auth            (AuthInfo (..))
 import           GoPro.Plus.Media           (Medium (..), MediumID, Moment (..))
-import           GoPro.Plus.Upload          (DerivativeID, Upload (..), UploadPart (..))
+import           GoPro.Plus.Upload          (DerivativeID, Upload (..),
+                                             UploadPart (..))
 import           GoPro.Resolve              (MDSummary (..))
 
 runDatabasePostgresStr :: IOE :> es => String -> Eff (DB : es) a -> Eff es a

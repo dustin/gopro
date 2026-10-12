@@ -1,7 +1,7 @@
 module GoPro.RunDB where
 
-import           Effectful
 import           Data.List         (isPrefixOf)
+import           Effectful
 import           GoPro.DB
 import           GoPro.DB.Postgres (runDatabasePostgresStr)
 import           GoPro.DB.Sqlite   (runDatabaseSqliteStr)

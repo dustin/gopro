@@ -9,9 +9,9 @@ import           Effectful.Fail
 import           Effectful.State.Dynamic
 import           Effectful.TH
 
-import           Data.Map            (Map)
-import qualified Data.Map.Strict     as Map
-import           Data.Text           (Text)
+import           Data.Map                   (Map)
+import qualified Data.Map.Strict            as Map
+import           Data.Text                  (Text)
 
 import           GoPro.Config.Option
 import           GoPro.DB

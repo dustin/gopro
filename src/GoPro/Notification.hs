@@ -2,18 +2,20 @@
 {-# LANGUAGE TemplateHaskell #-}
 module GoPro.Notification where
 
+import           Control.Concurrent.STM     (TChan, atomically, dupTChan,
+                                             writeTChan)
+import           Data.Aeson                 (FromJSON (..), ToJSON (..),
+                                             defaultOptions, fieldLabelModifier,
+                                             genericToEncoding)
+import qualified Data.Aeson                 as J
+import           Data.Aeson.Types           (typeMismatch)
+import           Data.Char                  (toLower, toUpper)
+import           Data.Text                  (Text)
+import qualified Data.Text                  as T
 import           Effectful
 import           Effectful.Dispatch.Dynamic
 import           Effectful.TH
-import           Control.Concurrent.STM (TChan, atomically, dupTChan, writeTChan)
-import           Data.Aeson             (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
-                                         genericToEncoding)
-import qualified Data.Aeson             as J
-import           Data.Aeson.Types       (typeMismatch)
-import           Data.Char              (toLower, toUpper)
-import           Data.Text              (Text)
-import qualified Data.Text              as T
-import           Generics.Deriving.Base (Generic)
+import           Generics.Deriving.Base     (Generic)
 
 data NotificationType = NotificationInfo
     | NotificationError

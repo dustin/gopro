@@ -17,15 +17,25 @@ import           Data.List                            (intercalate, sortOn)
 import           Data.List.NonEmpty                   (NonEmpty (..))
 import qualified Data.List.NonEmpty                   as NE
 import qualified Data.Text                            as T
-import           Options.Applicative                  (Parser, ReadM, action, argument, auto, command, completeWith,
-                                                       customExecParser, eitherReader, fullDesc, help, helper,
-                                                       hsubparser, info, long, many, metavar, option, optional, prefs,
-                                                       progDesc, readerError, short, showDefault, showHelpOnError, some,
-                                                       str, strOption, switch, value, (<**>))
+import           Options.Applicative                  (Parser, ReadM, action,
+                                                       argument, auto, command,
+                                                       completeWith,
+                                                       customExecParser,
+                                                       eitherReader, fullDesc,
+                                                       help, helper, hsubparser,
+                                                       info, long, many,
+                                                       metavar, option,
+                                                       optional, prefs,
+                                                       progDesc, readerError,
+                                                       short, showDefault,
+                                                       showHelpOnError, some,
+                                                       str, strOption, switch,
+                                                       value, (<**>))
 import           Options.Applicative.Help.Levenshtein (editDistance)
 import           System.Directory                     (getHomeDirectory)
 import           System.FilePath.Posix                ((</>))
-import           System.IO                            (hFlush, hGetEcho, hSetEcho, stdin, stdout)
+import           System.IO                            (hFlush, hGetEcho,
+                                                       hSetEcho, stdin, stdout)
 
 import           GoPro.AuthCache
 import           GoPro.Commands

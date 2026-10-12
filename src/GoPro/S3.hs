@@ -6,17 +6,16 @@
 
 module GoPro.S3 where
 
-import           Amazonka                     (Env, Region (..), RequestBody (Hashed), newEnv, paginate, runResourceT,
-                                               sinkBody, toHashed)
+import           Amazonka                     (Env, Region (..),
+                                               RequestBody (Hashed), newEnv,
+                                               paginate, runResourceT, sinkBody,
+                                               toHashed)
 import qualified Amazonka                     as Amazonka (send)
 import           Amazonka.Auth                (discover)
-import           Amazonka.S3                  (BucketName (..), StorageClass (..), _ObjectKey, newGetObject,
-                                               newListObjectsV2, newPutObject)
-import           Effectful
-import           Effectful.Dispatch.Dynamic
-import           Effectful.Fail
-import           Effectful.Reader.Dynamic
-import           Effectful.TH
+import           Amazonka.S3                  (BucketName (..),
+                                               StorageClass (..), _ObjectKey,
+                                               newGetObject, newListObjectsV2,
+                                               newPutObject)
 import           Codec.Compression.GZip       (compress)
 import           Control.Lens
 import           Control.Monad                (void)
@@ -31,6 +30,11 @@ import           Data.Maybe                   (fromMaybe)
 import           Data.String                  (fromString)
 import           Data.Text                    (Text, isSuffixOf, pack, unpack)
 import qualified Data.Text                    as T
+import           Effectful
+import           Effectful.Dispatch.Dynamic
+import           Effectful.Fail
+import           Effectful.Reader.Dynamic
+import           Effectful.TH
 import           System.FilePath.Posix        (takeBaseName, takeDirectory)
 
 import           Control.Monad.Catch          (MonadCatch)

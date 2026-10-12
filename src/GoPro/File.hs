@@ -12,7 +12,8 @@ import           Control.Monad.IO.Class          (MonadIO (..))
 import           Control.Monad.Trans.Class       (lift)
 import           Control.Monad.Trans.Writer.Lazy (execWriterT, tell)
 import           Data.Char                       (toLower, toUpper)
-import           Data.List                       (groupBy, intercalate, isInfixOf, isSuffixOf, sortOn)
+import           Data.List                       (groupBy, intercalate,
+                                                  isInfixOf, isSuffixOf, sortOn)
 import           Data.List.NonEmpty              (NonEmpty (..))
 import qualified Data.List.NonEmpty              as NE
 import           Data.List.Split                 (splitOn)
@@ -24,8 +25,10 @@ import qualified Data.Set                        as Set
 import           Data.These                      (These (..), these)
 
 import           Data.Functor                    (($>))
-import           System.Directory.PathWalk       (WalkStatus (..), pathWalkInterruptible)
-import           System.FilePath.Posix           (takeDirectory, takeFileName, (</>))
+import           System.Directory.PathWalk       (WalkStatus (..),
+                                                  pathWalkInterruptible)
+import           System.FilePath.Posix           (takeDirectory, takeFileName,
+                                                  (</>))
 import           Text.Read                       (readMaybe)
 
 data Grouping = NoGrouping Int String   -- filenum, prefix

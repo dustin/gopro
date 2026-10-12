@@ -19,8 +19,6 @@
 
 module GoPro.DB.Sqlite (runDatabaseSqlite, runDatabaseSqliteStr) where
 
-import           Effectful
-import           Effectful.Dispatch.Dynamic
 import           Control.Foldl                    (Fold (..))
 import           Control.Monad.Catch              (bracket)
 import           Data.Aeson                       (FromJSON (..), ToJSON (..))
@@ -43,14 +41,18 @@ import           Database.SQLite.Simple.FromField
 import           Database.SQLite.Simple.Ok
 import           Database.SQLite.Simple.QQ        (sql)
 import           Database.SQLite.Simple.ToField
+import           Effectful
+import           Effectful.Dispatch.Dynamic
 
 import           Database.SQLite.Simple.FromRow   (fieldWith)
 import           GoPro.DB
 import           GoPro.DEVC                       (GPSReading (..))
 import           GoPro.Plus.Auth                  (AuthInfo (..))
-import           GoPro.Plus.Media                 (Medium (..), MediumID, MediumType (..), Moment (..),
+import           GoPro.Plus.Media                 (Medium (..), MediumID,
+                                                   MediumType (..), Moment (..),
                                                    ReadyToViewType (..))
-import           GoPro.Plus.Upload                (DerivativeID, Upload (..), UploadPart (..))
+import           GoPro.Plus.Upload                (DerivativeID, Upload (..),
+                                                   UploadPart (..))
 import           GoPro.Resolve                    (MDSummary (..))
 
 runDatabaseSqliteStr :: IOE :> es => String -> Eff (DB : es) a -> Eff es a

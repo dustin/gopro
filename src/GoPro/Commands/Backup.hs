@@ -17,9 +17,6 @@ import           Amazonka.S3                     (BucketName (..))
 import           Amazonka.SQS                    (newDeleteMessageBatch,
                                                   newDeleteMessageBatchRequestEntry,
                                                   newReceiveMessage)
-import           Effectful
-import           Effectful.Fail
-import           Effectful.Reader.Dynamic         (Reader)
 import           Conduit
 import           Control.Applicative             (optional)
 import           Control.Lens
@@ -51,6 +48,9 @@ import           Data.Text                       (Text, isInfixOf, isSuffixOf,
 import qualified Data.Text.Encoding              as TE
 import           Data.Time.Clock.POSIX           (utcTimeToPOSIXSeconds)
 import           Data.Time.Format
+import           Effectful
+import           Effectful.Fail
+import           Effectful.Reader.Dynamic        (Reader)
 import           Network.HTTP.Simple             (getResponseBody, httpSource,
                                                   parseRequest)
 import           Safe.Exact                      (zipWithExactMay)

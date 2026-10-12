@@ -4,11 +4,11 @@ module GoPro.Commands.Config (
   runListConfig, runGetConfig, runSetConfig
   ) where
 
-import           Effectful
 import           Control.Monad       ((>=>))
 import           Data.Foldable       (traverse_)
 import           Data.Text           (Text)
 import qualified Data.Text.IO        as TIO
+import           Effectful
 
 import           GoPro.Config.Effect
 import           GoPro.DB

@@ -2,23 +2,23 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 module GoPro.Logging where
 
+import           Control.Concurrent.STM     (TChan, atomically,
+                                             newBroadcastTChanIO, writeTChan)
+import           Control.Monad              (when)
+import           Control.Monad.Logger       (Loc (..), LogLevel (..), LogSource,
+                                             LogStr, MonadLogger (..),
+                                             defaultLoc, fromLogStr, toLogStr)
+import           Data.Aeson                 (ToJSON, encode)
+import qualified Data.ByteString.Char8      as C8
+import qualified Data.ByteString.Lazy       as BL
+import           Data.Foldable              (fold)
+import           Data.String                (fromString)
+import qualified Data.Text                  as T
+import qualified Data.Text.Encoding         as TE
 import           Effectful
 import           Effectful.Dispatch.Dynamic
 import           Effectful.TH
-import           Control.Concurrent.STM (TChan, atomically, newBroadcastTChanIO,
-                                         writeTChan)
-import           Control.Monad          (when)
-import           Control.Monad.Logger   (Loc (..), LogLevel (..), LogSource,
-                                         LogStr, MonadLogger (..), defaultLoc,
-                                         fromLogStr, toLogStr)
-import           Data.Aeson             (ToJSON, encode)
-import qualified Data.ByteString.Char8  as C8
-import qualified Data.ByteString.Lazy   as BL
-import           Data.Foldable          (fold)
-import           Data.String            (fromString)
-import qualified Data.Text              as T
-import qualified Data.Text.Encoding     as TE
-import           System.IO              (stderr)
+import           System.IO                  (stderr)
 
 import           GoPro.Notification
 

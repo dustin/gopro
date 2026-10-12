@@ -1,17 +1,17 @@
 module GoPro.Commands.Fixup where
 
+import           Control.Lens
+import           Control.Monad.Fail       (MonadFail (..))
+import qualified Data.Aeson               as J
+import qualified Data.Aeson.Key           as J
+import           Data.Aeson.Lens
+import           Data.Foldable            (traverse_)
+import           Data.List                (partition)
+import           Data.Text                (Text)
 import           Effectful
 import           Effectful.Fail
 import           Effectful.Reader.Dynamic
-import           Control.Lens
-import           Control.Monad.Fail (MonadFail (..))
-import qualified Data.Aeson         as J
-import qualified Data.Aeson.Key     as J
-import           Data.Aeson.Lens
-import           Data.Foldable      (traverse_)
-import           Data.List          (partition)
-import           Data.Text          (Text)
-import           Prelude            hiding (fail)
+import           Prelude                  hiding (fail)
 
 import           GoPro.AuthCache
 import           GoPro.Commands

@@ -6,8 +6,6 @@
 
 module DBSpec where
 
-import           Effectful
-import           Effectful.Fail
 import           Control.Lens                         hiding (elements)
 import           Control.Monad                        (forM_)
 import qualified Data.Aeson                           as J
@@ -16,6 +14,8 @@ import           Data.List                            (sortOn)
 import qualified Data.Map.Strict                      as Map
 import           Data.Ord                             (Down (..))
 import           Data.Time
+import           Effectful
+import           Effectful.Fail
 
 import           Test.QuickCheck.Instances.ByteString ()
 import           Test.Tasty.HUnit
@@ -26,10 +26,10 @@ import           GoPro.Plus.Arbitrary
 import           GoPro.Plus.Auth                      (AuthInfo (..))
 import           GoPro.Plus.Media
 
+import           Data.Maybe                           (isNothing)
 import           GoPro.DB
 import           GoPro.DB.Sqlite                      as SDB
 import           GoPro.Resolve
-import Data.Maybe (isNothing)
 
 instance Arbitrary MediaRow where
   arbitrary = MediaRow <$> (unTruncated <$>  arbitrary) <*> arbitrary <*> arbitrarymJSON <*> arbitraryJSON

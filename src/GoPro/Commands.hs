@@ -7,20 +7,20 @@
 
 module GoPro.Commands where
 
-import           Amazonka.S3         (BucketName (..))
+import           Amazonka.S3              (BucketName (..))
+import           Data.List.NonEmpty       (NonEmpty (..))
+import qualified Data.Map.Strict          as Map
+import qualified Data.Text                as T
 import           Effectful
 import           Effectful.Fail
 import           Effectful.Reader.Dynamic
-import           Data.List.NonEmpty  (NonEmpty (..))
-import qualified Data.Map.Strict     as Map
-import qualified Data.Text           as T
 
 import           GoPro.AuthCache
 import           GoPro.Config.Effect
 import           GoPro.DB
 import           GoPro.Logging
 import           GoPro.Notification
-import           GoPro.Plus.Media    (FileInfo, MediumID, MediumType)
+import           GoPro.Plus.Media         (FileInfo, MediumID, MediumType)
 import           GoPro.RunDB
 import           GoPro.S3
 

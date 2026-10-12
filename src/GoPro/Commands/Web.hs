@@ -6,9 +6,6 @@
 
 module GoPro.Commands.Web where
 
-import           Effectful
-import           Effectful.Fail
-import           Effectful.Reader.Dynamic
 import           Control.Applicative            (asum, (<|>))
 import           Control.Concurrent.STM         (TChan, atomically, readTChan)
 import qualified Control.Foldl                  as Foldl
@@ -28,22 +25,29 @@ import           Data.String                    (fromString)
 import qualified Data.Text                      as T
 import qualified Data.Text.Lazy                 as LT
 import qualified Data.Vector                    as V
+import           Effectful
+import           Effectful.Fail
+import           Effectful.Reader.Dynamic
 import           Network.HTTP.Types.Status      (noContent204)
 import qualified Network.Wai.Handler.Warp       as Warp
 import qualified Network.Wai.Handler.WebSockets as WaiWS
 import qualified Network.Wai.Middleware.Gzip    as GZ
-import           Network.Wai.Middleware.Static  (addBase, noDots, staticPolicy, (>->))
+import           Network.Wai.Middleware.Static  (addBase, noDots, staticPolicy,
+                                                 (>->))
 import qualified Network.WebSockets             as WS
 import           Numeric
 import           System.FilePath.Posix          (takeFileName, (</>))
 import           Text.XML.Light
 import           UnliftIO                       (async)
-import           Web.Scotty.Trans               (ActionT, ScottyT, captureParam, file, get, json, middleware, post, raw,
-                                                 scottyAppT, setHeader, status, text)
+import           Web.Scotty.Trans               (ActionT, ScottyT, captureParam,
+                                                 file, get, json, middleware,
+                                                 post, raw, scottyAppT,
+                                                 setHeader, status, text)
 
 import           GoPro.AuthCache
 import           GoPro.Commands
-import           GoPro.Commands.Sync            (extractFiles, refreshMedia, runFullSync)
+import           GoPro.Commands.Sync            (extractFiles, refreshMedia,
+                                                 runFullSync)
 import           GoPro.Config.Effect
 import           GoPro.DB
 import           GoPro.DEVC                     (GPSReading (..))

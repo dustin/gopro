@@ -6,8 +6,6 @@ module GoPro.Commands.Upload (
   runCreateUploads, runCreateMultipart, runResumeUpload, runReprocessCmd
   ) where
 
-import           Effectful
-import           Effectful.Reader.Dynamic
 import           Control.Monad             (unless, void)
 import           Control.Monad.Reader      (lift)
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)
@@ -22,7 +20,10 @@ import           Data.Ord                  (Down (..))
 import qualified Data.Set                  as Set
 import qualified Data.Text                 as T
 import           Data.These                (These (..), these)
-import           System.Posix.Files        (fileSize, getFileStatus, isDirectory)
+import           Effectful
+import           Effectful.Reader.Dynamic
+import           System.Posix.Files        (fileSize, getFileStatus,
+                                            isDirectory)
 
 import           Exif
 import           FFMPeg
@@ -31,9 +32,11 @@ import           GoPro.Commands
 import           GoPro.DB
 import           GoPro.File
 import           GoPro.Logging
-import           GoPro.Plus.Media          (MediumID, MediumType (..), reprocess)
+import           GoPro.Plus.Media          (MediumID, MediumType (..),
+                                            reprocess)
 import           GoPro.Plus.Upload
-import           UnliftIO.Async            (pooledMapConcurrentlyN, pooledMapConcurrentlyN_)
+import           UnliftIO.Async            (pooledMapConcurrentlyN,
+                                            pooledMapConcurrentlyN_)
 
 runCreateUploads :: ([Reader Options, AuthCache, LogFX, DB, IOE] :>> es) => NonEmpty FilePath -> Eff es ()
 runCreateUploads inFilePaths = do
