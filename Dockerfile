@@ -1,5 +1,10 @@
+FROM haskell:9.6.7-bullseye AS ghc
+
 # Stage 1: Build the Haskell project
-FROM haskell:9.6-bookworm AS builder
+FROM buildpack-deps:bookworm AS builder
+COPY --from=ghc /opt/ghc /opt/ghc
+COPY --from=ghc /usr/local/bin/cabal /usr/local/bin/cabal
+ENV PATH=/opt/ghc/9.6.7/bin:$PATH
 
 RUN apt-get update && apt-get install -y ffmpeg libpq5 libpq-dev zlib1g zlib1g-dev
 
@@ -14,7 +19,7 @@ RUN cabal install
 # Stage 2: Create the final image
 FROM debian:bookworm-slim
 
-RUN apt-get update && apt-get install -y ffmpeg libpq5 zlib1g ca-certificates
+RUN apt-get update && apt-get install -y ffmpeg libpq5 zlib1g libgmp10 ca-certificates
 
 WORKDIR /usr/local/bin
 
