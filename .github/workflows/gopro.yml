@@ -16,8 +16,8 @@ jobs:
       uses: haskell-actions/setup@v2
       id: setup
       with:
-        ghc-version: '9.12.4'
-        cabal-version: '3.10.2.1'
+        ghc-version: '9.6.6'
+        cabal-version: '3.10.3.0'
 
     - name: Generate Cache Keys
       id: cache_key

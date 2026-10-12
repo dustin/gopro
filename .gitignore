@@ -8,6 +8,7 @@ gopro.db
 
 static/js/gopro.js
 /goprofs/goprofs
+cabal.project.freeze
 /dist-newstyle/
 flake-profile*
 ghcid.txt
