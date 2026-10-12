@@ -13,15 +13,15 @@ In order to process streams out of video files, you'll need
 [ffmpeg][ffmpeg] (most likely available in your system package
 manager) somewhere on the path.
 
-You'll also need [stack][stack] to build and install the software.
+You'll also need [Nix][nix] (with flakes enabled) to build and install the software.
 
 ### Installation
 
-Install the tool (which requires [stack][stack]):
+Install the tool (which requires [Nix][nix] with flakes):
 
     git clone https://github.com/dustin/gopro
     cd gopro
-    stack install
+    nix develop --command cabal install
 
 ### First Run
 
@@ -355,7 +355,7 @@ The `clearmeta` command removes any local metadata storage for any
 medium whose metadata is backed up on S3.  This can save a lot of
 space if you have a lot of video assets.
 
-[stack]: https://docs.haskellstack.org/en/stable/install_and_upgrade/
+[nix]: https://nixos.org/download.html
 [blog]: http://dustin.sallings.org/2020/04/29/gopro-plus.html
 [ffmpeg]: https://ffmpeg.org
 [exconf]: https://github.com/dustin/gopro/blob/master/example.toml

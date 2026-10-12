@@ -23,41 +23,26 @@ jobs:
         run: test -z $(git rev-list  --after="7 days"  ${{ github.sha }}) && echo "::set-output name=should_run::false"
 
   build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        plan:
-        # - { resolver: "--resolver=nightly" }
-        - { resolver: "--resolver=lts" }
-
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
 
-    - name: Cache Key
-      id: cache_key
-      run: echo "key=$(stack $RESOLVER ls dependencies | md5sum | awk '{print $1}')" >> $GITHUB_ENV
-      env:
-        RESOLVER: ${{ matrix.plan.resolver }}
+    - name: Install Nix
+      uses: cachix/install-nix-action@v27
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+        extra_nix_config: |
+          experimental-features = nix-command flakes
 
-    - name: Cache Dependencies
+    - name: Cache Nix store
       uses: actions/cache@v6
       with:
-        path: ~/.stack
-        key: ${{ matrix.os }}-${{ matrix.plan.resolver }}-${{ env.key }}
-
-    - name: Build Snapshot
-      if: steps.cache.outputs.cache-hit != 'true'
-      run: |
-        stack $RESOLVER --no-terminal test --bench --only-snapshot
-      env:
-        RESOLVER: ${{ matrix.plan.resolver }}
+        path: /nix
+        key: nix-${{ runner.os }}-${{ hashFiles('flake.lock') }}
+        restore-keys: nix-${{ runner.os }}-
 
     - name: Build & Test
-      run: |
-        stack $RESOLVER --no-terminal test --bench --no-run-benchmarks
-      env:
-        RESOLVER: ${{ matrix.plan.resolver }}
+      run: nix develop --command cabal test --test-show-details=streaming
 
   docker:
     runs-on: ubuntu-latest

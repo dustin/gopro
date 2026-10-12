@@ -7,41 +7,6 @@ on:
     branches: [ master ]
 
 jobs:
-  stack:
-    runs-on: 'ubuntu-latest'
-    steps:
-    - uses: actions/checkout@v7
-
-    - name: Cache Key
-      id: cache_key
-      run: echo "key=$(md5sum stack.yaml | awk '{print $1}')" >> $GITHUB_ENV
-
-    - name: Cache Dependencies
-      id: cache
-      uses: actions/cache@v6
-      with:
-        path: ~/.stack
-        key: ubuntu-latest-${{ env.key }}
-
-    - name: Build Snapshot
-      if: steps.cache.outputs.cache-hit != 'true'
-      run: |
-        stack --no-terminal test --bench --only-snapshot
-
-    - name: Build & Test
-      run: |
-        stack --no-terminal test --bench --no-run-benchmarks
-        stack install
-        mkdir dist
-        cp $HOME/.local/bin/gopro dist
-        cp -r static dist
-
-    - name: Store Artifact
-      uses: actions/upload-artifact@v7
-      with:
-        name: gopro-ubuntu-latest
-        path: dist
-
   cabal:
     runs-on: 'ubuntu-latest'
     steps:
