@@ -1,6 +1,6 @@
 module GoPro.RunDB where
 
-import           Cleff
+import           Effectful
 import           Data.List         (isPrefixOf)
 import           GoPro.DB
 import           GoPro.DB.Postgres (runDatabasePostgresStr)

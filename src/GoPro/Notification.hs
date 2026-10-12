@@ -2,7 +2,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 module GoPro.Notification where
 
-import           Cleff
+import           Effectful
+import           Effectful.Dispatch.Dynamic
+import           Effectful.TH
 import           Control.Concurrent.STM (TChan, atomically, dupTChan, writeTChan)
 import           Data.Aeson             (FromJSON (..), ToJSON (..), defaultOptions, fieldLabelModifier,
                                          genericToEncoding)
@@ -44,6 +46,6 @@ data NotifyFX :: Effect where
 makeEffect ''NotifyFX
 
 runNotify :: IOE :> es => TChan Notification -> Eff (NotifyFX : es) a -> Eff es a
-runNotify ch = interpret \case
-  SendNotification note -> liftIO . atomically . writeTChan ch $ note
+runNotify ch = interpret_ \case
+  SendNotification note -> liftIO . atomically $ writeTChan ch note
   Subscribe -> liftIO . atomically . dupTChan $ ch

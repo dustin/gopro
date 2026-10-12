@@ -1,8 +1,8 @@
 module GoPro.Commands.Fixup where
 
-import           Cleff
-import           Cleff.Fail
-import           Cleff.Reader
+import           Effectful
+import           Effectful.Fail
+import           Effectful.Reader.Dynamic
 import           Control.Lens
 import           Control.Monad.Fail (MonadFail (..))
 import qualified Data.Aeson         as J

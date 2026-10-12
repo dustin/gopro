@@ -7,12 +7,16 @@
 module GoPro.S3 where
 
 import           Amazonka                     (Env, Region (..), RequestBody (Hashed), newEnv, paginate, runResourceT,
-                                               send, sinkBody, toHashed)
+                                               sinkBody, toHashed)
+import qualified Amazonka                     as Amazonka (send)
 import           Amazonka.Auth                (discover)
 import           Amazonka.S3                  (BucketName (..), StorageClass (..), _ObjectKey, newGetObject,
                                                newListObjectsV2, newPutObject)
-import           Cleff                        hiding (send)
-import           Cleff.Fail
+import           Effectful
+import           Effectful.Dispatch.Dynamic
+import           Effectful.Fail
+import           Effectful.Reader.Dynamic
+import           Effectful.TH
 import           Codec.Compression.GZip       (compress)
 import           Control.Lens
 import           Control.Monad                (void)
@@ -49,7 +53,7 @@ data S3 :: Effect where
 makeEffect ''S3
 
 runS3 :: [IOE, LogFX, Fail] :>> es => BucketName -> Eff (S3 : es) a -> Eff es a
-runS3 b = interpret \case
+runS3 b = interpret_ \case
     GetMetaBlob mid -> getMetaBlob' b mid
     StoreMetaBlob mid blob -> storeMetaBlob' b mid blob
     ListMetaBlobs -> listMetaBlobs' b
@@ -57,7 +61,7 @@ runS3 b = interpret \case
     S3Bucket -> pure b
 
 unconfiguredS3 :: Fail :> es => Eff (S3 : es) a -> Eff es a
-unconfiguredS3 = interpret \case
+unconfiguredS3 = interpret_ \case
   GetMetaBlob _ -> u
   StoreMetaBlob _ _ -> u
   ListMetaBlobs -> u
@@ -85,14 +89,14 @@ getMetaBlob' b mid = do
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
   logDbgL ["Requesting metablob from S3: ", (T.pack . show) key]
   inAWS $ \env -> do
-    rs <- send env (newGetObject b key)
+    rs <- Amazonka.send env (newGetObject b key)
     (rs ^. #body) `sinkBody` (ungzip .| CB.sinkLbs)
 
 storeMetaBlob' :: ([Fail, LogFX, IOE] :>> es) => BucketName -> MediumID -> Maybe BL.ByteString -> Eff es ()
 storeMetaBlob' b mid blob = do
   let key = fromString $ "metablob/" <> unpack mid <> ".gz"
   logInfoL ["Storing metadata blob at ", (T.pack . show) key]
-  inAWS $ \env -> void . send env $ newPutObject b key (Hashed . toHashed . compress . fromMaybe "" $ blob) &
+  inAWS $ \env -> void . Amazonka.send env $ newPutObject b key (Hashed . toHashed . compress . fromMaybe "" $ blob) &
     #storageClass ?~ StorageClass_STANDARD_IA
 
 listMetaBlobs' :: ([Fail, LogFX, IOE] :>> es) => BucketName -> Eff es [MediumID]

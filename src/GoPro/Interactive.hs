@@ -1,7 +1,7 @@
 module GoPro.Interactive where
 
-import           Cleff
-import           Cleff.Reader
+import           Effectful
+import           Effectful.Reader.Dynamic
 import           GoPro.Commands
 import           GoPro.DB
 import           GoPro.Logging

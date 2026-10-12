@@ -3,7 +3,9 @@
 
 module GoPro.AuthCache where
 
-import           Cleff
+import           Effectful
+import           Effectful.Dispatch.Dynamic
+import           Effectful.TH
 
 import           Data.Cache      (Cache (..), fetchWithCache, insert, newCache)
 import           GoPro.Plus.Auth
@@ -29,8 +31,8 @@ newAuthCacheData :: IOE :> es => Eff es AuthCacheData
 newAuthCacheData = liftIO $ AuthCacheData <$> newCache (Just (TimeSpec 60 0)) <*> newEmptyMVar
 
 runAuthCache :: [DB, LogFX, IOE] :>> es => AuthCacheData -> Eff (AuthCache : es) a -> Eff es a
-runAuthCache acd@AuthCacheData{..} = interpret $ \case
-  GetAuthInfo -> authMutexed acd $ fetchWithCache authCache () (const fetchOrRefresh)
+runAuthCache acd@AuthCacheData{..} = interpret_ \case
+  GetAuthInfo -> authMutexed acd $ fetchWithCache authCache () (\_ -> fetchOrRefresh)
   SetAuthInfo ai -> liftIO $ insert authCache () ai
 
 authMutexed :: (IOE :> es) => AuthCacheData -> Eff es a -> Eff es a

@@ -31,7 +31,9 @@ module GoPro.DB (MediaRow(..), row_media, row_thumbnail, row_variants, row_raw_j
                  fileTODO, storeFiles, loadFiles, fixupQuery, deleteMedia
                  ) where
 
-import           Cleff
+import           Effectful
+import           Effectful.Dispatch.Dynamic
+import           Effectful.TH
 
 import           Control.Foldl          (Fold (..))
 import           Control.Lens           hiding (Fold, (.=))

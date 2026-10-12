@@ -30,7 +30,8 @@ dependencies:
   - base >= 4.7 && < 5
   - bytestring
   - cache
-  - cleff
+  - effectful
+  - effectful-th
   - clock
   - conduit
   - conduit-extra
@@ -110,6 +111,9 @@ default-extensions:
   - FlexibleContexts
   - DataKinds
   - ConstraintKinds
+  - TypeFamilies
+  - TypeApplications
+  - ScopedTypeVariables
 
 executables:
   gopro:

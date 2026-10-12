@@ -8,9 +8,9 @@
 
 module GoPro.Commands.Sync where
 
-import           Cleff
-import           Cleff.Fail
-import           Cleff.Reader
+import           Effectful
+import           Effectful.Fail
+import           Effectful.Reader.Dynamic
 import           Conduit
 import           Control.Applicative   (optional)
 import           Control.Concurrent    (threadDelay)

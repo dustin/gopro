@@ -8,9 +8,9 @@
 module GoPro.Commands where
 
 import           Amazonka.S3         (BucketName (..))
-import           Cleff
-import           Cleff.Fail
-import           Cleff.Reader
+import           Effectful
+import           Effectful.Fail
+import           Effectful.Reader.Dynamic
 import           Data.List.NonEmpty  (NonEmpty (..))
 import qualified Data.Map.Strict     as Map
 import qualified Data.Text           as T
@@ -83,7 +83,7 @@ tshow :: Show a => a -> T.Text
 tshow = T.pack . show
 
 runWithOptions :: Options -> (forall es. [IOE, AuthCache, ConfigFX, NotifyFX, DB, S3, LogFX, Fail, Reader Options] :>> es => Eff es a) -> IO a
-runWithOptions o@Options{..} a = runIOE . runFailIO $ withDB optDBPath $ do
+runWithOptions o@Options{..} a = runEff . runFailIO $ withDB optDBPath $ do
   initTables
   cfg <- loadConfig
   cacheData <- newAuthCacheData

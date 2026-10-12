@@ -6,9 +6,9 @@
 
 module GoPro.Commands.Web where
 
-import           Cleff
-import           Cleff.Fail
-import           Cleff.Reader
+import           Effectful
+import           Effectful.Fail
+import           Effectful.Reader.Dynamic
 import           Control.Applicative            (asum, (<|>))
 import           Control.Concurrent.STM         (TChan, atomically, readTChan)
 import qualified Control.Foldl                  as Foldl

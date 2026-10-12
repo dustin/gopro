@@ -19,7 +19,8 @@
 
 module GoPro.DB.Sqlite (runDatabaseSqlite, runDatabaseSqliteStr) where
 
-import           Cleff
+import           Effectful
+import           Effectful.Dispatch.Dynamic
 import           Control.Foldl                    (Fold (..))
 import           Control.Monad.Catch              (bracket)
 import           Data.Aeson                       (FromJSON (..), ToJSON (..))
@@ -56,7 +57,7 @@ runDatabaseSqliteStr :: IOE :> es => String -> Eff (DB : es) a -> Eff es a
 runDatabaseSqliteStr str f = bracket (liftIO (open str)) (liftIO . close) (`runDatabaseSqlite` f)
 
 runDatabaseSqlite :: IOE :> es => Connection -> Eff (DB : es) a -> Eff es a
-runDatabaseSqlite db = interpretIO \case
+runDatabaseSqlite db = interpret_ \case
   InitTables -> GoPro.DB.Sqlite.initTables db
   LoadConfig -> GoPro.DB.Sqlite.loadConfig db
   UpdateConfig config -> GoPro.DB.Sqlite.updateConfig config db

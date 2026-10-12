@@ -6,8 +6,8 @@
 
 module DBSpec where
 
-import           Cleff
-import           Cleff.Fail
+import           Effectful
+import           Effectful.Fail
 import           Control.Lens                         hiding (elements)
 import           Control.Monad                        (forM_)
 import qualified Data.Aeson                           as J
@@ -46,7 +46,7 @@ prop_authStorage (NonEmpty ais) = ioProperty . runDB $ do
   pure (loaded === last ais)
 
 runDB :: Eff [DB, Fail, IOE] a -> IO a
-runDB a = runIOE . runFailIO . runDatabaseSqliteStr ":memory:" $ do
+runDB a = runEff . runFailIO . runDatabaseSqliteStr ":memory:" $ do
   initTables
   a
 

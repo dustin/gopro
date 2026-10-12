@@ -6,8 +6,8 @@ module GoPro.Commands.Upload (
   runCreateUploads, runCreateMultipart, runResumeUpload, runReprocessCmd
   ) where
 
-import           Cleff
-import           Cleff.Reader              hiding (asks)
+import           Effectful
+import           Effectful.Reader.Dynamic
 import           Control.Monad             (unless, void)
 import           Control.Monad.Reader      (lift)
 import           Control.Monad.Trans.Maybe (MaybeT (..), runMaybeT)

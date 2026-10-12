@@ -4,7 +4,7 @@ module GoPro.Commands.Config (
   runListConfig, runGetConfig, runSetConfig
   ) where
 
-import           Cleff
+import           Effectful
 import           Control.Monad       ((>=>))
 import           Data.Foldable       (traverse_)
 import           Data.Text           (Text)

@@ -3,8 +3,11 @@
 
 module GoPro.Config.Effect where
 
-import           Cleff
-import           Cleff.State
+import           Effectful
+import           Effectful.Dispatch.Dynamic
+import           Effectful.Fail
+import           Effectful.State.Dynamic
+import           Effectful.TH
 
 import           Data.Map            (Map)
 import qualified Data.Map.Strict     as Map
@@ -20,7 +23,7 @@ data ConfigFX :: Effect where
 makeEffect ''ConfigFX
 
 runConfig :: DB :> es => Map ConfigOption Text -> Eff (ConfigFX : es) a -> Eff es a
-runConfig cfg = fmap fst . runState cfg . reinterpret \case
+runConfig cfg = reinterpret_ (evalStateLocal cfg) \case
   ConfigGet k def -> Map.findWithDefault def k <$> get
   ConfigSet k v -> do
     modify $ Map.insert k v

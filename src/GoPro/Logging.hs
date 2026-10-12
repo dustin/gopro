@@ -2,7 +2,9 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 module GoPro.Logging where
 
-import           Cleff
+import           Effectful
+import           Effectful.Dispatch.Dynamic
+import           Effectful.TH
 import           Control.Concurrent.STM (TChan, atomically, newBroadcastTChanIO,
                                          writeTChan)
 import           Control.Monad          (when)
@@ -71,7 +73,7 @@ mkLogChannel :: IO (TChan Notification)
 mkLogChannel = newBroadcastTChanIO
 
 runLogFX :: (IOE :> es) => TChan Notification -> Bool -> Eff (LogFX : es) a -> Eff es a
-runLogFX tc verbose = interpretIO \case
+runLogFX tc verbose = interpret_ \case
   LogFX loc src lvl' msg -> liftIO $ do
     baseLogger minLvl loc src lvl' msg
     notificationLogger tc loc src lvl' msg

@@ -18,7 +18,8 @@
 
 module GoPro.DB.Postgres (runDatabasePostgres, runDatabasePostgresStr) where
 
-import           Cleff
+import           Effectful
+import           Effectful.Dispatch.Dynamic
 
 import           Control.Foldl              (Fold (..))
 import           Data.Aeson                 (ToJSON (..))
@@ -75,7 +76,7 @@ runDatabasePostgresStr (fromString -> s) f =
 
 -- Effect Interpretation via IO
 runDatabasePostgres :: IOE :> es => Pool -> Eff (DB : es) a -> Eff es a
-runDatabasePostgres pool = interpretIO \case
+runDatabasePostgres pool = interpret_ \case
   InitTables -> pooling GoPro.DB.Postgres.initTables
   LoadConfig -> pooling GoPro.DB.Postgres.loadConfig
   UpdateConfig config -> pooling (GoPro.DB.Postgres.updateConfig config)
@@ -127,8 +128,8 @@ runDatabasePostgres pool = interpretIO \case
 
   where
     -- use :: Pool -> Session a -> IO (Either UsageError a)
-    pooling :: Session a -> IO a
-    pooling = must <=< liftIO . Pool.use pool
+    pooling :: IOE :> es' => Session a -> Eff es' a
+    pooling = liftIO . must <=< liftIO . Pool.use pool
     must = either throwIO pure
 
 initQueries :: [(Int64, ByteString)]

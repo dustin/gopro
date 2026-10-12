@@ -17,9 +17,9 @@ import           Amazonka.S3                     (BucketName (..))
 import           Amazonka.SQS                    (newDeleteMessageBatch,
                                                   newDeleteMessageBatchRequestEntry,
                                                   newReceiveMessage)
-import           Cleff                           hiding (send)
-import           Cleff.Fail
-import           Cleff.Reader                    (Reader)
+import           Effectful
+import           Effectful.Fail
+import           Effectful.Reader.Dynamic         (Reader)
 import           Conduit
 import           Control.Applicative             (optional)
 import           Control.Lens
