@@ -53,6 +53,9 @@ import           Hasql.Encoders             (noParams)
 import qualified Hasql.Encoders             as Encoders
 import           Hasql.Pool                 (Pool)
 import qualified Hasql.Pool                 as Pool
+import qualified Hasql.Pool.Config          as PoolConfig
+import qualified Hasql.Connection.Setting   as ConnSetting
+import qualified Hasql.Connection.Setting.Connection as ConnString
 import           Hasql.Session              (Session)
 import qualified Hasql.Session              as Session
 import           Hasql.Statement            (Statement (..))
@@ -72,10 +75,16 @@ import           GoPro.Plus.Upload          (DerivativeID, Upload (..),
 import           GoPro.Resolve              (MDSummary (..))
 
 runDatabasePostgresStr :: IOE :> es => String -> Eff (DB : es) a -> Eff es a
-runDatabasePostgresStr (fromString -> s) f =
-  liftIO (Pool.acquire 1 (seconds 1) (seconds 3600) (seconds 900) s) >>= flip runDatabasePostgres f
+runDatabasePostgresStr s f =
+  liftIO (Pool.acquire cfg) >>= flip runDatabasePostgres f
     where
-        seconds = (* 1000000)
+        cfg = PoolConfig.settings [
+          PoolConfig.size 1,
+          PoolConfig.acquisitionTimeout 1,
+          PoolConfig.agingTimeout 3600,
+          PoolConfig.idlenessTimeout 900,
+          PoolConfig.staticConnectionSettings [ConnSetting.connection (ConnString.string (T.pack s))]
+          ]
 
 -- Effect Interpretation via IO
 runDatabasePostgres :: IOE :> es => Pool -> Eff (DB : es) a -> Eff es a

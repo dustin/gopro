@@ -26,8 +26,7 @@ import           GoPro.Meta
 import           GoPro.Plus.Auth                   (HasGoProAuth)
 import           GoPro.Plus.Media                  (MediumID, retrieve)
 
-import qualified Numeric.Units.Dimensional         as D
-import           Numeric.Units.Dimensional.SIUnits
+import           Geodetics.Ellipsoids              (degree)
 
 data MDSummary = MDSummary
     { _cameraModel  :: String
@@ -82,7 +81,7 @@ summarizeGPMF devc = MDSummary {
         gps = devc ^.. folded . gpsReadings . folded . filtered ((< 50) . view gpsr_dop)
         GPSSummary{..} = summarizeGPS $ extractFromDEVC devc
 
-        unmAngle f g = f g D./~ degree
+        unmAngle f g = f g / degree
 
 summarizeEXIF :: Map E.ExifTag E.ExifValue -> MDSummary
 summarizeEXIF ex = MDSummary {

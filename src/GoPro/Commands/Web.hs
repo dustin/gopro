@@ -39,6 +39,7 @@ import           Numeric
 import           System.FilePath.Posix          (takeFileName, (</>))
 import           Text.XML.Light
 import           UnliftIO                       (async)
+import qualified Web.Scotty.Trans               as Scotty
 import           Web.Scotty.Trans               (ActionT, ScottyT, captureParam,
                                                  file, get, json, middleware,
                                                  post, raw, scottyAppT,
@@ -75,7 +76,7 @@ runServer = do
   let settings = Warp.setPort 8008 Warp.defaultSettings
   opts <- ask
   withRunInIO \runIO -> do
-    app <- scottyAppT runIO (application opts)
+    app <- scottyAppT Scotty.defaultOptions runIO (application opts)
     runIO $ logInfo "Starting web server at http://localhost:8008/"
     liftIO $ Warp.runSettings settings $ WaiWS.websocketsOr WS.defaultConnectionOptions (wsapp (runIO subscribe)) app
 

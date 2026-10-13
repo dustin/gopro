@@ -1,6 +1,6 @@
 cabal-version: 1.12
 
--- This file has been generated from package.yaml by hpack version 0.37.0.
+-- This file has been generated from package.yaml by hpack version 0.38.3.
 --
 -- see: https://github.com/sol/hpack
 
@@ -195,13 +195,13 @@ executable gopro
     , foldl
     , generic-deriving
     , generic-lens
-    , geodetics <1.0
+    , geodetics
     , gopro
     , gopro-plus >=0.6.6.7
     , gpmf
-    , hasql >=1.6.0.1 && <1.7
-    , hasql-pool <1
-    , hasql-th <0.5
+    , hasql >=1.6.0.1
+    , hasql-pool
+    , hasql-th
     , hasql-transaction
     , hsexif
     , http-conduit
@@ -219,7 +219,7 @@ executable gopro
     , retry
     , safe
     , scientific
-    , scotty >=0.20 && <0.22
+    , scotty >=0.20
     , semigroupoids
     , shelly
     , split
@@ -238,7 +238,7 @@ executable gopro
     , wai-extra
     , wai-middleware-static
     , wai-websockets
-    , warp <3.4
+    , warp
     , websockets
     , wreq
     , xml
@@ -298,13 +298,13 @@ test-suite gopro-test
     , foldl
     , generic-deriving
     , generic-lens
-    , geodetics <1.0
+    , geodetics
     , gopro
     , gopro-plus >=0.6.6.7
     , gpmf
-    , hasql >=1.6.0.1 && <1.7
-    , hasql-pool <1
-    , hasql-th <0.5
+    , hasql >=1.6.0.1
+    , hasql-pool
+    , hasql-th
     , hasql-transaction
     , hsexif
     , http-conduit
@@ -323,7 +323,7 @@ test-suite gopro-test
     , retry
     , safe
     , scientific
-    , scotty >=0.20 && <0.22
+    , scotty >=0.20
     , semigroupoids
     , shelly
     , split
@@ -346,7 +346,7 @@ test-suite gopro-test
     , wai-extra
     , wai-middleware-static
     , wai-websockets
-    , warp <3.4
+    , warp
     , websockets
     , wreq
     , xml
