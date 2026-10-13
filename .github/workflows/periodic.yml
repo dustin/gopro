@@ -41,7 +41,12 @@ jobs:
         key: nix-${{ runner.os }}-${{ hashFiles('flake.lock') }}
         restore-keys: nix-${{ runner.os }}-
 
-    - name: Build & Test
+    - name: Update flake inputs (nixpkgs, GHC, Haskell packages)
+      run: |
+        nix flake update
+        git diff --stat flake.lock
+
+    - name: Build & Test against updated inputs
       run: nix develop --command cabal test --test-show-details=streaming
 
   docker:
