@@ -17,14 +17,14 @@ let
     async
     bytestring
     cache
-    effectful
-    effectful-th
     clock
     conduit
     conduit-extra
     containers
     dimensional
     directory
+    effectful
+    effectful-th
     exceptions
     extra
     filepath
@@ -67,7 +67,19 @@ let
     transformers
     unix
     unliftio
+    unordered-containers
+    vector
+    wai
+    wai-extra
+    wai-middleware-static
+    wai-websockets
+    warp
+    websockets
+    wreq
+    xml
+    zlib
     # test deps
+    HUnit
     QuickCheck
     quickcheck-instances
     tasty

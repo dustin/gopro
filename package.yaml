@@ -86,7 +86,7 @@ dependencies:
   - wai-extra
   - wai-middleware-static
   - wai-websockets
-  - warp < 3.4
+  - warp
   - websockets
   - xml
   - zlib

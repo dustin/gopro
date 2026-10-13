@@ -16,8 +16,7 @@ import           Geodetics.Geodetic                (Geodetic (..), WGS84 (..),
 import           GoPro.DEVC                        (GPSReading (..))
 import qualified GoPro.DEVC                        as GPMF
 import qualified GoPro.GPMF                        as GPMF
-import qualified Numeric.Units.Dimensional         as D
-import           Numeric.Units.Dimensional.SIUnits
+import           Geodetics.Ellipsoids              (degree)
 
 extractReadings :: BS.ByteString -> Either String [GPSReading]
 extractReadings = fmap (extractFromDEVC . mapMaybe (uncurry GPMF.mkDEVC)) . GPMF.parseGPMF
@@ -58,7 +57,7 @@ instance ToJSON GPSSummary where
                                   <> geob "last" (getLast _gps_last))
     where
       geob _ Nothing                       = []
-      geob k (Just (Geodetic lat lon _ _)) = [k .= [lat D./~ degree, lon D./~ degree]]
+      geob k (Just (Geodetic lat lon _ _)) = [k .= [lat / degree, lon / degree]]
 
 summarizeGPS :: [GPSReading] -> GPSSummary
 summarizeGPS = foldr f mempty . filter (\GPSReading{..} -> _gpsr_dop < 50)
@@ -71,5 +70,5 @@ summarizeGPS = foldr f mempty . filter (\GPSReading{..} -> _gpsr_dop < 50)
         mprev = getLast (_gps_last o)
         hprev = getFirst (_gps_home o)
         dist mp = case (mp, parsed) of
-                 (Just p, Just c) -> maybe 0 (\(a,_,_) -> a D./~ meter) (groundDistance p c)
+                 (Just p, Just c) -> maybe 0 (\(a,_,_) -> a) (groundDistance p c)
                  _                -> 0
