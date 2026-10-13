@@ -97,11 +97,11 @@ library
     , foldl
     , generic-deriving
     , generic-lens
-    , geodetics
+    , geodetics ==1.*
     , gopro-plus >=0.6.6.7
     , gpmf
-    , hasql >=1.6.0.1
-    , hasql-pool
+    , hasql >=1.9 && <2
+    , hasql-pool ==1.3.*
     , hasql-th
     , hasql-transaction
     , hsexif
@@ -120,7 +120,7 @@ library
     , retry
     , safe
     , scientific
-    , scotty >=0.20
+    , scotty ==0.22.*
     , semigroupoids
     , shelly
     , split
@@ -195,12 +195,12 @@ executable gopro
     , foldl
     , generic-deriving
     , generic-lens
-    , geodetics
+    , geodetics ==1.*
     , gopro
     , gopro-plus >=0.6.6.7
     , gpmf
-    , hasql >=1.6.0.1
-    , hasql-pool
+    , hasql >=1.9 && <2
+    , hasql-pool ==1.3.*
     , hasql-th
     , hasql-transaction
     , hsexif
@@ -219,7 +219,7 @@ executable gopro
     , retry
     , safe
     , scientific
-    , scotty >=0.20
+    , scotty ==0.22.*
     , semigroupoids
     , shelly
     , split
@@ -298,12 +298,12 @@ test-suite gopro-test
     , foldl
     , generic-deriving
     , generic-lens
-    , geodetics
+    , geodetics ==1.*
     , gopro
     , gopro-plus >=0.6.6.7
     , gpmf
-    , hasql >=1.6.0.1
-    , hasql-pool
+    , hasql >=1.9 && <2
+    , hasql-pool ==1.3.*
     , hasql-th
     , hasql-transaction
     , hsexif
@@ -323,7 +323,7 @@ test-suite gopro-test
     , retry
     , safe
     , scientific
-    , scotty >=0.20
+    , scotty ==0.22.*
     , semigroupoids
     , shelly
     , split
